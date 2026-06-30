@@ -1,0 +1,23 @@
+# FontSentry crawl + output settings.
+# Copy to settings.yaml (gitignored) and edit. All keys are optional; defaults
+# shown below are applied when a key is omitted.
+
+crawl:
+  max_depth: 2                 # link-following depth from each homepage (0 = homepage only)
+  max_pages_per_domain: 50     # hard cap on pages fetched per domain
+  concurrency: 8               # max concurrent in-flight requests (global)
+  per_host_rate_limit: 2.0     # max requests per second, per host (politeness)
+  request_timeout: 15.0        # per-request timeout in seconds
+  user_agent: "FontSentry/0.1 (+https://github.com/fontsentry/fontsentry)"
+  respect_robots: true         # obey robots.txt
+  discover_subdomains: true    # passive only: sitemap.xml, observed links, config seeds
+
+cache:
+  enabled: true
+  directory: ".fontsentry-cache"   # conditional-request cache for pages and font files
+
+playwright:
+  enabled: false               # JS-injected-font fallback renderer; needs the 'browser' extra
+
+output:
+  reports_dir: "reports"       # timestamped JSON + rendered HTML go here

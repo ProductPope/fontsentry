@@ -1,0 +1,105 @@
+# FontSentry risk-engine rules. Copy to rules.yaml (gitignored) and edit freely.
+#
+# How scoring works:
+#   * Every rule whose condition matches an aggregated font contributes
+#     `weight * confidence` points to that font's raw score.
+#   * The raw score is normalized:  score = min(100, 100 * raw / scoring.max_raw).
+#   * The score maps to a band using scoring.bands thresholds.
+#
+# Rule mechanics (condition `type`s) are implemented in fontsentry/risk/engine.py.
+# Everything below — weights, confidences, thresholds, and the lists inside each
+# condition — is pure data you can tune without touching code.
+# See docs/rules.md for the full reference.
+
+scoring:
+  max_raw: 90        # raw weighted sum that maps to a score of 100 (clamped)
+  bands:
+    medium: 30       # score >= 30  -> at least MEDIUM
+    high: 60         # score >= 60  -> HIGH
+
+rules:
+  # A desktop/print font format delivered over the web via @font-face. Desktop
+  # licenses almost never permit web embedding, so this is a strong signal.
+  - id: desktop-format-on-web
+    description: "Desktop font format (ttf/otf) served on the web via @font-face."
+    weight: 30
+    confidence: 0.85
+    when:
+      type: format_on_web
+      params:
+        formats: ["ttf", "otf"]
+
+  # A commercial-foundry font with no matching entry in your license registry.
+  # "Commercial" = the font is NOT detectably under an open license and the
+  # foundry is not in the known-free list.
+  - id: commercial-no-registry
+    description: "Commercial-foundry font with no matching license-registry entry."
+    weight: 35
+    confidence: 0.6
+    when:
+      type: commercial_unregistered
+      params:
+        open_license_patterns: ["OFL", "Open Font License", "Apache", "GPL", "Ubuntu Font License"]
+        free_foundries: ["The Sentinel Type Co-op", "Public Glyphs Foundation"]
+
+  # The same font appears on more domains than the registry license permits.
+  # Evaluated across the FULL crawl (cross-domain rule).
+  - id: max-domains-exceeded
+    description: "Font present on more domains than the registry entry's max_domains allows."
+    weight: 40
+    confidence: 0.9
+    when:
+      type: max_domains_exceeded
+      params: {}
+
+  # Self-hosted font whose license is known to prohibit self-hosting.
+  # Names below are illustrative placeholders — replace with real ones you track.
+  - id: self-host-prohibited
+    description: "Self-hosted font from a foundry/family whose license forbids self-hosting."
+    weight: 35
+    confidence: 0.7
+    when:
+      type: self_host_prohibited
+      params:
+        foundries: ["Meridian Letterworks"]
+        families: ["Atlas Grotesk Private"]
+
+  # Font served from a known paid CDN with no corresponding registry entry.
+  - id: paid-cdn-no-registry
+    description: "Font from a paid CDN (Adobe Fonts / Monotype) with no registry entry."
+    weight: 30
+    confidence: 0.75
+    when:
+      type: paid_cdn_unregistered
+      params:
+        cdns: ["adobe_fonts", "monotype"]
+
+  # Copyright/license string missing or stripped from the font name table —
+  # often a sign of an illegitimately repackaged file.
+  - id: missing-copyright
+    description: "Copyright or license string missing from the font name table."
+    weight: 15
+    confidence: 0.5
+    when:
+      type: missing_name_field
+      params:
+        fields: ["copyright", "license"]
+
+  # Registry license has expired (valid_until is in the past).
+  - id: expired-license
+    description: "A matching registry license has expired (valid_until in the past)."
+    weight: 40
+    confidence: 0.95
+    when:
+      type: license_expired
+      params: {}
+
+  # Low-confidence subsetting signal. Reliable subset detection is hard, so this
+  # is a flag with deliberately low weight — it nudges, it does not decide.
+  - id: subset-signal
+    description: "Possible subsetting detected (low-confidence flag, lightly weighted)."
+    weight: 5
+    confidence: 0.2
+    when:
+      type: subset_signal
+      params: {}

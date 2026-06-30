@@ -1,0 +1,12 @@
+# Domains to scan. Copy to targets.yaml (gitignored) and edit.
+# `subdomain_seeds` is an optional passive hint list — FontSentry will also
+# discover subdomains from sitemap.xml and observed links. It never brute-forces.
+
+targets:
+  - domain: "example.com"
+    subdomain_seeds:
+      - "blog.example.com"
+      - "shop.example.com"
+
+  - domain: "example.org"
+    # no seeds: rely on sitemap + observed links only

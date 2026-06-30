@@ -1,0 +1,33 @@
+# License registry: fonts you own a license for. Copy to licenses.yaml
+# (gitignored) and edit. A detected font is SUPPRESSED (status RESOLVED, no alert)
+# when it matches an entry by foundry + family, the domain is in allowed_domains,
+# the global domain count is within max_domains, and valid_until has not passed.
+#
+# proof_path / invoice_path are relative to registry/proofs/ and are NEVER
+# committed (the folder contents are gitignored).
+#
+# Names below are invented placeholders for illustration only.
+
+entries:
+  - foundry: "Meridian Letterworks"
+    family: "Atlas Grotesk Private"
+    license_type: "Web, single domain"
+    allowed_domains:
+      - "example.com"
+    max_domains: 1
+    proof_path: "meridian-atlas-grotesk-web.pdf"
+    invoice_path: "meridian-invoice-2026.pdf"
+    valid_until: 2027-12-31
+    notes: "Annual web license. Renew before expiry."
+
+  - foundry: "Northwind Type"
+    family: "Harbor Serif"
+    license_type: "Web, up to 3 domains"
+    allowed_domains:
+      - "example.com"
+      - "example.org"
+      - "blog.example.com"
+    max_domains: 3
+    proof_path: "northwind-harbor-serif.pdf"
+    valid_until: 2028-06-30
+    notes: ""
