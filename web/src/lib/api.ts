@@ -44,11 +44,29 @@ export interface RunSummary {
   by_band: Partial<Record<Band, number>>;
 }
 
+export interface DomainFont {
+  family: string;
+  foundry: string | null;
+  band: Band;
+  status: Status;
+  hosts: string[];
+}
+
+export interface DomainReport {
+  domain: string;
+  is_live: boolean;
+  pages_scanned: number;
+  live_hosts: string[];
+  subdomains: string[];
+  fonts: DomainFont[];
+}
+
 export interface RunReport {
   schema_version: number;
   generated_at: string;
   summary: RunSummary;
   findings: Finding[];
+  domains: DomainReport[];
 }
 
 export interface RunMeta {

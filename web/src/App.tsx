@@ -6,6 +6,7 @@ import { Spinner } from "./components/Spinner";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
 import { DiffView } from "./features/DiffView";
+import { DomainsView } from "./features/DomainsView";
 import { FindingsTable } from "./features/FindingsTable";
 import { ScanControls } from "./features/ScanControls";
 import { ScheduleDialog } from "./features/ScheduleDialog";
@@ -13,7 +14,7 @@ import { SummaryCards } from "./features/SummaryCards";
 import { api } from "./lib/api";
 import type { RunMeta, RunReport } from "./lib/api";
 
-type View = "findings" | "diff";
+type View = "findings" | "domains" | "diff";
 
 export default function App() {
   const [runs, setRuns] = useState<RunMeta[]>([]);
@@ -115,7 +116,15 @@ export default function App() {
                   variant={view === "findings" ? "primary" : "ghost"}
                   onClick={() => setView("findings")}
                 >
-                  Findings
+                  Fonts
+                </Button>
+                <Button
+                  role="tab"
+                  aria-selected={view === "domains"}
+                  variant={view === "domains" ? "primary" : "ghost"}
+                  onClick={() => setView("domains")}
+                >
+                  Domains
                 </Button>
                 <Button
                   role="tab"
@@ -136,6 +145,8 @@ export default function App() {
                 <FindingsTable findings={report.findings} />
               </>
             )}
+
+            {report && view === "domains" && <DomainsView domains={report.domains} />}
 
             {view === "diff" && <DiffView runs={runs} currentId={selectedId} />}
           </>

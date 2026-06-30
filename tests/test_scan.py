@@ -8,23 +8,27 @@ from pathlib import Path
 import pytest
 
 from fontsentry import config, demo
-from fontsentry.models import Finding, FindingStatus, RiskBand
+from fontsentry.models import Finding, FindingStatus, RiskBand, RunReport
 from fontsentry.scan import run_scan
 
 NOW = datetime(2026, 6, 30, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture
-async def findings(repo_root: Path) -> dict[str, Finding]:
+async def report(repo_root: Path) -> RunReport:
     rules = config.load_rules(repo_root / "config" / "rules.example.yaml")
     registry = config.load_registry(demo.demo_registry_path())
     client = demo.demo_client()
     try:
-        report = await run_scan(
+        return await run_scan(
             demo.demo_targets(), demo.demo_settings(), rules, registry, client=client, now=NOW
         )
     finally:
         await client.aclose()
+
+
+@pytest.fixture
+def findings(report: RunReport) -> dict[str, Finding]:
     return {f.family: f for f in report.findings}
 
 
@@ -64,3 +68,27 @@ async def test_open_font_not_flagged_commercial(findings: dict[str, Finding]) ->
     public = findings["Public Glyphs Sans"]
     # OFL font from a known-free foundry must not trigger the commercial rule.
     assert "commercial-no-registry" not in _rule_ids(public)
+
+
+async def test_domain_view_present(report: RunReport) -> None:
+    domains = {d.domain: d for d in report.domains}
+    assert set(domains) == {"example-demo.test", "example-shop.test"}
+
+    demo_site = domains["example-demo.test"]
+    assert demo_site.is_live is True
+    assert demo_site.subdomains == ["blog.example-demo.test"]
+    assert demo_site.pages_scanned >= 1
+    families = {f.family for f in demo_site.fonts}
+    assert {"Atlas Grotesk Private", "Harbor Serif", "Acme Display"} <= families
+    # System fallback fonts (e.g. Georgia) are excluded from the domain font list.
+    assert "Georgia" not in families
+    # Acme Display is reused on the subdomain, so it spans two hosts.
+    acme = next(f for f in demo_site.fonts if f.family == "Acme Display")
+    assert "blog.example-demo.test" in acme.hosts
+
+
+async def test_domain_view_per_domain_fonts(report: RunReport) -> None:
+    shop = next(d for d in report.domains if d.domain == "example-shop.test")
+    families = {f.family for f in shop.fonts}
+    assert "Expired Face" in families
+    assert "Acme Display" not in families  # only on the other domain

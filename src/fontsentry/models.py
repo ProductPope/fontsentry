@@ -145,15 +145,41 @@ class RunSummary(BaseModel):
     by_band: dict[RiskBand, int] = Field(default_factory=dict)
 
 
+class DomainFont(BaseModel):
+    """A font used on one domain, with the hosts it was seen on."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    family: str
+    foundry: str | None = None
+    band: RiskBand = RiskBand.LOW
+    status: FindingStatus = FindingStatus.OPEN
+    hosts: list[str] = Field(default_factory=list)
+
+
+class DomainReport(BaseModel):
+    """The domain-centric view of a scan: one target domain and what was found on it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    domain: str
+    is_live: bool = False
+    pages_scanned: int = 0
+    live_hosts: list[str] = Field(default_factory=list)
+    subdomains: list[str] = Field(default_factory=list)
+    fonts: list[DomainFont] = Field(default_factory=list)
+
+
 class RunReport(BaseModel):
     """A complete scan run: the JSON source of truth that every output derives from."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int = 1
+    schema_version: int = 2
     generated_at: datetime
     summary: RunSummary
     findings: list[Finding] = Field(default_factory=list)
+    domains: list[DomainReport] = Field(default_factory=list)
 
 
 class FindingDelta(BaseModel):

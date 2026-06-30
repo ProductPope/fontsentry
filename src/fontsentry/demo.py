@@ -54,7 +54,7 @@ def demo_settings() -> Settings:
     return Settings(
         crawl=CrawlSettings(
             respect_robots=False,
-            discover_subdomains=False,
+            discover_subdomains=True,
             per_host_rate_limit=1000.0,
             max_depth=1,
             max_pages_per_domain=10,

@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fontsentry.models import (
+    DomainReport,
     Finding,
     FindingStatus,
     RiskBand,
@@ -33,11 +34,16 @@ def build_summary(findings: list[Finding]) -> RunSummary:
     )
 
 
-def build_report(findings: list[Finding], generated_at: datetime) -> RunReport:
+def build_report(
+    findings: list[Finding],
+    generated_at: datetime,
+    domains: list[DomainReport] | None = None,
+) -> RunReport:
     return RunReport(
         generated_at=generated_at,
         summary=build_summary(findings),
         findings=findings,
+        domains=domains or [],
     )
 
 

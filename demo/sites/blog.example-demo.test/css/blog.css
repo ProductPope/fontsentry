@@ -1,0 +1,11 @@
+/* Subdomain stylesheet: reuses the unregistered Acme Display font, so the same
+   font shows up across the main site and this subdomain in the domain view. */
+
+@font-face {
+  font-family: "Acme Display";
+  src: url("/fonts/acme.ttf") format("truetype");
+}
+
+body {
+  font-family: "Acme Display", system-ui, sans-serif;
+}

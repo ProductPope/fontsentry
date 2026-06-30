@@ -91,6 +91,13 @@ def main() -> None:
             glyph_count=50,  # small: triggers low-confidence subset signal
             flavor="woff2",
         ),
+        "blog.example-demo.test/fonts/acme.ttf": build_font(
+            family="Acme Display",
+            foundry="Acme Type",
+            copyright_text=None,  # same unregistered font, reused on a subdomain
+            license_text=None,
+            glyph_count=300,
+        ),
         "example-shop.test/fonts/atlas.ttf": build_font(
             family="Atlas Grotesk Private",
             foundry="Meridian Letterworks",
