@@ -1,0 +1,15 @@
+/* Second domain. Reuses Atlas Grotesk Private (pushes it over max_domains) and
+   adds a font whose registry license has expired. */
+
+@font-face {
+  font-family: "Atlas Grotesk Private";
+  src: url("/fonts/atlas.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Expired Face";
+  src: url("/fonts/expired.woff2") format("woff2");
+}
+
+body { font-family: "Atlas Grotesk Private", sans-serif; }
+.promo { font-family: "Expired Face", serif; }

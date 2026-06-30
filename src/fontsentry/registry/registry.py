@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from fontsentry.models import (
     AggregatedFont,
@@ -69,3 +70,17 @@ def evaluate_suppression(agg: AggregatedFont, registry: Registry, now: date) -> 
         )
 
     return Suppression(FindingStatus.RESOLVED, entry, "covered by a valid license")
+
+
+def validate_registry(registry: Registry, proofs_dir: Path) -> list[str]:
+    """Return problems with the registry: referenced proof/invoice files that are missing."""
+
+    errors: list[str] = []
+    for entry in registry.entries:
+        label = f"{entry.foundry} / {entry.family}"
+        for kind, rel in (("proof", entry.proof_path), ("invoice", entry.invoice_path)):
+            if rel is None:
+                continue
+            if not (proofs_dir / rel).exists():
+                errors.append(f"{label}: {kind} file not found: {proofs_dir / rel}")
+    return errors

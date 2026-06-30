@@ -1,0 +1,34 @@
+# Demo license registry (committed on purpose — fully synthetic, no real data).
+# Drives suppression for the demo scan. Names are invented.
+
+entries:
+  # Single-domain web license. The demo uses this font on TWO domains, so it
+  # surfaces as an open finding (domain not covered + max_domains exceeded).
+  - foundry: "Meridian Letterworks"
+    family: "Atlas Grotesk Private"
+    license_type: "Web, single domain"
+    allowed_domains:
+      - "example-demo.test"
+    max_domains: 1
+    valid_until: 2027-12-31
+    notes: "Demonstrates the cross-domain max_domains rule."
+
+  # Valid multi-domain license -> Harbor Serif is suppressed (RESOLVED).
+  - foundry: "Northwind Type"
+    family: "Harbor Serif"
+    license_type: "Web, up to 3 domains"
+    allowed_domains:
+      - "example-demo.test"
+      - "example-shop.test"
+    max_domains: 3
+    valid_until: 2028-06-30
+    notes: "Properly licensed; should not alert."
+
+  # Expired license -> Expired Face surfaces as an open finding.
+  - foundry: "Old Foundry"
+    family: "Expired Face"
+    license_type: "Web, annual"
+    allowed_domains:
+      - "example-shop.test"
+    valid_until: 2025-01-01
+    notes: "Demonstrates the expired-license rule."

@@ -1,0 +1,26 @@
+/* Demo stylesheet: a mix of self-hosted fonts with different licenses. */
+
+@font-face {
+  font-family: "Atlas Grotesk Private";
+  src: url("/fonts/atlas.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Harbor Serif";
+  src: url("/fonts/harbor.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Acme Display";
+  src: url("/fonts/acme.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Public Glyphs Sans";
+  src: url("/fonts/publicglyphs.woff2") format("woff2");
+}
+
+body { font-family: "Atlas Grotesk Private", "Helvetica Neue", sans-serif; }
+h1 { font-family: "Harbor Serif", Georgia, serif; }
+.display { font-family: "Acme Display", system-ui; }
+.body-alt { font-family: "Public Glyphs Sans", sans-serif; }
