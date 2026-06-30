@@ -20,14 +20,18 @@ function Item({ q, children }: { q: string; children: ReactNode }) {
 export function Faq() {
   return (
     <section aria-label="Help" className="space-y-2">
-      <h2 className="text-base font-semibold">How to read this table</h2>
+      <h2 className="text-base font-semibold">Help</h2>
 
-      <Item q="What does each column mean?">
+      <Item q="Fonts view vs Domains view?">
+        Same audit, two perspectives. <strong>Fonts</strong> lists each font once, aggregated
+        across every domain it appears on (expand a row for the triggered rules and metadata).{" "}
+        <strong>Domains</strong> lists fonts per host — each domain and subdomain as its own
+        rows — plus how many domains were scanned, how many are live, and how many subdomains
+        were found.
+      </Item>
+
+      <Item q="What do the columns mean?">
         <ul className="list-disc space-y-1 pl-5">
-          <li>
-            <strong>Host</strong> — the exact host the font was found on. Subdomains appear as
-            their own rows, tagged <em>subdomain</em>.
-          </li>
           <li>
             <strong>Font / Foundry</strong> — the family and its maker (from the font file's name
             table, when reachable).
@@ -39,7 +43,11 @@ export function Faq() {
             <strong>Format</strong> — the file format (woff2, woff, ttf, otf, eot).
           </li>
           <li>
-            <strong>Band / Status</strong> — risk level and whether it is an open finding or
+            <strong>Domains / Host</strong> — in Fonts, the number of domains the font is on; in
+            Domains, the exact host (subdomains tagged <em>subdomain</em>).
+          </li>
+          <li>
+            <strong>Band / Status</strong> — risk level, and whether it is an open finding or
             covered by a license (see below).
           </li>
         </ul>

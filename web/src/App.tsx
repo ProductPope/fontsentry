@@ -7,6 +7,7 @@ import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
 import { DiffView } from "./features/DiffView";
 import { DomainsView } from "./features/DomainsView";
+import { Faq } from "./features/Faq";
 import { FindingsTable } from "./features/FindingsTable";
 import { ScanControls } from "./features/ScanControls";
 import { ScheduleDialog } from "./features/ScheduleDialog";
@@ -149,6 +150,8 @@ export default function App() {
             {report && view === "domains" && <DomainsView domains={report.domains} />}
 
             {view === "diff" && <DiffView runs={runs} currentId={selectedId} />}
+
+            <Faq />
           </>
         )}
       </main>

@@ -3,7 +3,6 @@ import { RiskBadge } from "../components/Badge";
 import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import type { Band, DomainReport, Status } from "../lib/api";
-import { Faq } from "./Faq";
 
 function Stat({ n, label }: { n: number; label: string }) {
   return (
@@ -162,8 +161,6 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
           </tbody>
         </table>
       </div>
-
-      <Faq />
     </div>
   );
 }
