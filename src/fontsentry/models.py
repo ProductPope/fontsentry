@@ -81,6 +81,59 @@ class DetectedFont(BaseModel):
     metadata: FontMetadata | None = None
 
 
+class AggregatedFont(BaseModel):
+    """One font identity (family + foundry) merged across every domain it appears on."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    family: str
+    foundry: str | None = None
+    domains: list[str] = Field(default_factory=list)
+    formats: list[FontFormat] = Field(default_factory=list)
+    embeddings: list[EmbeddingMethod] = Field(default_factory=list)
+    metadata: FontMetadata | None = None
+    occurrences: int = 0
+
+    @property
+    def domain_count(self) -> int:
+        return len(self.domains)
+
+
+class TriggeredRule(BaseModel):
+    """A rule that fired for a finding, with the points it contributed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    description: str
+    weight: float
+    confidence: float
+    points: float
+
+
+class Finding(BaseModel):
+    """A scored font identity: the unit of a report."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    family: str
+    foundry: str | None = None
+    domains: list[str] = Field(default_factory=list)
+    formats: list[FontFormat] = Field(default_factory=list)
+    embeddings: list[EmbeddingMethod] = Field(default_factory=list)
+    metadata: FontMetadata | None = None
+    score: int = 0
+    band: RiskBand = RiskBand.LOW
+    status: FindingStatus = FindingStatus.OPEN
+    triggered_rules: list[TriggeredRule] = Field(default_factory=list)
+    registry_match: bool = False
+    suppression_reason: str | None = None
+
+    @property
+    def domain_count(self) -> int:
+        return len(self.domains)
+
+
 # --------------------------------------------------------------------------- #
 # Settings
 # --------------------------------------------------------------------------- #
