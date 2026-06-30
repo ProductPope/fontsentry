@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { RiskBadge } from "../components/Badge";
 import { Card } from "../components/Card";
-import type { DomainReport } from "../lib/api";
+import { Select } from "../components/Select";
+import type { Band, DomainReport, Status } from "../lib/api";
 
 function Stat({ n, label }: { n: number; label: string }) {
   return (
@@ -12,69 +13,44 @@ function Stat({ n, label }: { n: number; label: string }) {
   );
 }
 
-function DomainCard({ domain }: { domain: DomainReport }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Card>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 text-left"
-      >
-        <span className="font-semibold">
-          {open ? "▾ " : "▸ "}
-          {domain.domain}
-        </span>
-        <span className="flex items-center gap-3 text-sm text-muted">
-          <span className={domain.is_live ? "text-band-low" : "text-muted"}>
-            {domain.is_live ? "live" : "offline"}
-          </span>
-          <span className="tabular-nums">{domain.pages_scanned} pages</span>
-          <span className="tabular-nums">{domain.subdomains.length} subdomains</span>
-          <span className="tabular-nums">{domain.fonts.length} fonts</span>
-        </span>
-      </button>
+interface DomainRow {
+  domain: string;
+  isLive: boolean;
+  family: string;
+  foundry: string | null;
+  embeddings: string[];
+  formats: string[];
+  hosts: string[];
+  subdomainHosts: string[];
+  band: Band;
+  status: Status;
+}
 
-      {open && (
-        <div className="mt-3 grid gap-4 border-t border-stroke pt-3 text-sm sm:grid-cols-2">
-          <div>
-            <h3 className="mb-1 font-semibold">Hosts</h3>
-            <ul className="space-y-1">
-              {domain.live_hosts.map((h) => (
-                <li key={h}>
-                  {h}
-                  {domain.subdomains.includes(h) && (
-                    <span className="ml-1 text-muted">(subdomain)</span>
-                  )}
-                </li>
-              ))}
-              {domain.live_hosts.length === 0 && <li className="text-muted">none reachable</li>}
-            </ul>
-          </div>
-          <div>
-            <h3 className="mb-1 font-semibold">Fonts used</h3>
-            {domain.fonts.length > 0 ? (
-              <ul className="space-y-1">
-                {domain.fonts.map((f) => (
-                  <li key={f.family} className="flex items-center gap-2">
-                    <RiskBadge band={f.band} />
-                    <span>{f.family}</span>
-                    {f.foundry && <span className="text-muted">· {f.foundry}</span>}
-                    <span className="text-muted">({f.status})</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted">no web fonts detected</p>
-            )}
-          </div>
-        </div>
-      )}
-    </Card>
-  );
+function toRows(domains: DomainReport[]): DomainRow[] {
+  const rows: DomainRow[] = [];
+  for (const d of domains) {
+    for (const f of d.fonts) {
+      rows.push({
+        domain: d.domain,
+        isLive: d.is_live,
+        family: f.family,
+        foundry: f.foundry,
+        embeddings: f.embeddings,
+        formats: f.formats,
+        hosts: f.hosts,
+        subdomainHosts: d.subdomains,
+        band: f.band,
+        status: f.status,
+      });
+    }
+  }
+  return rows;
 }
 
 export function DomainsView({ domains }: { domains: DomainReport[] }) {
+  const [domainFilter, setDomainFilter] = useState("all");
+  const [band, setBand] = useState<Band | "all">("all");
+
   const totals = useMemo(
     () => ({
       domains: domains.length,
@@ -84,6 +60,12 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
     }),
     [domains],
   );
+
+  const rows = useMemo(() => {
+    return toRows(domains)
+      .filter((r) => (domainFilter === "all" ? true : r.domain === domainFilter))
+      .filter((r) => (band === "all" ? true : r.band === band));
+  }, [domains, domainFilter, band]);
 
   if (domains.length === 0) {
     return <p className="text-muted">This run has no domain data (older report).</p>;
@@ -98,11 +80,95 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
         <Stat n={totals.pages} label="Pages scanned" />
       </section>
 
-      <section aria-label="Domains" className="space-y-3">
-        {domains.map((d) => (
-          <DomainCard key={d.domain} domain={d} />
-        ))}
-      </section>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-sm">
+          <span className="mb-1 block font-medium">Domain</span>
+          <Select value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
+            <option value="all">all</option>
+            {domains.map((d) => (
+              <option key={d.domain} value={d.domain}>
+                {d.domain}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium">Band</span>
+          <Select value={band} onChange={(e) => setBand(e.target.value as Band | "all")}>
+            <option value="all">all</option>
+            <option value="high">high</option>
+            <option value="medium">medium</option>
+            <option value="low">low</option>
+          </Select>
+        </label>
+      </div>
+
+      <div className="overflow-x-auto rounded-tk border border-stroke">
+        <table className="w-full border-collapse bg-surface text-sm">
+          <caption className="sr-only">Fonts by domain</caption>
+          <thead>
+            <tr className="bg-canvas text-left">
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Domain
+              </th>
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Font
+              </th>
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Foundry
+              </th>
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Embedding
+              </th>
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Format
+              </th>
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Hosts
+              </th>
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Band
+              </th>
+              <th scope="col" className="px-4 py-2 font-semibold">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={`${r.domain}:${r.family}:${i}`} className="border-t border-stroke">
+                <td className="px-4 py-2">
+                  {r.domain}
+                  {!r.isLive && <span className="ml-1 text-muted">(offline)</span>}
+                </td>
+                <td className="px-4 py-2 font-medium">{r.family}</td>
+                <td className="px-4 py-2">{r.foundry ?? "—"}</td>
+                <td className="px-4 py-2">{r.embeddings.join(", ") || "—"}</td>
+                <td className="px-4 py-2">{r.formats.join(", ") || "—"}</td>
+                <td className="px-4 py-2" title={r.hosts.join(", ")}>
+                  {r.hosts.length}
+                  {r.subdomainHosts.length > 0 && (
+                    <span className="ml-1 text-muted">
+                      ({r.subdomainHosts.length} sub)
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2">
+                  <RiskBadge band={r.band} />
+                </td>
+                <td className="px-4 py-2">{r.status}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-center text-muted">
+                  No fonts match the filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

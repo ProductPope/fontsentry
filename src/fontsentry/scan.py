@@ -7,6 +7,7 @@ scans and the offline demo (which passes a filesystem-backed transport).
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -25,6 +26,7 @@ from fontsentry.models import (
     EmbeddingMethod,
     Finding,
     FindingStatus,
+    FontFormat,
     Registry,
     RiskBand,
     RulesConfig,
@@ -39,6 +41,13 @@ from fontsentry.risk.engine import evaluate
 
 def _host(url: str) -> str:
     return urlsplit(url).hostname or url
+
+
+@dataclass
+class _DomainUsage:
+    hosts: set[str] = field(default_factory=set)
+    embeddings: set[EmbeddingMethod] = field(default_factory=set)
+    formats: set[FontFormat] = field(default_factory=set)
 
 
 def _build_domain_reports(
@@ -58,15 +67,18 @@ def _build_domain_reports(
         live_hosts = sorted({_host(p) for p in pages})
         subdomains = [h for h in live_hosts if h != domain and h.endswith("." + domain)]
 
-        # family -> hosts it was seen on (real web fonts only, not system fallbacks)
-        family_hosts: dict[str, set[str]] = {}
+        # family -> how it was embedded on this domain (real web fonts, not fallbacks)
+        usage: dict[str, _DomainUsage] = {}
         for det in detections_by_domain.get(domain, []):
             if det.embedding is EmbeddingMethod.SYSTEM:
                 continue
-            family_hosts.setdefault(det.family, set()).add(_host(det.source_page))
+            entry = usage.setdefault(det.family, _DomainUsage())
+            entry.hosts.add(_host(det.source_page))
+            entry.embeddings.add(det.embedding)
+            entry.formats.add(det.font_format)
 
         fonts: list[DomainFont] = []
-        for family, hosts in sorted(family_hosts.items(), key=lambda kv: kv[0].lower()):
+        for family, used in sorted(usage.items(), key=lambda kv: kv[0].lower()):
             finding = finding_by_family.get(family.strip().lower())
             fonts.append(
                 DomainFont(
@@ -74,7 +86,9 @@ def _build_domain_reports(
                     foundry=finding.foundry if finding else None,
                     band=finding.band if finding else RiskBand.LOW,
                     status=finding.status if finding else FindingStatus.OPEN,
-                    hosts=sorted(hosts),
+                    embeddings=sorted(used.embeddings, key=lambda e: e.value),
+                    formats=sorted(used.formats, key=lambda f: f.value),
+                    hosts=sorted(used.hosts),
                 )
             )
 

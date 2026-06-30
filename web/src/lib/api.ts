@@ -49,6 +49,8 @@ export interface DomainFont {
   foundry: string | null;
   band: Band;
   status: Status;
+  embeddings: string[];
+  formats: string[];
   hosts: string[];
 }
 

@@ -146,7 +146,7 @@ class RunSummary(BaseModel):
 
 
 class DomainFont(BaseModel):
-    """A font used on one domain, with the hosts it was seen on."""
+    """A font used on one domain, with how it was embedded and the hosts it was seen on."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -154,6 +154,8 @@ class DomainFont(BaseModel):
     foundry: str | None = None
     band: RiskBand = RiskBand.LOW
     status: FindingStatus = FindingStatus.OPEN
+    embeddings: list[EmbeddingMethod] = Field(default_factory=list)
+    formats: list[FontFormat] = Field(default_factory=list)
     hosts: list[str] = Field(default_factory=list)
 
 

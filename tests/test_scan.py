@@ -86,6 +86,11 @@ async def test_domain_view_present(report: RunReport) -> None:
     acme = next(f for f in demo_site.fonts if f.family == "Acme Display")
     assert "blog.example-demo.test" in acme.hosts
 
+    # Domain fonts carry embedding + format info.
+    atlas = next(f for f in demo_site.fonts if f.family == "Atlas Grotesk Private")
+    assert "self_hosted" in atlas.embeddings
+    assert "ttf" in atlas.formats
+
 
 async def test_domain_view_per_domain_fonts(report: RunReport) -> None:
     shop = next(d for d in report.domains if d.domain == "example-shop.test")
