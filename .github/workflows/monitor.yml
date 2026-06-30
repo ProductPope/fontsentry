@@ -1,0 +1,86 @@
+name: Monitor
+
+# Scheduled scan of a private target list. Targets and the license registry are
+# provided via repository secrets and written at runtime — never committed.
+# New findings are surfaced as a build artifact and (optionally) a GitHub issue.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      # Persist reports/ across runs so `diff` has a previous run to compare to.
+      - name: Restore previous reports
+        uses: actions/cache@v4
+        with:
+          path: reports
+          key: fontsentry-reports-${{ github.run_id }}
+          restore-keys: |
+            fontsentry-reports-
+
+      # Materialize private inputs from secrets. These files are gitignored.
+      - name: Write private config
+        env:
+          TARGETS_YAML: ${{ secrets.FONTSENTRY_TARGETS }}
+          REGISTRY_YAML: ${{ secrets.FONTSENTRY_REGISTRY }}
+        run: |
+          mkdir -p config registry
+          printf '%s' "$TARGETS_YAML" > config/targets.yaml
+          printf '%s' "$REGISTRY_YAML" > registry/licenses.yaml
+
+      - name: Validate inputs
+        run: |
+          uv run fontsentry rules validate --file config/rules.example.yaml
+          uv run fontsentry registry validate --file registry/licenses.yaml
+
+      - name: Scan
+        run: uv run fontsentry scan
+
+      # diff exits non-zero when there are new findings; capture without failing.
+      - name: Diff against previous run
+        id: diff
+        run: |
+          if uv run fontsentry diff --reports-dir reports | tee diff.txt; then
+            echo "new_findings=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new_findings=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: fontsentry-reports
+          path: |
+            reports/*.report.json
+            reports/*.report.html
+            diff.txt
+
+      - name: Open issue on new findings
+        if: steps.diff.outputs.new_findings == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "FontSentry: new font-license findings ($(date -u +%Y-%m-%d))" \
+            --body-file diff.txt

@@ -69,6 +69,14 @@ fontsentry registry validate check the registry file and proof paths
 fontsentry rules validate    sanity-check the rule file
 ```
 
+## Documentation
+
+- [Risk rules reference](docs/rules.md) — scoring model and how to add a rule
+- [Methodology](docs/methodology.md) — how this was built (vibecoding benchmark)
+- [ADR 0001 — stack choice](docs/adr/0001-stack-choice.md)
+- [ADR 0002 — risk-scoring model](docs/adr/0002-risk-scoring-model.md)
+- [CLAUDE.md](CLAUDE.md) — working agreement and conventions
+
 ## License
 
 [MIT](LICENSE)
