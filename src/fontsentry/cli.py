@@ -175,6 +175,35 @@ def registry_validate(
     console.print(f"[green]✓[/] registry OK ({len(registry.entries)} entries)")
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind address (localhost only)."),
+    port: int = typer.Option(8000, "--port", help="Port to listen on."),
+    config_dir: Path = typer.Option(Path("config"), "--config-dir", help="Config directory."),
+    registry_dir: Path = typer.Option(Path("registry"), "--registry-dir", help="Registry dir."),
+    reports_dir: Path = typer.Option(Path("reports"), "--reports-dir", help="Reports directory."),
+) -> None:
+    """Run the local web UI (requires the 'web' extra: uv sync --extra web)."""
+
+    try:
+        import uvicorn
+
+        from fontsentry.web.server import create_app
+    except ImportError:
+        err_console.print("[red]Web extra not installed. Run:[/] uv sync --extra web")
+        raise typer.Exit(1) from None
+
+    if host not in {"127.0.0.1", "localhost"}:
+        err_console.print("[red]Refusing to bind a non-localhost host (local-only by design).[/]")
+        raise typer.Exit(1)
+
+    application = create_app(
+        reports_dir=reports_dir, config_dir=config_dir, registry_dir=registry_dir
+    )
+    console.print(f"FontSentry UI on [cyan]http://{host}:{port}[/]  (Ctrl+C to stop)")
+    uvicorn.run(application, host=host, port=port, log_level="info")
+
+
 @rules_app.command("validate")
 def rules_validate(
     rules_file: Path = typer.Option(Path("config/rules.yaml"), "--file", help="Rules YAML file."),
