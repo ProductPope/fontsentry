@@ -7,7 +7,7 @@ phases. Enums are shared by everything, so they live here too.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -132,6 +132,56 @@ class Finding(BaseModel):
     @property
     def domain_count(self) -> int:
         return len(self.domains)
+
+
+class RunSummary(BaseModel):
+    """Headline counts for one scan run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_findings: int = 0
+    open_findings: int = 0
+    resolved_findings: int = 0
+    by_band: dict[RiskBand, int] = Field(default_factory=dict)
+
+
+class RunReport(BaseModel):
+    """A complete scan run: the JSON source of truth that every output derives from."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int = 1
+    generated_at: datetime
+    summary: RunSummary
+    findings: list[Finding] = Field(default_factory=list)
+
+
+class FindingDelta(BaseModel):
+    """An open finding present in both runs whose score or domain spread changed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    family: str
+    foundry: str | None = None
+    old_score: int
+    new_score: int
+    old_domains: list[str] = Field(default_factory=list)
+    new_domains: list[str] = Field(default_factory=list)
+
+
+class DiffResult(BaseModel):
+    """The difference between two runs, over open (alertable) findings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    new_findings: list[Finding] = Field(default_factory=list)
+    resolved_findings: list[Finding] = Field(default_factory=list)
+    changed: list[FindingDelta] = Field(default_factory=list)
+    unchanged_count: int = 0
+
+    @property
+    def has_changes(self) -> bool:
+        return bool(self.new_findings or self.resolved_findings or self.changed)
 
 
 # --------------------------------------------------------------------------- #

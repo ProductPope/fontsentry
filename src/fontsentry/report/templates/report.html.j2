@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FontSentry report</title>
+<style>
+  :root {
+    --tk-bg: #f7f7f5;
+    --tk-surface: #ffffff;
+    --tk-ink: #1c1c1a;
+    --tk-muted: #6b6b66;
+    --tk-border: #e2e2dd;
+    --tk-low: #2f8f4e;
+    --tk-medium: #c98a1b;
+    --tk-high: #c0392b;
+    --tk-resolved: #6b6b66;
+    --tk-space: 1rem;
+    --tk-radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color: var(--tk-ink);
+    background: var(--tk-bg);
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: calc(var(--tk-space) * 2); }
+  h1 { font-size: 1.6rem; margin: 0 0 0.25rem; }
+  .meta { color: var(--tk-muted); margin: 0 0 var(--tk-space); }
+  .disclaimer {
+    background: var(--tk-surface);
+    border: 1px solid var(--tk-border);
+    border-left: 4px solid var(--tk-medium);
+    border-radius: var(--tk-radius);
+    padding: var(--tk-space);
+    margin: var(--tk-space) 0 calc(var(--tk-space) * 1.5);
+    color: var(--tk-muted);
+  }
+  .cards { display: flex; flex-wrap: wrap; gap: var(--tk-space); margin-bottom: calc(var(--tk-space) * 1.5); }
+  .card {
+    background: var(--tk-surface);
+    border: 1px solid var(--tk-border);
+    border-radius: var(--tk-radius);
+    padding: var(--tk-space);
+    min-width: 130px;
+    flex: 1;
+  }
+  .card .n { font-size: 1.8rem; font-weight: 700; }
+  .card .l { color: var(--tk-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  table { width: 100%; border-collapse: collapse; background: var(--tk-surface); border-radius: var(--tk-radius); overflow: hidden; }
+  caption { text-align: left; font-weight: 600; margin-bottom: 0.5rem; }
+  th, td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--tk-border); vertical-align: top; }
+  th { background: #efeeea; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+  .band-low { background: var(--tk-low); }
+  .band-medium { background: var(--tk-medium); }
+  .band-high { background: var(--tk-high); }
+  .status-resolved { color: var(--tk-resolved); }
+  .status-open { color: var(--tk-high); font-weight: 600; }
+  .rules { color: var(--tk-muted); font-size: 0.85rem; }
+  .domains { color: var(--tk-muted); font-size: 0.85rem; }
+  .score { font-variant-numeric: tabular-nums; font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <h1>FontSentry report</h1>
+  <p class="meta">Generated {{ report.generated_at.strftime("%Y-%m-%d %H:%M:%S UTC") }} ·
+    schema v{{ report.schema_version }}</p>
+
+  <p class="disclaimer">
+    <strong>Heuristic estimate, not legal advice.</strong> A high score means the
+    font is worth a human checking its license — not that any infringement has
+    occurred. Confirm with the foundry or your legal team.
+  </p>
+
+  <section class="cards" aria-label="Summary">
+    <div class="card"><div class="n">{{ report.summary.total_findings }}</div><div class="l">Findings</div></div>
+    <div class="card"><div class="n">{{ report.summary.open_findings }}</div><div class="l">Open</div></div>
+    <div class="card"><div class="n">{{ report.summary.resolved_findings }}</div><div class="l">Resolved</div></div>
+    {% for band, count in report.summary.by_band.items() %}
+    <div class="card"><div class="n">{{ count }}</div><div class="l">{{ band.value }}</div></div>
+    {% endfor %}
+  </section>
+
+  <table>
+    <caption>Detected fonts ({{ report.findings | length }})</caption>
+    <thead>
+      <tr>
+        <th scope="col">Font</th>
+        <th scope="col">Foundry</th>
+        <th scope="col">Embedding</th>
+        <th scope="col">Format</th>
+        <th scope="col">Domains</th>
+        <th scope="col">Score</th>
+        <th scope="col">Band</th>
+        <th scope="col">Status</th>
+        <th scope="col">Triggered rules</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in report.findings %}
+      <tr>
+        <td>{{ f.family }}</td>
+        <td>{{ f.foundry or "—" }}</td>
+        <td>{{ f.embeddings | map(attribute="value") | join(", ") or "—" }}</td>
+        <td>{{ f.formats | map(attribute="value") | join(", ") or "—" }}</td>
+        <td>
+          {{ f.domain_count }}
+          <div class="domains">{{ f.domains | join(", ") }}</div>
+        </td>
+        <td class="score">{{ f.score }}</td>
+        <td><span class="badge band-{{ f.band.value }}">{{ f.band.value }}</span></td>
+        <td class="status-{{ f.status.value }}">{{ f.status.value }}</td>
+        <td class="rules">
+          {% if f.triggered_rules %}
+            {{ f.triggered_rules | map(attribute="id") | join(", ") }}
+          {% elif f.suppression_reason %}
+            {{ f.suppression_reason }}
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>
+</body>
+</html>
