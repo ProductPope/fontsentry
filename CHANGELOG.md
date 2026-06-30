@@ -26,7 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `rules validate`.
 - Offline demo dataset under `demo/` served via a filesystem transport.
 - Documentation: README, `CLAUDE.md`, ADRs, rules reference, and methodology.
-- CI (`ci.yml`) running ruff, mypy, and pytest; scheduled monitoring (`monitor.yml`)
-  reading private targets/registry from secrets.
+- CI (`ci.yml`) running ruff, mypy, pytest, and the web build; scheduled monitoring
+  (`monitor.yml`) reading private targets/registry from secrets.
+- Local web UI (`web` extra, `fontsentry serve`): a FastAPI backend (list/load runs,
+  start scans, diff, manage schedules; localhost-only with Origin checks) and a
+  React + Vite + Tailwind dashboard with a token-based design system and WCAG
+  baseline. "Start audit" runs scans; "Schedule recurring audit" creates Windows
+  Task Scheduler entries that run even when the UI is closed.
 
 [Unreleased]: https://github.com/fontsentry/fontsentry/commits/main

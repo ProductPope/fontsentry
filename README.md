@@ -45,6 +45,33 @@ crafted fonts, a matching registry). No internet or private data required:
 uv run fontsentry scan --demo
 ```
 
+## Local web UI
+
+A local dashboard to run audits, browse findings, diff runs, and schedule recurring
+audits. Everything runs on your machine — the server binds to `127.0.0.1` only.
+
+```bash
+# one-time: build the frontend (requires Node 20.19+)
+cd web && npm install && npm run build && cd ..
+
+# install the backend extra and launch
+uv sync --extra web
+uv run fontsentry serve        # → http://127.0.0.1:8000
+```
+
+- **Start audit** runs a scan (demo or real) and shows the report when it finishes.
+- **Schedule recurring audit** creates a Windows Task Scheduler entry that runs
+  `fontsentry scan` on a cadence — even when the UI is closed (Windows only).
+
+Frontend dev mode (hot reload, proxies `/api` to the backend):
+
+```bash
+uv run fontsentry serve            # terminal 1
+cd web && npm run dev              # terminal 2 → http://127.0.0.1:5173
+```
+
+See [web/DESIGN_SYSTEM.md](web/DESIGN_SYSTEM.md) for the UI design system.
+
 ## Configuration
 
 All real user data lives **outside** the repo. Commit only the `*.example.yaml`
