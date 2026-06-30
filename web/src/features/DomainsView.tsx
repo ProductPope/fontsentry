@@ -3,6 +3,7 @@ import { RiskBadge } from "../components/Badge";
 import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import type { Band, DomainReport, Status } from "../lib/api";
+import { Faq } from "./Faq";
 
 function Stat({ n, label }: { n: number; label: string }) {
   return (
@@ -13,38 +14,41 @@ function Stat({ n, label }: { n: number; label: string }) {
   );
 }
 
-interface DomainRow {
+interface HostRow {
+  host: string;
   domain: string;
-  isLive: boolean;
+  isSubdomain: boolean;
   family: string;
   foundry: string | null;
   embeddings: string[];
   formats: string[];
-  hosts: string[];
-  subdomainHosts: string[];
   band: Band;
   status: Status;
 }
 
-function toRows(domains: DomainReport[]): DomainRow[] {
-  const rows: DomainRow[] = [];
+// One row per (host, font): subdomains become their own rows.
+function toRows(domains: DomainReport[]): HostRow[] {
+  const rows: HostRow[] = [];
   for (const d of domains) {
     for (const f of d.fonts) {
-      rows.push({
-        domain: d.domain,
-        isLive: d.is_live,
-        family: f.family,
-        foundry: f.foundry,
-        embeddings: f.embeddings,
-        formats: f.formats,
-        hosts: f.hosts,
-        subdomainHosts: d.subdomains,
-        band: f.band,
-        status: f.status,
-      });
+      for (const host of f.hosts) {
+        rows.push({
+          host,
+          domain: d.domain,
+          isSubdomain: d.subdomains.includes(host),
+          family: f.family,
+          foundry: f.foundry,
+          embeddings: f.embeddings,
+          formats: f.formats,
+          band: f.band,
+          status: f.status,
+        });
+      }
     }
   }
-  return rows;
+  return rows.sort(
+    (a, b) => a.host.localeCompare(b.host) || a.family.localeCompare(b.family),
+  );
 }
 
 export function DomainsView({ domains }: { domains: DomainReport[] }) {
@@ -105,11 +109,11 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
 
       <div className="overflow-x-auto rounded-tk border border-stroke">
         <table className="w-full border-collapse bg-surface text-sm">
-          <caption className="sr-only">Fonts by domain</caption>
+          <caption className="sr-only">Fonts by host</caption>
           <thead>
             <tr className="bg-canvas text-left">
               <th scope="col" className="px-4 py-2 font-semibold">
-                Domain
+                Host
               </th>
               <th scope="col" className="px-4 py-2 font-semibold">
                 Font
@@ -124,9 +128,6 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
                 Format
               </th>
               <th scope="col" className="px-4 py-2 font-semibold">
-                Hosts
-              </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
                 Band
               </th>
               <th scope="col" className="px-4 py-2 font-semibold">
@@ -136,23 +137,15 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={`${r.domain}:${r.family}:${i}`} className="border-t border-stroke">
+              <tr key={`${r.host}:${r.family}:${i}`} className="border-t border-stroke">
                 <td className="px-4 py-2">
-                  {r.domain}
-                  {!r.isLive && <span className="ml-1 text-muted">(offline)</span>}
+                  {r.host}
+                  {r.isSubdomain && <span className="ml-1 text-muted">(subdomain)</span>}
                 </td>
                 <td className="px-4 py-2 font-medium">{r.family}</td>
                 <td className="px-4 py-2">{r.foundry ?? "—"}</td>
                 <td className="px-4 py-2">{r.embeddings.join(", ") || "—"}</td>
                 <td className="px-4 py-2">{r.formats.join(", ") || "—"}</td>
-                <td className="px-4 py-2" title={r.hosts.join(", ")}>
-                  {r.hosts.length}
-                  {r.subdomainHosts.length > 0 && (
-                    <span className="ml-1 text-muted">
-                      ({r.subdomainHosts.length} sub)
-                    </span>
-                  )}
-                </td>
                 <td className="px-4 py-2">
                   <RiskBadge band={r.band} />
                 </td>
@@ -161,7 +154,7 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-muted">
+                <td colSpan={7} className="px-4 py-6 text-center text-muted">
                   No fonts match the filters.
                 </td>
               </tr>
@@ -169,6 +162,8 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
           </tbody>
         </table>
       </div>
+
+      <Faq />
     </div>
   );
 }
