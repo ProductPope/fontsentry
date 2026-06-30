@@ -1,0 +1,46 @@
+# --- Real user data: NEVER commit (only *.example.yaml versions are tracked) ---
+config/targets.yaml
+config/settings.yaml
+config/rules.yaml
+registry/licenses.yaml
+
+# License proofs and invoices: keep the folder, ignore its contents
+registry/proofs/*
+!registry/proofs/.gitkeep
+!registry/proofs/example-proof.pdf
+
+# Generated reports and run artifacts
+reports/
+out/
+*.report.json
+
+# HTTP / asset cache
+.cache/
+.fontsentry-cache/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# --- Tooling caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

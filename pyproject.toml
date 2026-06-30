@@ -1,0 +1,86 @@
+[project]
+name = "fontsentry"
+version = "0.1.0"
+description = "Audit and monitor web fonts across many domains, estimating license-violation risk."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "FontSentry contributors" }]
+keywords = ["fonts", "license", "audit", "crawler", "webfonts"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+]
+
+dependencies = [
+    "httpx>=0.28",
+    "selectolax>=0.3.30",
+    "tinycss2>=1.4",
+    "fonttools>=4.58",
+    "pydantic>=2.11",
+    "typer>=0.16",
+    "rich>=14.0",
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+    "protego>=0.5",
+]
+
+[project.optional-dependencies]
+# Heavy, opt-in. Only needed for the JavaScript-injected-font fallback renderer.
+browser = ["playwright>=1.52"]
+
+[project.scripts]
+fontsentry = "fontsentry.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/fontsentry/fontsentry"
+Repository = "https://github.com/fontsentry/fontsentry"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.12",
+    "mypy>=1.16",
+    "types-pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fontsentry"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "PTH", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["selectolax.*", "tinycss2.*", "fontTools.*", "protego.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: tests requiring the optional Playwright browser; skipped in default CI",
+]
