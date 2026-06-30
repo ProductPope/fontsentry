@@ -18,6 +18,13 @@ out/
 .cache/
 .fontsentry-cache/
 
+# Generated scheduled-task launchers
+.fontsentry-tasks/
+
+# Built web UI
+web/dist/
+web/node_modules/
+
 # Secrets
 .env
 .env.*

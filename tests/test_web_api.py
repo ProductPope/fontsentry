@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from fontsentry.web.server import create_app
@@ -92,3 +93,21 @@ def test_diff_endpoint(tmp_path: Path) -> None:
 def test_invalid_mode_rejected(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 400
+
+
+def test_schedules_list_ok(tmp_path: Path) -> None:
+    # Read-only; harmless on any OS (returns [] off Windows).
+    with _client(tmp_path) as client:
+        resp = client.get("/api/schedules")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+
+def test_create_schedule_unsupported_off_windows(tmp_path: Path) -> None:
+    import sys
+
+    if sys.platform == "win32":
+        pytest.skip("would create a real scheduled task on Windows")
+    with _client(tmp_path) as client:
+        resp = client.post("/api/schedules", json={"name": "weekly-audit"})
+        assert resp.status_code == 501

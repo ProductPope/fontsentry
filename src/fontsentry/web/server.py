@@ -25,6 +25,15 @@ from fontsentry.report.diff import diff_runs
 from fontsentry.report.json_report import load_run
 from fontsentry.scan import scan_and_write
 from fontsentry.web.jobs import Job, JobManager
+from fontsentry.web.scheduler import (
+    ScheduleInfo,
+    SchedulerError,
+    ScheduleSpec,
+    create_schedule,
+    delete_schedule,
+    is_windows,
+    list_schedules,
+)
 
 # Keep strong references to in-flight scan tasks so they are not garbage-collected.
 _background_tasks: set[asyncio.Task[None]] = set()
@@ -133,6 +142,33 @@ def create_app(
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
         return job
+
+    tasks_dir = Path(".fontsentry-tasks")
+
+    @app.get("/api/schedules")
+    async def get_schedules() -> list[ScheduleInfo]:
+        if not is_windows():
+            return []
+        return list_schedules()
+
+    @app.post("/api/schedules", status_code=201)
+    async def create_schedule_endpoint(spec: ScheduleSpec) -> ScheduleInfo:
+        if not is_windows():
+            raise HTTPException(status_code=501, detail="scheduling is only supported on Windows")
+        try:
+            return create_schedule(spec, tasks_dir=tasks_dir, working_dir=demo.repo_root())
+        except SchedulerError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.delete("/api/schedules/{name}")
+    async def delete_schedule_endpoint(name: str) -> dict[str, str]:
+        if not is_windows():
+            raise HTTPException(status_code=501, detail="scheduling is only supported on Windows")
+        try:
+            delete_schedule(name, tasks_dir=tasks_dir)
+        except SchedulerError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        return {"deleted": name}
 
     dist = _web_dist()
     if dist.is_dir():
