@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  body {
+    @apply bg-canvas text-ink;
+    font-family: var(--font-sans);
+  }
+
+  /* Visible keyboard focus everywhere (WCAG 2.4.7). */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Respect reduced-motion (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,34 @@
+/* Design tokens — two layers: Primitive (raw values, only here) -> Semantic.
+   Components must use ONLY the semantic Tailwind utilities (bg-canvas, text-ink,
+   text-accent, border-stroke, bg-band-high, rounded-tk ...), never raw values. */
+
+:root {
+  /* ---- Primitive (raw values; do not use directly in components) ---- */
+  --p-stone-50: #f7f7f5;
+  --p-white: #ffffff;
+  --p-stone-900: #1c1c1a;
+  --p-stone-600: #57574f;
+  --p-stone-400: #8a8a82;
+  --p-stone-200: #e2e2dd;
+  --p-green-700: #237a40;
+  --p-amber-800: #8a5e0c;
+  --p-red-600: #c0392b;
+  --p-red-700: #a5301f;
+}
+
+@theme {
+  /* ---- Semantic (these generate the utilities components use) ---- */
+  --color-canvas: var(--p-stone-50);
+  --color-surface: var(--p-white);
+  --color-ink: var(--p-stone-900);
+  --color-muted: var(--p-stone-600);
+  --color-faint: var(--p-stone-400);
+  --color-stroke: var(--p-stone-200);
+  --color-accent: var(--p-red-700);
+  --color-band-low: var(--p-green-700);
+  --color-band-medium: var(--p-amber-800);
+  --color-band-high: var(--p-red-700);
+
+  --radius-tk: 8px;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

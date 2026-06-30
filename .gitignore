@@ -24,6 +24,7 @@ out/
 # Built web UI
 web/dist/
 web/node_modules/
+*.tsbuildinfo
 
 # Secrets
 .env
