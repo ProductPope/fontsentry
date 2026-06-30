@@ -49,6 +49,39 @@ class FindingStatus(StrEnum):
 
 
 # --------------------------------------------------------------------------- #
+# Detection runtime models
+# --------------------------------------------------------------------------- #
+
+
+class FontMetadata(BaseModel):
+    """Fields read from a font file's `name` table (any may be missing/stripped)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    family_name: str | None = None
+    foundry: str | None = None  # name ID 8 (manufacturer)
+    designer: str | None = None  # name ID 9
+    copyright: str | None = None  # name ID 0
+    license_description: str | None = None  # name ID 13
+    license_url: str | None = None  # name ID 14
+    unique_id: str | None = None  # name ID 3
+    num_glyphs: int | None = None
+
+
+class DetectedFont(BaseModel):
+    """A single font occurrence found on one page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    family: str
+    embedding: EmbeddingMethod
+    font_format: FontFormat = FontFormat.UNKNOWN
+    source_page: str
+    font_url: str | None = None
+    metadata: FontMetadata | None = None
+
+
+# --------------------------------------------------------------------------- #
 # Settings
 # --------------------------------------------------------------------------- #
 
