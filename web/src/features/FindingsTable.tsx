@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
-import { RiskBadge } from "../components/Badge";
+import { RiskBadge, StatusText } from "../components/Badge";
 import { Select } from "../components/Select";
 import { TextInput } from "../components/TextInput";
 import type { Band, Finding, Status } from "../lib/api";
+
+// Comp table-header cell: small uppercase, faint, wide tracking.
+const TH = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]";
 
 function findingKey(f: Finding): string {
   return `${f.family}::${f.owner ?? ""}`;
@@ -11,7 +14,7 @@ function findingKey(f: Finding): string {
 function FindingDetail({ finding }: { finding: Finding }) {
   const m = finding.metadata;
   return (
-    <div className="grid gap-4 bg-canvas px-4 py-3 text-sm sm:grid-cols-2">
+    <div className="grid gap-4 bg-surface2 px-4 py-3 text-sm sm:grid-cols-2">
       <div>
         <h3 className="mb-1 font-semibold">Triggered rules</h3>
         {finding.triggered_rules.length > 0 ? (
@@ -107,36 +110,35 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-tk border border-stroke">
+      <div className="overflow-x-auto rounded-card border border-stroke">
         <table className="w-full border-collapse bg-surface text-sm">
           <caption className="sr-only">Detected fonts and their risk</caption>
           <thead>
-            <tr className="bg-canvas text-left">
-              <th scope="col" className="px-4 py-2 font-semibold">
+            <tr className="bg-surface2 text-left text-faint">
+              <th scope="col" className={TH}>
                 Font
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Owner
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Embedding
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Domains
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 <button
                   onClick={() => setDesc((d) => !d)}
                   aria-label={`Sort by score ${desc ? "ascending" : "descending"}`}
-                  className="font-semibold"
                 >
                   Score {desc ? "▼" : "▲"}
                 </button>
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Band
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Status
               </th>
             </tr>
@@ -184,13 +186,15 @@ function FindingRows({
           </button>
         </td>
         <td className="px-4 py-2">{finding.owner ?? "—"}</td>
-        <td className="px-4 py-2">{finding.embeddings.join(", ") || "—"}</td>
-        <td className="px-4 py-2 tabular-nums">{finding.domains.length}</td>
-        <td className="px-4 py-2 font-semibold tabular-nums">{finding.score}</td>
+        <td className="px-4 py-2 font-mono text-xs">{finding.embeddings.join(", ") || "—"}</td>
+        <td className="px-4 py-2 font-mono tabular-nums">{finding.domains.length}</td>
+        <td className="px-4 py-2 font-mono font-semibold tabular-nums">{finding.score}</td>
         <td className="px-4 py-2">
           <RiskBadge band={finding.band} />
         </td>
-        <td className="px-4 py-2">{finding.status}</td>
+        <td className="px-4 py-2">
+          <StatusText status={finding.status} />
+        </td>
       </tr>
       {isOpen && (
         <tr>

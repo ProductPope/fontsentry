@@ -1,7 +1,10 @@
 import { useMemo, useState } from "react";
-import { RiskBadge } from "../components/Badge";
+import { RiskBadge, StatusText } from "../components/Badge";
 import { Select } from "../components/Select";
 import type { Band, DomainReport, Status } from "../lib/api";
+
+// Comp table-header cell: small uppercase, faint, wide tracking.
+const TH = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]";
 
 interface HostRow {
   host: string;
@@ -79,30 +82,30 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-tk border border-stroke">
+      <div className="overflow-x-auto rounded-card border border-stroke">
         <table className="w-full border-collapse bg-surface text-sm">
           <caption className="sr-only">Fonts by host</caption>
           <thead>
-            <tr className="bg-canvas text-left">
-              <th scope="col" className="px-4 py-2 font-semibold">
+            <tr className="bg-surface2 text-left text-faint">
+              <th scope="col" className={TH}>
                 Host
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Font
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Owner
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Embedding
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Format
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Band
               </th>
-              <th scope="col" className="px-4 py-2 font-semibold">
+              <th scope="col" className={TH}>
                 Status
               </th>
             </tr>
@@ -111,17 +114,19 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
             {rows.map((r, i) => (
               <tr key={`${r.host}:${r.family}:${i}`} className="border-t border-stroke">
                 <td className="px-4 py-2">
-                  {r.host}
-                  {r.isSubdomain && <span className="ml-1 text-muted">(subdomain)</span>}
+                  <span className="font-mono text-xs">{r.host}</span>
+                  {r.isSubdomain && <span className="ml-1 text-faint">(subdomain)</span>}
                 </td>
                 <td className="px-4 py-2 font-medium">{r.family}</td>
                 <td className="px-4 py-2">{r.owner ?? "—"}</td>
-                <td className="px-4 py-2">{r.embeddings.join(", ") || "—"}</td>
-                <td className="px-4 py-2">{r.formats.join(", ") || "—"}</td>
+                <td className="px-4 py-2 font-mono text-xs">{r.embeddings.join(", ") || "—"}</td>
+                <td className="px-4 py-2 font-mono text-xs">{r.formats.join(", ") || "—"}</td>
                 <td className="px-4 py-2">
                   <RiskBadge band={r.band} />
                 </td>
-                <td className="px-4 py-2">{r.status}</td>
+                <td className="px-4 py-2">
+                  <StatusText status={r.status} />
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
