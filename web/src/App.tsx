@@ -3,26 +3,31 @@ import { Button } from "./components/Button";
 import { Card } from "./components/Card";
 import { Select } from "./components/Select";
 import { Spinner } from "./components/Spinner";
+import { Tabs } from "./components/Tabs";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
-import { DiffView } from "./features/DiffView";
 import { DomainsView } from "./features/DomainsView";
 import { Faq } from "./features/Faq";
 import { FindingsTable } from "./features/FindingsTable";
 import { ScanControls } from "./features/ScanControls";
 import { ScheduleDialog } from "./features/ScheduleDialog";
-import { SummaryCards } from "./features/SummaryCards";
+import { SummaryBar } from "./features/SummaryBar";
 import { api } from "./lib/api";
 import type { RunMeta, RunReport } from "./lib/api";
 
-type View = "findings" | "domains" | "diff";
+type View = "fonts" | "domains";
+
+const TABS = [
+  { id: "fonts", label: "Fonts" },
+  { id: "domains", label: "Domains" },
+];
 
 export default function App() {
   const [runs, setRuns] = useState<RunMeta[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [report, setReport] = useState<RunReport | null>(null);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<View>("findings");
+  const [view, setView] = useState<View>("fonts");
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -67,7 +72,7 @@ export default function App() {
     async (runId: string) => {
       await refreshRuns();
       setSelectedId(runId);
-      setView("findings");
+      setView("fonts");
     },
     [refreshRuns],
   );
@@ -99,57 +104,25 @@ export default function App() {
           </Card>
         ) : (
           <>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <label className="text-sm">
-                <span className="mb-1 block font-medium">Run</span>
-                <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-                  {runs.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.id}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <div role="tablist" aria-label="View" className="flex gap-1">
-                <Button
-                  role="tab"
-                  aria-selected={view === "findings"}
-                  variant={view === "findings" ? "primary" : "ghost"}
-                  onClick={() => setView("findings")}
-                >
-                  Fonts
-                </Button>
-                <Button
-                  role="tab"
-                  aria-selected={view === "domains"}
-                  variant={view === "domains" ? "primary" : "ghost"}
-                  onClick={() => setView("domains")}
-                >
-                  Domains
-                </Button>
-                <Button
-                  role="tab"
-                  aria-selected={view === "diff"}
-                  variant={view === "diff" ? "primary" : "ghost"}
-                  onClick={() => setView("diff")}
-                >
-                  Diff
-                </Button>
-              </div>
-            </div>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Run</span>
+              <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
+                {runs.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.id}
+                  </option>
+                ))}
+              </Select>
+            </label>
+
+            {report && <SummaryBar report={report} />}
+
+            <Tabs tabs={TABS} active={view} onChange={(id) => setView(id as View)} />
 
             {loading && <Spinner label="Loading report…" />}
 
-            {report && view === "findings" && (
-              <>
-                <SummaryCards summary={report.summary} />
-                <FindingsTable findings={report.findings} />
-              </>
-            )}
-
+            {report && view === "fonts" && <FindingsTable findings={report.findings} />}
             {report && view === "domains" && <DomainsView domains={report.domains} />}
-
-            {view === "diff" && <DiffView runs={runs} currentId={selectedId} />}
 
             <Faq />
           </>

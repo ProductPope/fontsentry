@@ -80,16 +80,6 @@ def test_origin_guard_blocks_cross_origin(tmp_path: Path) -> None:
         assert allowed.status_code == 200
 
 
-def test_diff_endpoint(tmp_path: Path) -> None:
-    with _client(tmp_path) as client:
-        first = _run_demo_scan(client)
-        second = _run_demo_scan(client)
-        result = client.get("/api/diff", params={"previous": first, "current": second}).json()
-        # Two identical demo scans -> no new/resolved findings.
-        assert result["new_findings"] == []
-        assert result["resolved_findings"] == []
-
-
 def test_invalid_mode_rejected(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 400

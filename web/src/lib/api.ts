@@ -77,22 +77,6 @@ export interface RunMeta {
   summary: RunSummary;
 }
 
-export interface FindingDelta {
-  family: string;
-  foundry: string | null;
-  old_score: number;
-  new_score: number;
-  old_domains: string[];
-  new_domains: string[];
-}
-
-export interface DiffResult {
-  new_findings: Finding[];
-  resolved_findings: Finding[];
-  changed: FindingDelta[];
-  unchanged_count: number;
-}
-
 export interface ScheduleInfo {
   name: string;
   next_run: string | null;
@@ -135,10 +119,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   getRuns: () => request<RunMeta[]>("/api/runs"),
   getRun: (id: string) => request<RunReport>(`/api/runs/${encodeURIComponent(id)}`),
-  getDiff: (previous: string, current: string) =>
-    request<DiffResult>(
-      `/api/diff?previous=${encodeURIComponent(previous)}&current=${encodeURIComponent(current)}`,
-    ),
   startScan: (mode: "demo" | "real") =>
     request<{ job_id: string }>("/api/scan", {
       method: "POST",

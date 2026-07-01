@@ -1,17 +1,7 @@
 import { useMemo, useState } from "react";
 import { RiskBadge } from "../components/Badge";
-import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import type { Band, DomainReport, Status } from "../lib/api";
-
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <Card>
-      <div className="text-2xl font-bold tabular-nums">{n}</div>
-      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
-    </Card>
-  );
-}
 
 interface HostRow {
   host: string;
@@ -54,16 +44,6 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
   const [domainFilter, setDomainFilter] = useState("all");
   const [band, setBand] = useState<Band | "all">("all");
 
-  const totals = useMemo(
-    () => ({
-      domains: domains.length,
-      live: domains.filter((d) => d.is_live).length,
-      subdomains: domains.reduce((acc, d) => acc + d.subdomains.length, 0),
-      pages: domains.reduce((acc, d) => acc + d.pages_scanned, 0),
-    }),
-    [domains],
-  );
-
   const rows = useMemo(() => {
     return toRows(domains)
       .filter((r) => (domainFilter === "all" ? true : r.domain === domainFilter))
@@ -76,13 +56,6 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
 
   return (
     <div className="space-y-4">
-      <section aria-label="Domain summary" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat n={totals.domains} label="Domains" />
-        <Stat n={totals.live} label="Live" />
-        <Stat n={totals.subdomains} label="Subdomains" />
-        <Stat n={totals.pages} label="Pages scanned" />
-      </section>
-
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">
           <span className="mb-1 block font-medium">Domain</span>
