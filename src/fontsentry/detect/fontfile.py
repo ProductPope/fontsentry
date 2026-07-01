@@ -63,7 +63,7 @@ def read_font_metadata(data: bytes) -> tuple[FontMetadata, FontFormat]:
 
         metadata = FontMetadata(
             family_name=best(_NAME_TYPO_FAMILY) or best(_NAME_FAMILY),
-            foundry=best(_NAME_MANUFACTURER),
+            owner=best(_NAME_MANUFACTURER),
             designer=best(_NAME_DESIGNER),
             copyright=best(_NAME_COPYRIGHT),
             license_description=best(_NAME_LICENSE_DESC),

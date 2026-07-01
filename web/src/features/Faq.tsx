@@ -33,7 +33,7 @@ export function Faq() {
       <Item q="What do the columns mean?">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>Font / Foundry</strong> — the family and its maker (from the font file's name
+            <strong>Font / Owner</strong> — the family and its maker (from the font file's name
             table, when reachable).
           </li>
           <li>
@@ -82,7 +82,7 @@ export function Faq() {
       <Item q="Open vs Resolved — does the status change by itself?">
         Yes. Status is <strong>recomputed on every scan</strong>; it is never edited by hand. A
         finding is <strong>Resolved</strong> automatically when a matching entry in your license
-        registry covers it — same foundry + family, the domain is allowed, the domain count is
+        registry covers it — same owner + family, the domain is allowed, the domain count is
         within the license limit, and the license has not expired. Otherwise it stays{" "}
         <strong>Open</strong> with a reason.
       </Item>
@@ -90,7 +90,7 @@ export function Faq() {
       <Item q="How do I change the status for a domain?">
         You don't set it directly — you record the license. Add an entry to{" "}
         <code>registry/licenses.yaml</code> (copy from{" "}
-        <code>registry/licenses.example.yaml</code>) with the <code>foundry</code>,{" "}
+        <code>registry/licenses.example.yaml</code>) with the <code>owner</code>,{" "}
         <code>family</code>, the <code>allowed_domains</code> that include this domain, an optional{" "}
         <code>max_domains</code>, and <code>valid_until</code>. On the next audit that font on that
         domain flips to Resolved.

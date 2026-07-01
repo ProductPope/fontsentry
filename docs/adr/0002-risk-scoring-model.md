@@ -18,7 +18,7 @@ A **data-driven, additive rule engine**:
 - **Rule data lives in `rules.yaml`**; **rule mechanics live in code.** Each rule
   has an `id`, `description`, `weight`, `confidence`, and a `when` condition whose
   `type` names one predicate from a fixed, auditable vocabulary
-  (`fontsentry/risk/rules.py`). Parameters (formats, foundry lists, CDN sets,
+  (`fontsentry/risk/rules.py`). Parameters (formats, owner lists, CDN sets,
   thresholds) are pure data. Arbitrary code is never executed from YAML.
 - **Aggregation precedes scoring.** Per-page detections are merged into one
   identity per font family across all domains, so cross-domain predicates such as
@@ -28,7 +28,7 @@ A **data-driven, additive rule engine**:
   configurable `scoring.max_raw` and clamped, then mapped to low/medium/high bands
   whose thresholds also come from `rules.yaml`.
 - **Suppression is separate from scoring.** A finding is RESOLVED only when a
-  registry license genuinely covers it (matching foundry+family, not expired, every
+  registry license genuinely covers it (matching owner+family, not expired, every
   observed domain allowed, within `max_domains`); otherwise it is OPEN with a
   reason. Suppression decides *alerting*; the score still explains *why*.
 - **Evidence-gated predicates.** Rules that assert "commercial" or "missing

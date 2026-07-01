@@ -73,3 +73,23 @@ def load_rules(path: Path) -> RulesConfig:
 
 def load_registry(path: Path) -> Registry:
     return _load_model(path, Registry)
+
+
+def _dump_yaml(path: Path, data: dict[str, object]) -> None:
+    """Write ``data`` as YAML to ``path``, creating parent directories as needed."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, default_flow_style=False)
+    path.write_text(text, encoding="utf-8")
+
+
+def save_targets(path: Path, targets: TargetsConfig) -> None:
+    """Serialize a validated targets config to YAML (drops empty seed lists)."""
+
+    _dump_yaml(path, targets.model_dump(mode="json", exclude_defaults=True))
+
+
+def save_registry(path: Path, registry: Registry) -> None:
+    """Serialize a validated license registry to YAML (drops unset optional fields)."""
+
+    _dump_yaml(path, registry.model_dump(mode="json", exclude_none=True))

@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from fontsentry import config, demo
-from fontsentry.models import RunReport, RunSummary
+from fontsentry.models import Registry, RunReport, RunSummary, TargetsConfig
 from fontsentry.report.json_report import load_run
 from fontsentry.scan import scan_and_write
 from fontsentry.web.jobs import Job, JobManager
@@ -76,7 +76,7 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_LOCAL_ORIGINS,
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -113,6 +113,36 @@ def create_app(
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return load_run(path)
+
+    @app.get("/api/config/targets")
+    async def get_targets() -> TargetsConfig:
+        path = config_dir / "targets.yaml"
+        if not path.exists():
+            return TargetsConfig()
+        try:
+            return config.load_targets(path)
+        except config.ConfigError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.put("/api/config/targets")
+    async def put_targets(targets: TargetsConfig) -> TargetsConfig:
+        config.save_targets(config_dir / "targets.yaml", targets)
+        return targets
+
+    @app.get("/api/config/registry")
+    async def get_registry() -> Registry:
+        path = registry_dir / "licenses.yaml"
+        if not path.exists():
+            return Registry()
+        try:
+            return config.load_registry(path)
+        except config.ConfigError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.put("/api/config/registry")
+    async def put_registry(registry: Registry) -> Registry:
+        config.save_registry(registry_dir / "licenses.yaml", registry)
+        return registry
 
     @app.post("/api/scan")
     async def start_scan(request: ScanRequest) -> ScanStarted:
@@ -206,9 +236,19 @@ async def _run_scan_job(
         targets = config.load_targets(config.resolve_config_path(config_dir, "targets")).targets
         client = httpx.AsyncClient()
 
+    def on_progress(phase: str, current: int, total: int, message: str) -> None:
+        jobs.update_progress(job_id, phase, current, total, message)
+
     try:
         _report, json_path, _html = await scan_and_write(
-            targets, settings, rules, registry, client=client, now=now, reports_dir=reports_dir
+            targets,
+            settings,
+            rules,
+            registry,
+            client=client,
+            now=now,
+            reports_dir=reports_dir,
+            progress=on_progress,
         )
         jobs.mark_done(job_id, json_path.name)
     except Exception as exc:

@@ -20,7 +20,7 @@ SITES = DEMO / "sites"
 def build_font(
     *,
     family: str,
-    foundry: str,
+    owner: str,
     copyright_text: str | None,
     license_text: str | None,
     glyph_count: int,
@@ -39,8 +39,8 @@ def build_font(
     names = {
         "familyName": family,
         "styleName": "Regular",
-        "uniqueFontIdentifier": f"{foundry}: {family}: 2026",
-        "manufacturer": foundry,
+        "uniqueFontIdentifier": f"{owner}: {family}: 2026",
+        "manufacturer": owner,
         "designer": "Demo Designer",
     }
     if copyright_text is not None:
@@ -63,14 +63,14 @@ def main() -> None:
     fonts = {
         "example-demo.test/fonts/atlas.ttf": build_font(
             family="Atlas Grotesk Private",
-            foundry="Meridian Letterworks",
+            owner="Meridian Letterworks",
             copyright_text="Copyright 2026 Meridian Letterworks. Desktop use only.",
             license_text="Desktop license. Web embedding and self-hosting not permitted.",
             glyph_count=300,
         ),
         "example-demo.test/fonts/harbor.woff2": build_font(
             family="Harbor Serif",
-            foundry="Northwind Type",
+            owner="Northwind Type",
             copyright_text="Copyright 2026 Northwind Type.",
             license_text="Web font license, up to 3 domains.",
             glyph_count=300,
@@ -78,14 +78,14 @@ def main() -> None:
         ),
         "example-demo.test/fonts/acme.ttf": build_font(
             family="Acme Display",
-            foundry="Acme Type",
+            owner="Acme Type",
             copyright_text=None,  # stripped: triggers missing-copyright
             license_text=None,
             glyph_count=300,
         ),
         "example-demo.test/fonts/publicglyphs.woff2": build_font(
             family="Public Glyphs Sans",
-            foundry="Public Glyphs Foundation",
+            owner="Public Glyphs Foundation",
             copyright_text="Copyright 2026 Public Glyphs Foundation.",
             license_text="SIL Open Font License (OFL) v1.1.",
             glyph_count=50,  # small: triggers low-confidence subset signal
@@ -93,21 +93,21 @@ def main() -> None:
         ),
         "blog.example-demo.test/fonts/acme.ttf": build_font(
             family="Acme Display",
-            foundry="Acme Type",
+            owner="Acme Type",
             copyright_text=None,  # same unregistered font, reused on a subdomain
             license_text=None,
             glyph_count=300,
         ),
         "example-shop.test/fonts/atlas.ttf": build_font(
             family="Atlas Grotesk Private",
-            foundry="Meridian Letterworks",
+            owner="Meridian Letterworks",
             copyright_text="Copyright 2026 Meridian Letterworks. Desktop use only.",
             license_text="Desktop license. Web embedding and self-hosting not permitted.",
             glyph_count=300,
         ),
         "example-shop.test/fonts/expired.woff2": build_font(
             family="Expired Face",
-            foundry="Old Foundry",
+            owner="Old Foundry",
             copyright_text="Copyright 2024 Old Foundry.",
             license_text="Web font license (annual).",
             glyph_count=300,

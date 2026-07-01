@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Breaking:** renamed the `foundry` field to `owner` throughout — domain models,
+  report JSON (schema bumped to v3), the license registry YAML key, the risk-rule
+  params (`foundries` → `owners`, `free_foundries` → `free_owners`), the CLI/HTML
+  report columns, and the web UI. Existing `licenses.yaml` files and pre-v3 report
+  JSON that use `foundry` must be updated to `owner`.
+
 ### Added
+- Web UI **Setup** section (collapsible, open on first visit): edit the domains to
+  scan and the owned-license registry — including how each license may be used
+  (allowed domains, max domains, validity) — directly from the dashboard. Backed
+  by `GET`/`PUT /api/config/targets` and `/api/config/registry`, which read and
+  write the local, gitignored `config/targets.yaml` and `registry/licenses.yaml`.
+  The license table has per-header tooltips, license-type suggestions, and an
+  "Insert examples" action that seeds illustrative rows.
+- License registry `allowed_domains` now accepts the `"*"` wildcard, meaning the
+  license is valid on any domain (unlimited scope).
 - Project scaffold: `pyproject.toml` (uv, ruff, mypy, pytest), source layout,
   packaging metadata, MIT license, and baseline docs.
 - Configuration system: pydantic v2 models and YAML loaders for settings, targets,

@@ -1,7 +1,7 @@
 """Diff two runs over open (alertable) findings: new, resolved, and changed.
 
 Monitoring only cares about what changed, so suppressed (RESOLVED) findings are
-excluded. A finding's identity across runs is (family, foundry), case-insensitive.
+excluded. A finding's identity across runs is (family, owner), case-insensitive.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ _Key = tuple[str, str]
 
 
 def _key(finding: Finding) -> _Key:
-    return (finding.family.strip().lower(), (finding.foundry or "").strip().lower())
+    return (finding.family.strip().lower(), (finding.owner or "").strip().lower())
 
 
 def _open_index(report: RunReport) -> dict[_Key, Finding]:
@@ -42,7 +42,7 @@ def diff_runs(previous: RunReport, current: RunReport) -> DiffResult:
             changed.append(
                 FindingDelta(
                     family=after.family,
-                    foundry=after.foundry,
+                    owner=after.owner,
                     old_score=before.score,
                     new_score=after.score,
                     old_domains=before.domains,

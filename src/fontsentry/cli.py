@@ -51,13 +51,13 @@ def _print_summary(report: RunReport) -> None:
         f"[red]{s.open_findings} open[/] · {s.resolved_findings} resolved"
     )
     table = Table(show_header=True, header_style="bold")
-    for col in ("Font", "Foundry", "Embedding", "Format", "Domains", "Score", "Band", "Status"):
+    for col in ("Font", "Owner", "Embedding", "Format", "Domains", "Score", "Band", "Status"):
         table.add_column(col)
     band_color = {"low": "green", "medium": "yellow", "high": "red"}
     for f in report.findings:
         table.add_row(
             f.family,
-            f.foundry or "—",
+            f.owner or "—",
             ", ".join(e.value for e in f.embeddings) or "—",
             ", ".join(fmt.value for fmt in f.formats) or "—",
             str(f.domain_count),
@@ -125,9 +125,9 @@ def _print_diff(result: DiffResult) -> None:
         console.print("[green]No changes since the previous run.[/]")
         return
     for f in result.new_findings:
-        console.print(f"[red]NEW[/]      {f.family} ({f.foundry or '—'}) score={f.score}")
+        console.print(f"[red]NEW[/]      {f.family} ({f.owner or '—'}) score={f.score}")
     for f in result.resolved_findings:
-        console.print(f"[green]RESOLVED[/] {f.family} ({f.foundry or '—'})")
+        console.print(f"[green]RESOLVED[/] {f.family} ({f.owner or '—'})")
     for d in result.changed:
         console.print(
             f"[yellow]CHANGED[/]  {d.family} score {d.old_score}->{d.new_score} "

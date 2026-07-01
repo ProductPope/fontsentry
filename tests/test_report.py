@@ -24,11 +24,11 @@ def _finding(
     score: int,
     band: RiskBand,
     status: FindingStatus = FindingStatus.OPEN,
-    foundry: str = "Acme Type",
+    owner: str = "Acme Type",
 ) -> Finding:
     return Finding(
         family=family,
-        foundry=foundry,
+        owner=owner,
         domains=["example.com"],
         formats=[FontFormat.TTF],
         embeddings=[EmbeddingMethod.SELF_HOSTED],

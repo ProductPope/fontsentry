@@ -24,6 +24,11 @@ class Job(BaseModel):
     status: JobStatus = JobStatus.RUNNING
     run_id: str | None = None
     error: str | None = None
+    # Live progress, updated as the scan moves through its phases.
+    phase: str = ""  # "discover" | "detect" | "score" | "report"
+    message: str = ""
+    current: int = 0  # units done in the current phase
+    total: int = 0  # units total in the current phase (0 = unknown/indeterminate)
 
 
 class JobManager:
@@ -37,6 +42,15 @@ class JobManager:
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
+
+    def update_progress(
+        self, job_id: str, phase: str, current: int, total: int, message: str
+    ) -> None:
+        if job := self._jobs.get(job_id):
+            job.phase = phase
+            job.current = current
+            job.total = total
+            job.message = message
 
     def mark_done(self, job_id: str, run_id: str) -> None:
         if job := self._jobs.get(job_id):

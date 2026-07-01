@@ -8,7 +8,7 @@ interface HostRow {
   domain: string;
   isSubdomain: boolean;
   family: string;
-  foundry: string | null;
+  owner: string | null;
   embeddings: string[];
   formats: string[];
   band: Band;
@@ -26,7 +26,7 @@ function toRows(domains: DomainReport[]): HostRow[] {
           domain: d.domain,
           isSubdomain: d.subdomains.includes(host),
           family: f.family,
-          foundry: f.foundry,
+          owner: f.owner,
           embeddings: f.embeddings,
           formats: f.formats,
           band: f.band,
@@ -91,7 +91,7 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
                 Font
               </th>
               <th scope="col" className="px-4 py-2 font-semibold">
-                Foundry
+                Owner
               </th>
               <th scope="col" className="px-4 py-2 font-semibold">
                 Embedding
@@ -115,7 +115,7 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
                   {r.isSubdomain && <span className="ml-1 text-muted">(subdomain)</span>}
                 </td>
                 <td className="px-4 py-2 font-medium">{r.family}</td>
-                <td className="px-4 py-2">{r.foundry ?? "—"}</td>
+                <td className="px-4 py-2">{r.owner ?? "—"}</td>
                 <td className="px-4 py-2">{r.embeddings.join(", ") || "—"}</td>
                 <td className="px-4 py-2">{r.formats.join(", ") || "—"}</td>
                 <td className="px-4 py-2">

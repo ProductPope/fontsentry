@@ -4,7 +4,7 @@
 entries:
   # Single-domain web license. The demo uses this font on TWO domains, so it
   # surfaces as an open finding (domain not covered + max_domains exceeded).
-  - foundry: "Meridian Letterworks"
+  - owner: "Meridian Letterworks"
     family: "Atlas Grotesk Private"
     license_type: "Web, single domain"
     allowed_domains:
@@ -14,7 +14,7 @@ entries:
     notes: "Demonstrates the cross-domain max_domains rule."
 
   # Valid multi-domain license -> Harbor Serif is suppressed (RESOLVED).
-  - foundry: "Northwind Type"
+  - owner: "Northwind Type"
     family: "Harbor Serif"
     license_type: "Web, up to 3 domains"
     allowed_domains:
@@ -25,7 +25,7 @@ entries:
     notes: "Properly licensed; should not alert."
 
   # Expired license -> Expired Face surfaces as an open finding.
-  - foundry: "Old Foundry"
+  - owner: "Old Foundry"
     family: "Expired Face"
     license_type: "Web, annual"
     allowed_domains:

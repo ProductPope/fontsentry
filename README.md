@@ -13,7 +13,7 @@ registry you maintain are suppressed automatically.
 > [!IMPORTANT]
 > **The risk score is a heuristic estimate, not legal advice.** A high score means
 > "worth a human looking at the license", not "infringement". FontSentry does not
-> determine legal liability. Always confirm with the foundry or your legal team.
+> determine legal liability. Always confirm with the owner or your legal team.
 
 ## Status
 
