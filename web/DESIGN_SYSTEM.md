@@ -23,15 +23,49 @@ strong typographic hierarchy, and colour used only to encode risk — never deco
 | --- | --- | --- |
 | `--color-canvas` | `bg-canvas` | Page background |
 | `--color-surface` | `bg-surface` | Cards, tables, panels |
+| `--color-surface2` | `bg-surface2` | Insets, chips, footers, hover fills |
+| `--color-sunken` | `bg-sunken` | Progress tracks, code blocks |
 | `--color-ink` | `text-ink` | Primary text |
 | `--color-muted` | `text-muted` | Secondary text (≥ 4.5:1 on canvas) |
+| `--color-faint` | `text-faint` | Tertiary text, labels |
 | `--color-stroke` | `border-stroke` | Borders, dividers |
-| `--color-accent` | `bg-accent` / `text-accent` | Primary actions, focus ring |
-| `--color-band-low/medium/high` | `bg-band-*` | Risk bands only |
-| `--radius-tk` | `rounded-tk` | Corner radius |
+| `--color-stroke2` | `border-stroke2` | Stronger/dashed borders |
+| `--color-accent` | `bg-accent` / `text-accent` | Primary actions, links, focus ring (slate-blue) |
+| `--color-accent-fg` | `text-accent-fg` | Text/icon ON an accent fill |
+| `--color-accent-soft` | `bg-accent-soft` | Accent tint backgrounds, `::selection` |
+| `--color-band-{low,medium,high}` | `text-band-*` | Risk band foreground (text/icon) |
+| `--color-band-{low,medium,high}-bg` | `bg-band-*-bg` | Risk band pill/chip fill |
+| `--color-band-{low,medium,high}-line` | `border-band-*-line` | Risk band pill/chip border |
+| `--shadow-tk` / `--shadow-tk-lg` | `shadow-tk` / `shadow-tk-lg` | Card / modal-toast elevation |
+| `--radius-tk` | `rounded-tk` | Buttons, inputs (8px) |
+| `--radius-card` | `rounded-card` | Cards, tables, modals (12px) |
+| `--radius-chip` | `rounded-chip` | Chips, small badges (6px) |
+| `--font-sans` | `font-sans` | UI text (IBM Plex Sans) |
+| `--font-mono` | `font-mono` | Numerics, IDs, domains, embeddings, formats, timestamps (IBM Plex Mono) |
 
 Never use raw Tailwind palette utilities (`text-gray-400`, `bg-[#fff]`) or inline
 hex. If a value is missing, add a token — don't hardcode.
+
+## Theming (light / dark)
+
+Both themes ship. `@theme` in `tokens.css` defines the **light** semantics; a
+`:root[data-theme="dark"]` block remaps the same `--color-*` tokens to the dark
+primitives. Because every utility resolves to `var(--color-…)`, components
+re-theme at runtime with **no `dark:` variants** — just use the semantic
+utilities and both themes work.
+
+- `<html data-theme>` is set **before first paint** by an inline script in
+  `index.html` (reads `localStorage["fontsentry.theme"]`, else
+  `prefers-color-scheme`) to avoid a flash.
+- `useTheme()` (`src/lib/useTheme.ts`) reads/toggles it and persists; the
+  `ThemeToggle` component is the UI. `color-scheme` is set per theme so native
+  controls (scrollbars, form widgets) follow.
+
+## Fonts
+
+**IBM Plex Sans** (400/500/600/700) and **IBM Plex Mono** (400/500/600), both
+**self-hosted** via `@fontsource/*` and bundled by Vite — no external font fetch
+at runtime (offline/CSP constraint). Weights are imported in `styles/index.css`.
 
 ## Components
 

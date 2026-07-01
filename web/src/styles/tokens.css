@@ -1,34 +1,124 @@
 /* Design tokens — two layers: Primitive (raw values, only here) -> Semantic.
    Components must use ONLY the semantic Tailwind utilities (bg-canvas, text-ink,
-   text-accent, border-stroke, bg-band-high, rounded-tk ...), never raw values. */
+   text-accent, border-stroke, bg-band-high, rounded-tk ...), never raw values.
+
+   Theme: semantic tokens default to the light primitives in @theme; the
+   :root[data-theme="dark"] block remaps the same semantic tokens to the dark
+   primitives, so utilities re-theme at runtime without dark: variants. */
 
 :root {
-  /* ---- Primitive (raw values; do not use directly in components) ---- */
-  --p-stone-50: #f7f7f5;
-  --p-white: #ffffff;
-  --p-stone-900: #1c1c1a;
-  --p-stone-600: #57574f;
-  --p-stone-400: #8a8a82;
-  --p-stone-200: #e2e2dd;
-  --p-green-700: #237a40;
-  --p-amber-800: #8a5e0c;
-  --p-red-600: #c0392b;
-  --p-red-700: #a5301f;
+  /* ---- Primitive: light (raw values; never used directly in components) ---- */
+  --p-bg: #f5f5f2;
+  --p-surface: #ffffff;
+  --p-surface2: #f0f0ec;
+  --p-sunken: #ecece7;
+  --p-border: #e4e4dd;
+  --p-border2: #d3d3ca;
+  --p-text: #191916;
+  --p-text2: #5c5c53;
+  --p-text3: #8d8d82;
+  --p-accent: #345788;
+  --p-accent-fg: #ffffff;
+  --p-accent-soft: #e7edf6;
+  --p-low-fg: #166b41;
+  --p-low-bg: #e2f1e8;
+  --p-low-line: #9ed3b6;
+  --p-med-fg: #8a5b00;
+  --p-med-bg: #f6ecd1;
+  --p-med-line: #e3c477;
+  --p-high-fg: #a52820;
+  --p-high-bg: #f8e1de;
+  --p-high-line: #e6a49d;
+  --p-shadow: 0 1px 2px rgba(20, 20, 15, 0.05), 0 2px 6px rgba(20, 20, 15, 0.05);
+  --p-shadow-lg: 0 8px 28px rgba(20, 20, 15, 0.1);
+
+  /* ---- Primitive: dark ---- */
+  --p-d-bg: #0d0f12;
+  --p-d-surface: #15181c;
+  --p-d-surface2: #1b1f24;
+  --p-d-sunken: #101317;
+  --p-d-border: #262b31;
+  --p-d-border2: #353c44;
+  --p-d-text: #e8eaec;
+  --p-d-text2: #9aa1a9;
+  --p-d-text3: #697079;
+  --p-d-accent: #6f9ceb;
+  --p-d-accent-fg: #0d0f12;
+  --p-d-accent-soft: #182333;
+  --p-d-low-fg: #54cf90;
+  --p-d-low-bg: #102319;
+  --p-d-low-line: #1f5138;
+  --p-d-med-fg: #e2b455;
+  --p-d-med-bg: #241d0f;
+  --p-d-med-line: #5a4a23;
+  --p-d-high-fg: #f0736b;
+  --p-d-high-bg: #271513;
+  --p-d-high-line: #5c2b27;
+  --p-d-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --p-d-shadow-lg: 0 10px 34px rgba(0, 0, 0, 0.55);
 }
 
 @theme {
-  /* ---- Semantic (these generate the utilities components use) ---- */
-  --color-canvas: var(--p-stone-50);
-  --color-surface: var(--p-white);
-  --color-ink: var(--p-stone-900);
-  --color-muted: var(--p-stone-600);
-  --color-faint: var(--p-stone-400);
-  --color-stroke: var(--p-stone-200);
-  --color-accent: var(--p-red-700);
-  --color-band-low: var(--p-green-700);
-  --color-band-medium: var(--p-amber-800);
-  --color-band-high: var(--p-red-700);
+  /* ---- Semantic (these generate the utilities components use; light default) ---- */
+  --color-canvas: var(--p-bg);
+  --color-surface: var(--p-surface);
+  --color-surface2: var(--p-surface2);
+  --color-sunken: var(--p-sunken);
+  --color-ink: var(--p-text);
+  --color-muted: var(--p-text2);
+  --color-faint: var(--p-text3);
+  --color-stroke: var(--p-border);
+  --color-stroke2: var(--p-border2);
+  --color-accent: var(--p-accent);
+  --color-accent-fg: var(--p-accent-fg);
+  --color-accent-soft: var(--p-accent-soft);
+
+  --color-band-low: var(--p-low-fg);
+  --color-band-low-bg: var(--p-low-bg);
+  --color-band-low-line: var(--p-low-line);
+  --color-band-medium: var(--p-med-fg);
+  --color-band-medium-bg: var(--p-med-bg);
+  --color-band-medium-line: var(--p-med-line);
+  --color-band-high: var(--p-high-fg);
+  --color-band-high-bg: var(--p-high-bg);
+  --color-band-high-line: var(--p-high-line);
+
+  --shadow-tk: var(--p-shadow);
+  --shadow-tk-lg: var(--p-shadow-lg);
 
   --radius-tk: 8px;
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius-card: 12px;
+  --radius-chip: 6px;
+
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Code", monospace;
+}
+
+/* ---- Dark theme: remap semantics to dark primitives ---- */
+:root[data-theme="dark"] {
+  --color-canvas: var(--p-d-bg);
+  --color-surface: var(--p-d-surface);
+  --color-surface2: var(--p-d-surface2);
+  --color-sunken: var(--p-d-sunken);
+  --color-ink: var(--p-d-text);
+  --color-muted: var(--p-d-text2);
+  --color-faint: var(--p-d-text3);
+  --color-stroke: var(--p-d-border);
+  --color-stroke2: var(--p-d-border2);
+  --color-accent: var(--p-d-accent);
+  --color-accent-fg: var(--p-d-accent-fg);
+  --color-accent-soft: var(--p-d-accent-soft);
+
+  --color-band-low: var(--p-d-low-fg);
+  --color-band-low-bg: var(--p-d-low-bg);
+  --color-band-low-line: var(--p-d-low-line);
+  --color-band-medium: var(--p-d-med-fg);
+  --color-band-medium-bg: var(--p-d-med-bg);
+  --color-band-medium-line: var(--p-d-med-line);
+  --color-band-high: var(--p-d-high-fg);
+  --color-band-high-bg: var(--p-d-high-bg);
+  --color-band-high-line: var(--p-d-high-line);
+
+  --shadow-tk: var(--p-d-shadow);
+  --shadow-tk-lg: var(--p-d-shadow-lg);
 }
