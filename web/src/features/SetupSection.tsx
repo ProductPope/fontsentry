@@ -134,6 +134,20 @@ function splitLines(text: string): string[] {
     .filter(Boolean);
 }
 
+// Mirror the backend Target.domain validator (models.py) so preserved
+// subdomain_seeds are keyed identically on both sides. Without this, re-typing
+// an existing domain with a scheme or trailing slash misses the seed lookup and
+// silently drops its seeds on save.
+function normalizeDomain(value: string): string {
+  let v = value.trim().toLowerCase();
+  for (const prefix of ["https://", "http://"]) {
+    if (v.startsWith(prefix)) {
+      v = v.slice(prefix.length);
+    }
+  }
+  return v.replace(/\/+$/, "");
+}
+
 interface SetupSectionProps {
   notify: (message: string, kind: ToastKind) => void;
 }
@@ -184,11 +198,11 @@ export function SetupSection({ notify }: SetupSectionProps) {
     setSavingDomains(true);
     try {
       const seedsByDomain = new Map(
-        loadedTargets.map((t) => [t.domain.toLowerCase(), t.subdomain_seeds]),
+        loadedTargets.map((t) => [normalizeDomain(t.domain), t.subdomain_seeds]),
       );
       const targets: Target[] = splitLines(domainsText).map((domain) => ({
         domain,
-        subdomain_seeds: seedsByDomain.get(domain.toLowerCase()) ?? [],
+        subdomain_seeds: seedsByDomain.get(normalizeDomain(domain)) ?? [],
       }));
       const saved = await api.saveTargets({ targets });
       setLoadedTargets(saved.targets);
