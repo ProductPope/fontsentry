@@ -4,6 +4,7 @@ import { Card } from "./components/Card";
 import { Select } from "./components/Select";
 import { Spinner } from "./components/Spinner";
 import { Tabs } from "./components/Tabs";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
 import { DomainsView } from "./features/DomainsView";
@@ -93,6 +94,7 @@ export default function App() {
             <Button variant="secondary" onClick={() => setScheduleOpen(true)}>
               Schedule
             </Button>
+            <ThemeToggle />
           </div>
         </div>
       </header>
