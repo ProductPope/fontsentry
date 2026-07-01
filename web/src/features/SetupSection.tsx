@@ -322,10 +322,10 @@ export function SetupSection({ notify }: SetupSectionProps) {
                 ))}
               </datalist>
 
-              <div className="overflow-x-auto rounded-tk border border-stroke">
+              <div className="overflow-x-auto rounded-card border border-stroke">
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-stroke bg-canvas text-left text-muted">
+                    <tr className="border-b border-stroke bg-surface2 text-left text-faint">
                       {COLUMNS.map((c) => (
                         <th key={c.label} className={c.className}>
                           <span

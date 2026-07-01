@@ -9,8 +9,8 @@ function isSystemOnly(f: Finding): boolean {
 function Stat({ value, label, note }: { value: number; label: string; note?: string }) {
   return (
     <Card>
-      <div className="text-2xl font-bold tabular-nums">{value}</div>
-      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
+      <div className="font-mono text-2xl font-bold tabular-nums">{value}</div>
+      <div className="text-xs uppercase tracking-wide text-faint">{label}</div>
       {note && <div className="mt-0.5 text-xs text-muted">{note}</div>}
     </Card>
   );

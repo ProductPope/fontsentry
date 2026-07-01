@@ -83,7 +83,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-stroke bg-surface">
+      <header className="sticky top-0 z-40 border-b border-stroke bg-surface/85 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <div>
             <h1 className="text-lg font-bold">FontSentry</h1>
@@ -115,7 +115,11 @@ export default function App() {
           <>
             <label className="block text-sm">
               <span className="mb-1 block font-medium">Run</span>
-              <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
+              <Select
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                className="font-mono text-xs"
+              >
                 {runs.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.id}
