@@ -14,7 +14,7 @@ def _registry() -> Registry:
     return Registry(
         entries=[
             RegistryEntry(
-                foundry="Meridian Letterworks",
+                owner="Meridian Letterworks",
                 family="Atlas Grotesk Private",
                 license_type="Web, single domain",
                 allowed_domains=["example.com"],
@@ -25,8 +25,8 @@ def _registry() -> Registry:
     )
 
 
-def _agg(domains: list[str], foundry: str = "Meridian Letterworks") -> AggregatedFont:
-    return AggregatedFont(family="Atlas Grotesk Private", foundry=foundry, domains=domains)
+def _agg(domains: list[str], owner: str = "Meridian Letterworks") -> AggregatedFont:
+    return AggregatedFont(family="Atlas Grotesk Private", owner=owner, domains=domains)
 
 
 def test_find_entry_case_insensitive() -> None:
@@ -42,7 +42,7 @@ def test_covered_font_is_resolved() -> None:
 
 
 def test_no_registry_entry_is_open() -> None:
-    result = evaluate_suppression(_agg(["example.com"], foundry="Unknown Co"), _registry(), NOW)
+    result = evaluate_suppression(_agg(["example.com"], owner="Unknown Co"), _registry(), NOW)
     assert result.status is FindingStatus.OPEN
     assert result.entry is None
     assert "no matching license" in (result.reason or "")
@@ -60,6 +60,14 @@ def test_max_domains_exceeded_is_open() -> None:
     result = evaluate_suppression(_agg(["example.com", "example.org"]), reg, NOW)
     assert result.status is FindingStatus.OPEN
     assert "max_domains" in (result.reason or "")
+
+
+def test_wildcard_allows_any_domain() -> None:
+    reg = _registry()
+    reg.entries[0].allowed_domains = ["*"]
+    reg.entries[0].max_domains = None  # unlimited scope
+    result = evaluate_suppression(_agg(["anything.test", "other.example"]), reg, NOW)
+    assert result.status is FindingStatus.RESOLVED
 
 
 def test_expired_license_is_open() -> None:

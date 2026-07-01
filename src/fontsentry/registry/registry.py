@@ -1,9 +1,10 @@
 """Match aggregated fonts against the owned-license registry and decide suppression.
 
 A finding is suppressed (status RESOLVED, no alert) only when a matching license
-genuinely covers it: same foundry + family, the license is not expired, every
-observed domain is allowed, and the global domain count is within max_domains.
-Anything short of that surfaces as an open finding.
+genuinely covers it: same owner + family, the license is not expired, every
+observed domain is allowed (or allowed_domains contains the "*" wildcard), and
+the global domain count is within max_domains. Anything short of that surfaces
+as an open finding.
 """
 
 from __future__ import annotations
@@ -24,11 +25,11 @@ def _norm(value: str | None) -> str:
     return (value or "").strip().lower()
 
 
-def find_entry(registry: Registry, foundry: str | None, family: str) -> RegistryEntry | None:
-    """Return the registry entry matching foundry + family (case-insensitive), if any."""
+def find_entry(registry: Registry, owner: str | None, family: str) -> RegistryEntry | None:
+    """Return the registry entry matching owner + family (case-insensitive), if any."""
 
     for entry in registry.entries:
-        if _norm(entry.foundry) == _norm(foundry) and _norm(entry.family) == _norm(family):
+        if _norm(entry.owner) == _norm(owner) and _norm(entry.family) == _norm(family):
             return entry
     return None
 
@@ -47,7 +48,7 @@ class Suppression:
 def evaluate_suppression(agg: AggregatedFont, registry: Registry, now: date) -> Suppression:
     """Decide whether an aggregated font is covered by a license."""
 
-    entry = find_entry(registry, agg.foundry, agg.family)
+    entry = find_entry(registry, agg.owner, agg.family)
     if entry is None:
         return Suppression(FindingStatus.OPEN, None, "no matching license in registry")
 
@@ -56,7 +57,8 @@ def evaluate_suppression(agg: AggregatedFont, registry: Registry, now: date) -> 
 
     allowed = {_norm(d) for d in entry.allowed_domains}
     observed = {_norm(d) for d in agg.domains}
-    if not observed <= allowed:
+    # "*" is a wildcard: the license covers any domain (unlimited scope).
+    if "*" not in allowed and not observed <= allowed:
         uncovered = sorted(observed - allowed)
         return Suppression(
             FindingStatus.OPEN, entry, f"domains not covered by license: {', '.join(uncovered)}"
@@ -77,7 +79,7 @@ def validate_registry(registry: Registry, proofs_dir: Path) -> list[str]:
 
     errors: list[str] = []
     for entry in registry.entries:
-        label = f"{entry.foundry} / {entry.family}"
+        label = f"{entry.owner} / {entry.family}"
         for kind, rel in (("proof", entry.proof_path), ("invoice", entry.invoice_path)):
             if rel is None:
                 continue

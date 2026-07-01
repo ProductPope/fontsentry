@@ -59,7 +59,7 @@ class FontMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     family_name: str | None = None
-    foundry: str | None = None  # name ID 8 (manufacturer)
+    owner: str | None = None  # name ID 8 (manufacturer)
     designer: str | None = None  # name ID 9
     copyright: str | None = None  # name ID 0
     license_description: str | None = None  # name ID 13
@@ -82,12 +82,12 @@ class DetectedFont(BaseModel):
 
 
 class AggregatedFont(BaseModel):
-    """One font identity (family + foundry) merged across every domain it appears on."""
+    """One font identity (family + owner) merged across every domain it appears on."""
 
     model_config = ConfigDict(extra="forbid")
 
     family: str
-    foundry: str | None = None
+    owner: str | None = None
     domains: list[str] = Field(default_factory=list)
     formats: list[FontFormat] = Field(default_factory=list)
     embeddings: list[EmbeddingMethod] = Field(default_factory=list)
@@ -117,7 +117,7 @@ class Finding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     family: str
-    foundry: str | None = None
+    owner: str | None = None
     domains: list[str] = Field(default_factory=list)
     formats: list[FontFormat] = Field(default_factory=list)
     embeddings: list[EmbeddingMethod] = Field(default_factory=list)
@@ -151,7 +151,7 @@ class DomainFont(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     family: str
-    foundry: str | None = None
+    owner: str | None = None
     band: RiskBand = RiskBand.LOW
     status: FindingStatus = FindingStatus.OPEN
     embeddings: list[EmbeddingMethod] = Field(default_factory=list)
@@ -177,7 +177,7 @@ class RunReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int = 2
+    schema_version: int = 3
     generated_at: datetime
     summary: RunSummary
     findings: list[Finding] = Field(default_factory=list)
@@ -190,7 +190,7 @@ class FindingDelta(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     family: str
-    foundry: str | None = None
+    owner: str | None = None
     old_score: int
     new_score: int
     old_domains: list[str] = Field(default_factory=list)
@@ -305,7 +305,7 @@ class RuleCondition(BaseModel):
     """A named predicate plus its parameters.
 
     The predicate *vocabulary* is implemented in ``risk.engine`` (a fixed,
-    auditable set). The predicate *parameters* (formats, foundry lists, CDN sets,
+    auditable set). The predicate *parameters* (formats, owner lists, CDN sets,
     thresholds) are pure data and live in ``rules.yaml`` — that is what makes the
     engine editable without touching code.
     """
@@ -373,7 +373,7 @@ class RulesConfig(BaseModel):
 class RegistryEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    foundry: str = Field(min_length=1)
+    owner: str = Field(min_length=1)
     family: str = Field(min_length=1)
     license_type: str = Field(min_length=1)
     allowed_domains: list[str] = Field(default_factory=list)

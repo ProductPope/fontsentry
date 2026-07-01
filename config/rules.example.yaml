@@ -29,18 +29,18 @@ rules:
       params:
         formats: ["ttf", "otf"]
 
-  # A commercial-foundry font with no matching entry in your license registry.
+  # A commercial-owner font with no matching entry in your license registry.
   # "Commercial" = the font is NOT detectably under an open license and the
-  # foundry is not in the known-free list.
+  # owner is not in the known-free list.
   - id: commercial-no-registry
-    description: "Commercial-foundry font with no matching license-registry entry."
+    description: "Commercial-owner font with no matching license-registry entry."
     weight: 35
     confidence: 0.6
     when:
       type: commercial_unregistered
       params:
         open_license_patterns: ["OFL", "Open Font License", "Apache", "GPL", "Ubuntu Font License"]
-        free_foundries: ["The Sentinel Type Co-op", "Public Glyphs Foundation"]
+        free_owners: ["The Sentinel Type Co-op", "Public Glyphs Foundation"]
 
   # The same font appears on more domains than the registry license permits.
   # Evaluated across the FULL crawl (cross-domain rule).
@@ -55,13 +55,13 @@ rules:
   # Self-hosted font whose license is known to prohibit self-hosting.
   # Names below are illustrative placeholders — replace with real ones you track.
   - id: self-host-prohibited
-    description: "Self-hosted font from a foundry/family whose license forbids self-hosting."
+    description: "Self-hosted font from a owner/family whose license forbids self-hosting."
     weight: 35
     confidence: 0.7
     when:
       type: self_host_prohibited
       params:
-        foundries: ["Meridian Letterworks"]
+        owners: ["Meridian Letterworks"]
         families: ["Atlas Grotesk Private"]
 
   # Font served from a known paid CDN with no corresponding registry entry.

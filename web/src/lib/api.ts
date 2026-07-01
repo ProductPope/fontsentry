@@ -5,7 +5,7 @@ export type Status = "open" | "resolved";
 
 export interface FontMetadata {
   family_name: string | null;
-  foundry: string | null;
+  owner: string | null;
   designer: string | null;
   copyright: string | null;
   license_description: string | null;
@@ -24,7 +24,7 @@ export interface TriggeredRule {
 
 export interface Finding {
   family: string;
-  foundry: string | null;
+  owner: string | null;
   domains: string[];
   formats: string[];
   embeddings: string[];
@@ -46,7 +46,7 @@ export interface RunSummary {
 
 export interface DomainFont {
   family: string;
-  foundry: string | null;
+  owner: string | null;
   band: Band;
   status: Status;
   embeddings: string[];
@@ -96,6 +96,35 @@ export interface Job {
   status: "running" | "done" | "error";
   run_id: string | null;
   error: string | null;
+  phase: string; // "" | "discover" | "detect" | "score" | "report"
+  message: string;
+  current: number;
+  total: number; // 0 = indeterminate
+}
+
+export interface Target {
+  domain: string;
+  subdomain_seeds: string[];
+}
+
+export interface TargetsConfig {
+  targets: Target[];
+}
+
+export interface RegistryEntry {
+  owner: string;
+  family: string;
+  license_type: string;
+  allowed_domains: string[];
+  max_domains: number | null;
+  proof_path: string | null;
+  invoice_path: string | null;
+  valid_until: string | null; // ISO date (YYYY-MM-DD)
+  notes: string | null;
+}
+
+export interface RegistryConfig {
+  entries: RegistryEntry[];
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -134,5 +163,17 @@ export const api = {
   deleteSchedule: (name: string) =>
     request<{ deleted: string }>(`/api/schedules/${encodeURIComponent(name)}`, {
       method: "DELETE",
+    }),
+  getTargets: () => request<TargetsConfig>("/api/config/targets"),
+  saveTargets: (targets: TargetsConfig) =>
+    request<TargetsConfig>("/api/config/targets", {
+      method: "PUT",
+      body: JSON.stringify(targets),
+    }),
+  getRegistry: () => request<RegistryConfig>("/api/config/registry"),
+  saveRegistry: (registry: RegistryConfig) =>
+    request<RegistryConfig>("/api/config/registry", {
+      method: "PUT",
+      body: JSON.stringify(registry),
     }),
 };

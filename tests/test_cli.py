@@ -59,7 +59,7 @@ def test_diff_two_runs(tmp_path: Path, repo_root: Path) -> None:
     newer.write_text(
         '{"schema_version":1,"generated_at":"2026-02-01T00:00:00Z",'
         '"summary":{"total_findings":1,"open_findings":1,"resolved_findings":0,"by_band":{}},'
-        '"findings":[{"family":"New Font","foundry":"Acme","domains":["a.com"],'
+        '"findings":[{"family":"New Font","owner":"Acme","domains":["a.com"],'
         '"formats":["ttf"],"embeddings":["self_hosted"],"score":70,"band":"high",'
         '"status":"open","triggered_rules":[],"registry_match":false}]}',
         encoding="utf-8",

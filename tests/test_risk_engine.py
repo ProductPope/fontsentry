@@ -35,7 +35,7 @@ def _font(
     embedding: EmbeddingMethod = EmbeddingMethod.SELF_HOSTED,
     fmt: FontFormat = FontFormat.TTF,
     page: str = "https://example.com/",
-    foundry: str | None = "Acme Type",
+    owner: str | None = "Acme Type",
     copyright: str | None = "Copyright 2026 Acme Type",
     license_desc: str | None = "Desktop license.",
     num_glyphs: int | None = 800,
@@ -48,7 +48,7 @@ def _font(
         font_url=f"{page}fonts/{family.replace(' ', '').lower()}.{fmt.value}",
         metadata=FontMetadata(
             family_name=family,
-            foundry=foundry,
+            owner=owner,
             copyright=copyright,
             license_description=license_desc,
             num_glyphs=num_glyphs,
@@ -82,7 +82,7 @@ def test_registry_match_suppresses(rules: RulesConfig) -> None:
     registry = Registry(
         entries=[
             RegistryEntry(
-                foundry="Acme Type",
+                owner="Acme Type",
                 family="Commercial Sans",
                 license_type="Web",
                 allowed_domains=["example.com"],
@@ -100,7 +100,7 @@ def test_max_domains_rule_is_cross_domain(rules: RulesConfig) -> None:
     registry = Registry(
         entries=[
             RegistryEntry(
-                foundry="Acme Type",
+                owner="Acme Type",
                 family="Commercial Sans",
                 license_type="Web, single domain",
                 allowed_domains=["example.com", "example.org"],
@@ -121,7 +121,7 @@ def test_expired_license_rule_fires(rules: RulesConfig) -> None:
     registry = Registry(
         entries=[
             RegistryEntry(
-                foundry="Acme Type",
+                owner="Acme Type",
                 family="Commercial Sans",
                 license_type="Web",
                 allowed_domains=["example.com"],
@@ -148,11 +148,11 @@ def test_paid_cdn_rule_fires(rules: RulesConfig) -> None:
 
 
 def test_score_clamped_and_banded(rules: RulesConfig) -> None:
-    # Self-hosted prohibited foundry + commercial + desktop format + expired => high.
+    # Self-hosted prohibited owner + commercial + desktop format + expired => high.
     registry = Registry(
         entries=[
             RegistryEntry(
-                foundry="Meridian Letterworks",
+                owner="Meridian Letterworks",
                 family="Atlas Grotesk Private",
                 license_type="Web",
                 allowed_domains=["example.com"],
@@ -163,7 +163,7 @@ def test_score_clamped_and_banded(rules: RulesConfig) -> None:
     fonts = [
         _font(
             family="Atlas Grotesk Private",
-            foundry="Meridian Letterworks",
+            owner="Meridian Letterworks",
             page="https://example.com/",
         )
     ]

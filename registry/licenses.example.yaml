@@ -1,33 +1,53 @@
 # License registry: fonts you own a license for. Copy to licenses.yaml
 # (gitignored) and edit. A detected font is SUPPRESSED (status RESOLVED, no alert)
-# when it matches an entry by foundry + family, the domain is in allowed_domains,
+# when it matches an entry by owner + family, the domain is in allowed_domains,
 # the global domain count is within max_domains, and valid_until has not passed.
 #
 # proof_path / invoice_path are relative to registry/proofs/ and are NEVER
 # committed (the folder contents are gitignored).
 #
-# Names below are invented placeholders for illustration only.
+# Font names below are invented placeholders for illustration only.
+#
+# allowed_domains lists the domains a license covers. Use the "*" wildcard for a
+# license valid on ANY domain. max_domains caps how many domains are allowed;
+# omit it for no cap. So "unlimited" = allowed_domains ["*"] and no max_domains.
 
 entries:
-  - foundry: "Meridian Letterworks"
+  # 1) Open font (OFL) self-hosted after downloading from Google Fonts. Open
+  #    licenses are never flagged, so an entry is optional — shown for reference.
+  - owner: "Google Fonts"
+    family: "Beacon Sans"
+    license_type: "Google Fonts — self-hosted (OFL)"
+    allowed_domains:
+      - "example.com"
+    notes: "Open license (OFL); self-hosted @font-face. Unrestricted."
+
+  # 2) Same open font, delivered live via the Google Fonts API
+  #    (fonts.googleapis.com) instead of being self-hosted.
+  - owner: "Google Fonts"
+    family: "Meadow Text"
+    license_type: "Google Fonts — API (OFL)"
+    allowed_domains:
+      - "example.com"
+    notes: "Open license (OFL); loaded from the Google Fonts API."
+
+  # 3) Commercial license tied to a SINGLE domain (max_domains: 1).
+  - owner: "Meridian Letterworks"
     family: "Atlas Grotesk Private"
-    license_type: "Web, single domain"
+    license_type: "Commercial — per domain"
     allowed_domains:
       - "example.com"
     max_domains: 1
     proof_path: "meridian-atlas-grotesk-web.pdf"
     invoice_path: "meridian-invoice-2026.pdf"
     valid_until: 2027-12-31
-    notes: "Annual web license. Renew before expiry."
+    notes: "Annual web license, one domain. Renew before expiry."
 
-  - foundry: "Northwind Type"
+  # 4) Commercial license valid on ANY domain: "*" wildcard + no max_domains cap.
+  - owner: "Northwind Type"
     family: "Harbor Serif"
-    license_type: "Web, up to 3 domains"
+    license_type: "Commercial — unlimited"
     allowed_domains:
-      - "example.com"
-      - "example.org"
-      - "blog.example.com"
-    max_domains: 3
+      - "*"
     proof_path: "northwind-harbor-serif.pdf"
-    valid_until: 2028-06-30
-    notes: ""
+    notes: "Perpetual, unlimited web license (any domain, no max_domains cap)."

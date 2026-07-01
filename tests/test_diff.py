@@ -15,11 +15,11 @@ def _finding(
     score: int,
     domains: list[str],
     status: FindingStatus = FindingStatus.OPEN,
-    foundry: str = "Acme Type",
+    owner: str = "Acme Type",
 ) -> Finding:
     return Finding(
         family=family,
-        foundry=foundry,
+        owner=owner,
         domains=domains,
         score=score,
         band=RiskBand.MEDIUM,

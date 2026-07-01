@@ -18,8 +18,21 @@ from fontsentry.web.server import create_app
 
 
 @contextmanager
-def _client(tmp_path: Path) -> Iterator[TestClient]:
-    with TestClient(create_app(reports_dir=tmp_path)) as client:
+def _client(
+    tmp_path: Path,
+    *,
+    config_dir: Path | None = None,
+    registry_dir: Path | None = None,
+) -> Iterator[TestClient]:
+    # Only override config/registry dirs when a test needs isolation (the config
+    # endpoints write files). Demo scans read rules from the real repo config, so
+    # the default must fall through to create_app's own defaults.
+    extra: dict[str, Path] = {}
+    if config_dir is not None:
+        extra["config_dir"] = config_dir
+    if registry_dir is not None:
+        extra["registry_dir"] = registry_dir
+    with TestClient(create_app(reports_dir=tmp_path, **extra)) as client:
         yield client
 
 
@@ -101,3 +114,62 @@ def test_create_schedule_unsupported_off_windows(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         resp = client.post("/api/schedules", json={"name": "weekly-audit"})
         assert resp.status_code == 501
+
+
+def test_targets_empty_then_roundtrip(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    with _client(tmp_path, config_dir=config_dir) as client:
+        assert client.get("/api/config/targets").json() == {"targets": []}
+
+        payload = {"targets": [{"domain": "Example.com", "subdomain_seeds": ["blog.example.com"]}]}
+        put = client.put("/api/config/targets", json=payload)
+        assert put.status_code == 200
+        # Domain is normalized (scheme-stripped, lowercased) by the model.
+        assert put.json()["targets"][0]["domain"] == "example.com"
+
+        # It was persisted to the real (gitignored) file, not the example.
+        assert (config_dir / "targets.yaml").exists()
+        assert client.get("/api/config/targets").json()["targets"][0]["domain"] == "example.com"
+
+
+def test_targets_invalid_rejected(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        resp = client.put("/api/config/targets", json={"targets": [{"subdomain_seeds": []}]})
+        assert resp.status_code == 422
+
+
+def test_registry_roundtrip_preserves_optional_fields(tmp_path: Path) -> None:
+    registry_dir = tmp_path / "registry"
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        assert client.get("/api/config/registry").json() == {"entries": []}
+
+        payload = {
+            "entries": [
+                {
+                    "owner": "Meridian Letterworks",
+                    "family": "Atlas Grotesk Private",
+                    "license_type": "Web, single domain",
+                    "allowed_domains": ["example.com"],
+                    "max_domains": 1,
+                    "valid_until": "2027-12-31",
+                    "notes": "renew before expiry",
+                }
+            ]
+        }
+        put = client.put("/api/config/registry", json=payload)
+        assert put.status_code == 200
+        assert (registry_dir / "licenses.yaml").exists()
+
+        got = client.get("/api/config/registry").json()["entries"][0]
+        assert got["family"] == "Atlas Grotesk Private"
+        assert got["max_domains"] == 1
+        assert got["valid_until"] == "2027-12-31"
+
+
+def test_registry_invalid_rejected(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        resp = client.put(
+            "/api/config/registry",
+            json={"entries": [{"owner": "X", "license_type": "Web"}]},  # missing family
+        )
+        assert resp.status_code == 422

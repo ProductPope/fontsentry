@@ -34,7 +34,7 @@ class EngineError(Exception):
 @dataclass
 class _Accumulator:
     family: str
-    foundry: str | None = None
+    owner: str | None = None
     domains: set[str] = field(default_factory=set)
     formats: set[FontFormat] = field(default_factory=set)
     embeddings: set[EmbeddingMethod] = field(default_factory=set)
@@ -57,9 +57,9 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
             acc = _Accumulator(family=font.family)
             groups[key] = acc
 
-        foundry = font.metadata.foundry if font.metadata else None
-        if acc.foundry is None and foundry:
-            acc.foundry = foundry
+        owner = font.metadata.owner if font.metadata else None
+        if acc.owner is None and owner:
+            acc.owner = owner
         if acc.metadata is None and font.metadata is not None:
             acc.metadata = font.metadata
 
@@ -73,7 +73,7 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
         result.append(
             AggregatedFont(
                 family=acc.family,
-                foundry=acc.foundry,
+                owner=acc.owner,
                 domains=sorted(acc.domains),
                 formats=sorted(acc.formats, key=lambda f: f.value),
                 embeddings=sorted(acc.embeddings, key=lambda e: e.value),
@@ -147,7 +147,7 @@ def evaluate(
         findings.append(
             Finding(
                 family=agg.family,
-                foundry=agg.foundry,
+                owner=agg.owner,
                 domains=agg.domains,
                 formats=agg.formats,
                 embeddings=agg.embeddings,

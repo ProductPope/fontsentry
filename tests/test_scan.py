@@ -14,6 +14,31 @@ from fontsentry.scan import run_scan
 NOW = datetime(2026, 6, 30, 12, 0, 0, tzinfo=UTC)
 
 
+async def test_progress_reports_real_phases(repo_root: Path) -> None:
+    rules = config.load_rules(repo_root / "config" / "rules.example.yaml")
+    registry = config.load_registry(demo.demo_registry_path())
+    events: list[tuple[str, int, int]] = []
+    client = demo.demo_client()
+    try:
+        await run_scan(
+            demo.demo_targets(),
+            demo.demo_settings(),
+            rules,
+            registry,
+            client=client,
+            now=NOW,
+            progress=lambda phase, cur, total, msg: events.append((phase, cur, total)),
+        )
+    finally:
+        await client.aclose()
+
+    phases = [e[0] for e in events]
+    # Phases fire in order and detect runs once per discovered page.
+    assert phases.index("discover") < phases.index("detect") < phases.index("score")
+    detect_totals = {total for phase, _, total in events if phase == "detect"}
+    assert detect_totals and all(t > 0 for t in detect_totals)
+
+
 @pytest.fixture
 async def report(repo_root: Path) -> RunReport:
     rules = config.load_rules(repo_root / "config" / "rules.example.yaml")
@@ -66,7 +91,7 @@ async def test_expired_license_surfaces(findings: dict[str, Finding]) -> None:
 
 async def test_open_font_not_flagged_commercial(findings: dict[str, Finding]) -> None:
     public = findings["Public Glyphs Sans"]
-    # OFL font from a known-free foundry must not trigger the commercial rule.
+    # OFL font from a known-free owner must not trigger the commercial rule.
     assert "commercial-no-registry" not in _rule_ids(public)
 
 
