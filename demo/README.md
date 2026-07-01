@@ -21,7 +21,7 @@ the default rules in `config/rules.example.yaml`.
 
 ## Expected findings (illustrates every behaviour)
 
-| Font | Foundry | Outcome | Why |
+| Font | Owner | Outcome | Why |
 | --- | --- | --- | --- |
 | Atlas Grotesk Private | Meridian Letterworks | **High, open** | TTF on web, self-host prohibited, on 2 domains but licensed for 1 (max_domains) |
 | Acme Display | Acme Type | **Open** | Commercial, no registry entry, stripped copyright |

@@ -5,7 +5,7 @@ import { TextInput } from "../components/TextInput";
 import type { Band, Finding, Status } from "../lib/api";
 
 function findingKey(f: Finding): string {
-  return `${f.family}::${f.foundry ?? ""}`;
+  return `${f.family}::${f.owner ?? ""}`;
 }
 
 function FindingDetail({ finding }: { finding: Finding }) {
@@ -71,7 +71,7 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
         (f) =>
           q === "" ||
           f.family.toLowerCase().includes(q) ||
-          (f.foundry ?? "").toLowerCase().includes(q),
+          (f.owner ?? "").toLowerCase().includes(q),
       )
       .sort((a, b) => (desc ? b.score - a.score : a.score - b.score));
   }, [findings, search, band, status, desc]);
@@ -84,7 +84,7 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
           <TextInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="font or foundry"
+            placeholder="font or owner"
             aria-label="Search findings"
           />
         </label>
@@ -116,7 +116,7 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
                 Font
               </th>
               <th scope="col" className="px-4 py-2 font-semibold">
-                Foundry
+                Owner
               </th>
               <th scope="col" className="px-4 py-2 font-semibold">
                 Embedding
@@ -183,7 +183,7 @@ function FindingRows({
             {finding.family}
           </button>
         </td>
-        <td className="px-4 py-2">{finding.foundry ?? "—"}</td>
+        <td className="px-4 py-2">{finding.owner ?? "—"}</td>
         <td className="px-4 py-2">{finding.embeddings.join(", ") || "—"}</td>
         <td className="px-4 py-2 tabular-nums">{finding.domains.length}</td>
         <td className="px-4 py-2 font-semibold tabular-nums">{finding.score}</td>

@@ -23,7 +23,7 @@ def test_reads_name_table_fields() -> None:
 
     assert fmt is FontFormat.TTF
     assert meta.family_name == "Atlas Grotesk Private"
-    assert meta.foundry == "Meridian Letterworks"
+    assert meta.owner == "Meridian Letterworks"
     assert meta.designer == "J. Meridian"
     assert meta.copyright == "Copyright 2026 Meridian"
     assert meta.license_description == "Desktop license. No web embedding."
@@ -42,7 +42,7 @@ def test_stripped_copyright_is_none() -> None:
     meta, _fmt = read_font_metadata(data)
     assert meta.copyright is None
     assert meta.license_description is None
-    assert meta.foundry == "Demo Foundry"
+    assert meta.owner == "Demo Owner"
 
 
 def test_glyph_count_reflects_subset_size() -> None:

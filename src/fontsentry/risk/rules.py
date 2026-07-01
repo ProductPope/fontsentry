@@ -47,9 +47,9 @@ def _looks_open_licensed(ctx: PredicateContext) -> bool:
     return any(pat in text for pat in patterns)
 
 
-def _foundry_is_free(ctx: PredicateContext) -> bool:
-    free = {str(f).strip().lower() for f in ctx.params.get("free_foundries", [])}
-    return (ctx.agg.foundry or "").strip().lower() in free
+def _owner_is_free(ctx: PredicateContext) -> bool:
+    free = {str(f).strip().lower() for f in ctx.params.get("free_owners", [])}
+    return (ctx.agg.owner or "").strip().lower() in free
 
 
 def format_on_web(ctx: PredicateContext) -> bool:
@@ -62,7 +62,7 @@ def commercial_unregistered(ctx: PredicateContext) -> bool:
     # Needs evidence: we only assert "commercial" when we have name-table metadata.
     if ctx.entry is not None or ctx.agg.metadata is None:
         return False
-    return not _looks_open_licensed(ctx) and not _foundry_is_free(ctx)
+    return not _looks_open_licensed(ctx) and not _owner_is_free(ctx)
 
 
 def max_domains_exceeded(ctx: PredicateContext) -> bool:
@@ -77,11 +77,11 @@ def max_domains_exceeded(ctx: PredicateContext) -> bool:
 def self_host_prohibited(ctx: PredicateContext) -> bool:
     if EmbeddingMethod.SELF_HOSTED not in ctx.agg.embeddings:
         return False
-    foundries = {str(f).strip().lower() for f in ctx.params.get("foundries", [])}
+    owners = {str(f).strip().lower() for f in ctx.params.get("owners", [])}
     families = {str(f).strip().lower() for f in ctx.params.get("families", [])}
-    foundry = (ctx.agg.foundry or "").strip().lower()
+    owner = (ctx.agg.owner or "").strip().lower()
     family = ctx.agg.family.strip().lower()
-    return foundry in foundries or family in families
+    return owner in owners or family in families
 
 
 def paid_cdn_unregistered(ctx: PredicateContext) -> bool:
@@ -104,7 +104,7 @@ def missing_name_field(ctx: PredicateContext) -> bool:
         "copyright": meta.copyright,
         "license": meta.license_description,
         "license_url": meta.license_url,
-        "foundry": meta.foundry,
+        "owner": meta.owner,
         "designer": meta.designer,
         "unique_id": meta.unique_id,
     }

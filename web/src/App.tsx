@@ -10,10 +10,12 @@ import { DomainsView } from "./features/DomainsView";
 import { Faq } from "./features/Faq";
 import { FindingsTable } from "./features/FindingsTable";
 import { ScanControls } from "./features/ScanControls";
+import { ScanProgress } from "./features/ScanProgress";
 import { ScheduleDialog } from "./features/ScheduleDialog";
+import { SetupSection } from "./features/SetupSection";
 import { SummaryBar } from "./features/SummaryBar";
 import { api } from "./lib/api";
-import type { RunMeta, RunReport } from "./lib/api";
+import type { Job, RunMeta, RunReport } from "./lib/api";
 
 type View = "fonts" | "domains";
 
@@ -29,6 +31,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<View>("fonts");
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scanJob, setScanJob] = useState<Job | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const notify = useCallback((message: string, kind: ToastKind) => {
@@ -86,7 +89,7 @@ export default function App() {
             <p className="text-sm text-muted">heuristic estimate · not legal advice</p>
           </div>
           <div className="flex items-center gap-2">
-            <ScanControls onComplete={onScanComplete} notify={notify} />
+            <ScanControls onComplete={onScanComplete} notify={notify} onProgress={setScanJob} />
             <Button variant="secondary" onClick={() => setScheduleOpen(true)}>
               Schedule
             </Button>
@@ -94,7 +97,11 @@ export default function App() {
         </div>
       </header>
 
+      {scanJob && scanJob.status === "running" && <ScanProgress job={scanJob} />}
+
       <main className="mx-auto max-w-5xl space-y-5 px-6 py-6">
+        <SetupSection notify={notify} />
+
         {runs.length === 0 ? (
           <Card>
             <p className="text-muted">

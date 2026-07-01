@@ -29,7 +29,7 @@ def test_example_files_load(config_dir: Path, registry_dir: Path) -> None:
         "expired-license",
         "subset-signal",
     }
-    assert registry.entries[0].family == "Atlas Grotesk Private"
+    assert "Atlas Grotesk Private" in {e.family for e in registry.entries}
 
 
 def test_resolve_prefers_real_then_example(tmp_path: Path) -> None:

@@ -31,9 +31,9 @@ Implemented in `src/fontsentry/risk/rules.py`. Parameters come from the rule.
 | `type` | Fires when | Params |
 | --- | --- | --- |
 | `format_on_web` | A listed font format is served via @font-face (embedding ≠ system) | `formats` |
-| `commercial_unregistered` | Metadata present, not an open license, foundry not free, and no registry entry | `open_license_patterns`, `free_foundries` |
+| `commercial_unregistered` | Metadata present, not an open license, owner not free, and no registry entry | `open_license_patterns`, `free_owners` |
 | `max_domains_exceeded` | A matching registry entry's `max_domains` is exceeded across the crawl | — |
-| `self_host_prohibited` | Self-hosted and the foundry/family is on a prohibited list | `foundries`, `families` |
+| `self_host_prohibited` | Self-hosted and the owner/family is on a prohibited list | `owners`, `families` |
 | `paid_cdn_unregistered` | Served from a listed paid CDN with no registry entry | `cdns` |
 | `missing_name_field` | A listed name-table field is missing/empty (metadata present) | `fields` |
 | `license_expired` | A matching registry entry has expired (`valid_until` past) | — |

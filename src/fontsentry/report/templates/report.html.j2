@@ -73,7 +73,7 @@
   <p class="disclaimer">
     <strong>Heuristic estimate, not legal advice.</strong> A high score means the
     font is worth a human checking its license — not that any infringement has
-    occurred. Confirm with the foundry or your legal team.
+    occurred. Confirm with the owner or your legal team.
   </p>
 
   <section class="cards" aria-label="Summary">
@@ -90,7 +90,7 @@
     <thead>
       <tr>
         <th scope="col">Font</th>
-        <th scope="col">Foundry</th>
+        <th scope="col">Owner</th>
         <th scope="col">Embedding</th>
         <th scope="col">Format</th>
         <th scope="col">Domains</th>
@@ -104,7 +104,7 @@
       {% for f in report.findings %}
       <tr>
         <td>{{ f.family }}</td>
-        <td>{{ f.foundry or "—" }}</td>
+        <td>{{ f.owner or "—" }}</td>
         <td>{{ f.embeddings | map(attribute="value") | join(", ") or "—" }}</td>
         <td>{{ f.formats | map(attribute="value") | join(", ") or "—" }}</td>
         <td>
