@@ -6,6 +6,7 @@ import type { ToastKind, ToastState } from "./components/Toast";
 import { OverviewScreen } from "./features/OverviewScreen";
 import type { View } from "./features/OverviewScreen";
 import { RegistrySetup } from "./features/RegistrySetup";
+import { RulesScreen } from "./features/RulesScreen";
 import { ScanControls } from "./features/ScanControls";
 import { ScanProgress } from "./features/ScanProgress";
 import { ScheduleDialog } from "./features/ScheduleDialog";
@@ -117,7 +118,7 @@ export default function App() {
           {route === "audits" && <Stub title="Audits" />}
           {route === "registry" && <RegistrySetup notify={notify} />}
           {route === "targets" && <TargetsSetup notify={notify} />}
-          {route === "rules" && <Stub title="Rules" />}
+          {route === "rules" && <RulesScreen notify={notify} />}
         </main>
       </div>
 
