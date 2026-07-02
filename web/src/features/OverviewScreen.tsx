@@ -10,7 +10,7 @@ import { Faq } from "./Faq";
 import { FindingsTable } from "./FindingsTable";
 import { GettingStarted } from "./GettingStarted";
 import { api } from "../lib/api";
-import type { Band, RunMeta, RunReport } from "../lib/api";
+import type { Band, DiffResult, RunMeta, RunReport } from "../lib/api";
 
 export type View = "fonts" | "domains";
 
@@ -80,6 +80,26 @@ export function OverviewScreen({
         });
       })
       .catch(() => setPrev(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [runs, selectedId]);
+
+  // Per-finding changes vs the previous run (only when one exists).
+  const [diff, setDiff] = useState<DiffResult | null>(null);
+  useEffect(() => {
+    const i = runs.findIndex((r) => r.id === selectedId);
+    if (i < 0 || i >= runs.length - 1) {
+      setDiff(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getRunDiff(selectedId)
+      .then((d) => {
+        if (!cancelled) setDiff(d);
+      })
+      .catch(() => setDiff(null));
     return () => {
       cancelled = true;
     };
@@ -187,6 +207,39 @@ export function OverviewScreen({
         </>
       )}
 
+      {diff && (
+        <Card>
+          <div className="text-xs uppercase tracking-wide text-faint">Changes since last run</div>
+          {diff.new_findings.length || diff.resolved_findings.length || diff.changed.length ? (
+            <div className="mt-2 space-y-2 text-sm">
+              {diff.new_findings.length > 0 && (
+                <ChangeRow
+                  tone="text-band-high"
+                  label="New"
+                  items={diff.new_findings.map((f) => f.family)}
+                />
+              )}
+              {diff.resolved_findings.length > 0 && (
+                <ChangeRow
+                  tone="text-band-low"
+                  label="Resolved"
+                  items={diff.resolved_findings.map((f) => f.family)}
+                />
+              )}
+              {diff.changed.length > 0 && (
+                <ChangeRow
+                  tone="text-band-medium"
+                  label="Changed"
+                  items={diff.changed.map((c) => `${c.family} (${c.old_score}→${c.new_score})`)}
+                />
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-muted">No changes since the last run.</p>
+          )}
+        </Card>
+      )}
+
       <Tabs tabs={TABS} active={view} onChange={(id) => onView(id as View)} />
 
       {loading && <Spinner label="Loading report…" />}
@@ -220,6 +273,17 @@ function Posture({
         <div className="mt-0.5 font-mono text-xs text-faint">{deltaText(delta)} vs last</div>
       )}
     </Card>
+  );
+}
+
+function ChangeRow({ tone, label, items }: { tone: string; label: string; items: string[] }) {
+  return (
+    <div>
+      <span className={cn("font-medium", tone)}>
+        {label} ({items.length})
+      </span>{" "}
+      <span className="text-muted">{items.join(", ")}</span>
+    </div>
   );
 }
 

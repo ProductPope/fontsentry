@@ -80,6 +80,35 @@ def test_first_seen_after_scan(tmp_path: Path) -> None:
         assert any(r["family"] == "Atlas Grotesk Private" for r in rows)
 
 
+def test_run_diff(tmp_path: Path) -> None:
+    from datetime import datetime
+
+    from fontsentry.models import Finding, RiskBand
+    from fontsentry.report import json_report
+
+    older = json_report.build_report(
+        [Finding(family="Atlas", owner="X", score=80, band=RiskBand.HIGH)],
+        datetime(2026, 1, 1, 0, 0, 0),
+    )
+    newer = json_report.build_report(
+        [Finding(family="Beacon", owner="Y", score=70, band=RiskBand.HIGH)],
+        datetime(2026, 2, 1, 0, 0, 0),
+    )
+    json_report.write_run(older, tmp_path)
+    json_report.write_run(newer, tmp_path)
+
+    with _client(tmp_path) as client:
+        resp = client.get(f"/api/runs/{json_report.run_filename(newer.generated_at)}/diff")
+        assert resp.status_code == 200
+        d = resp.json()
+        assert [f["family"] for f in d["new_findings"]] == ["Beacon"]
+        assert [f["family"] for f in d["resolved_findings"]] == ["Atlas"]
+
+        # The oldest run has nothing to compare against -> empty diff.
+        oldest = client.get(f"/api/runs/{json_report.run_filename(older.generated_at)}/diff").json()
+        assert oldest["new_findings"] == [] and oldest["resolved_findings"] == []
+
+
 def test_run_not_found(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/runs/missing.report.json").status_code == 404

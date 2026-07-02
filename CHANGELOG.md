@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JSON that use `foundry` must be updated to `owner`.
 
 ### Added
+- **Changes since last run**: the Overview surfaces new / resolved / changed
+  findings versus the previous run, backed by `GET /api/runs/{id}/diff` (reusing
+  the existing `diff_runs`). A run with no earlier run returns an empty diff.
+- **First seen** per (domain, font) in the Domains view, computed on demand from
+  the run reports on disk (`GET /api/first-seen`) — no stored history.
 - Per-host **asset paths**: each detected font now records the font-file URL(s) it
   was served from on each host (`DomainFont.assets`), surfaced as a **Source** column
   in the web UI's Domains view. Report JSON schema bumped to **v4** — additive, so
