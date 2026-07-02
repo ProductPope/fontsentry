@@ -37,6 +37,7 @@ export interface Finding {
   suppression_reason: string | null;
   example_urls: string[];
   page_count: number;
+  applied: boolean;
 }
 
 export interface RunSummary {
