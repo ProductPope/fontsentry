@@ -105,8 +105,8 @@ async def test_domain_view_present(report: RunReport) -> None:
     assert demo_site.pages_scanned >= 1
     families = {f.family for f in demo_site.fonts}
     assert {"Atlas Grotesk Private", "Harbor Serif", "Acme Display"} <= families
-    # System fallback fonts (e.g. Georgia) are excluded from the domain font list.
-    assert "Georgia" not in families
+    # System fallback fonts (e.g. Common Serif) are excluded from the domain font list.
+    assert "Common Serif" not in families
     # Acme Display is reused on the subdomain, so it spans two hosts.
     acme = next(f for f in demo_site.fonts if f.family == "Acme Display")
     assert "blog.example-demo.test" in acme.hosts
