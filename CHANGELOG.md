@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Each finding records an **example page URL** where the font was seen
+  (`Finding.example_url`), shown under "Where it appears" in the finding
+  detail. Report schema bumped to **v5** (additive; pre-v5 reports still load).
+
 ### Changed
 - Demo and example data are fully brand-neutral: real names (system fallback
   fonts, an open-font service) are replaced with invented ones in the demo
