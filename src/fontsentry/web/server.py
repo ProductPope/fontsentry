@@ -8,14 +8,16 @@ only processes on this machine can reach it.
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -36,6 +38,10 @@ from fontsentry.web.scheduler import (
 
 # Keep strong references to in-flight scan tasks so they are not garbage-collected.
 _background_tasks: set[asyncio.Task[None]] = set()
+
+# License proofs: a small allowlist of document/image types, capped in size.
+_PROOF_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".txt"}
+_MAX_PROOF_BYTES = 10 * 1024 * 1024
 
 _ALLOWED_HOSTS = {"localhost", "127.0.0.1"}
 _LOCAL_ORIGINS = [
@@ -157,6 +163,34 @@ def create_app(
     async def put_rules(rules: RulesConfig) -> RulesConfig:
         config.save_rules(config_dir / "rules.yaml", rules)
         return rules
+
+    @app.post("/api/registry/proof")
+    async def upload_proof(file: UploadFile) -> dict[str, str]:
+        # Never trust the client filename: keep only its basename, restrict the
+        # charset, allowlist the extension, and cap the size. The result is what
+        # gets stored in RegistryEntry.proof_path.
+        raw = Path(file.filename or "").name
+        if Path(raw).suffix.lower() not in _PROOF_EXTS:
+            raise HTTPException(status_code=400, detail="unsupported file type")
+        safe = re.sub(r"[^A-Za-z0-9._-]", "_", raw)
+        if not safe or safe.startswith("."):
+            raise HTTPException(status_code=400, detail="invalid filename")
+        data = await file.read()
+        if len(data) > _MAX_PROOF_BYTES:
+            raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
+        proofs = registry_dir / "proofs"
+        proofs.mkdir(parents=True, exist_ok=True)
+        (proofs / safe).write_bytes(data)
+        return {"name": safe}
+
+    @app.get("/api/registry/proof/{name}")
+    async def get_proof(name: str) -> FileResponse:
+        if "/" in name or "\\" in name or ".." in name:
+            raise HTTPException(status_code=400, detail="invalid proof name")
+        path = registry_dir / "proofs" / name
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="proof not found")
+        return FileResponse(path)
 
     @app.post("/api/scan")
     async def start_scan(request: ScanRequest) -> ScanStarted:
