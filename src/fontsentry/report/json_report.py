@@ -64,6 +64,28 @@ def load_run(path: Path) -> RunReport:
     return RunReport.model_validate_json(path.read_text(encoding="utf-8"))
 
 
+def first_seen_map(reports_dir: Path) -> dict[tuple[str, str], datetime]:
+    """Earliest ``generated_at`` per ``(domain, family)`` across all run reports.
+
+    Derived on the fly from the timestamped report files already written per run —
+    no per-font history is stored anywhere else. Unreadable files are skipped.
+    """
+
+    earliest: dict[tuple[str, str], datetime] = {}
+    for path in sorted(reports_dir.glob("fontsentry-*.report.json")):
+        try:
+            report = load_run(path)
+        except (OSError, ValueError):
+            continue
+        for domain in report.domains:
+            for font in domain.fonts:
+                key = (domain.domain, font.family)
+                current = earliest.get(key)
+                if current is None or report.generated_at < current:
+                    earliest[key] = report.generated_at
+    return earliest
+
+
 def latest_runs(reports_dir: Path, limit: int = 2) -> list[Path]:
     """Return the most recent run files (newest first), by filename timestamp."""
 

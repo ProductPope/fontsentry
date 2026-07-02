@@ -83,6 +83,12 @@ export interface RunMeta {
   summary: RunSummary;
 }
 
+export interface FirstSeen {
+  domain: string;
+  family: string;
+  first_seen: string; // ISO datetime
+}
+
 export interface ScheduleInfo {
   name: string;
   next_run: string | null;
@@ -181,6 +187,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   getRuns: () => request<RunMeta[]>("/api/runs"),
+  getFirstSeen: () => request<FirstSeen[]>("/api/first-seen"),
   getRun: (id: string) => request<RunReport>(`/api/runs/${encodeURIComponent(id)}`),
   startScan: (mode: "demo" | "real") =>
     request<{ job_id: string }>("/api/scan", {
