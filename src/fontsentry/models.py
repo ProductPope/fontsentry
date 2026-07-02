@@ -79,6 +79,9 @@ class DetectedFont(BaseModel):
     source_page: str
     font_url: str | None = None
     metadata: FontMetadata | None = None
+    # False when the family is declared via @font-face but not referenced by any
+    # font-family usage on the page (served but not applied to any text).
+    applied: bool = True
 
 
 class AggregatedFont(BaseModel):
@@ -95,6 +98,7 @@ class AggregatedFont(BaseModel):
     occurrences: int = 0
     example_urls: list[str] = Field(default_factory=list)  # sample pages the font was seen on
     page_count: int = 0  # distinct pages the font was seen on
+    applied: bool = True  # referenced by a font-family usage somewhere (not just @font-face)
 
     @property
     def domain_count(self) -> int:
@@ -132,6 +136,7 @@ class Finding(BaseModel):
     suppression_reason: str | None = None
     example_urls: list[str] = Field(default_factory=list)  # sample pages the font was seen on
     page_count: int = 0  # distinct pages the font was seen on
+    applied: bool = True  # False = served via @font-face but not applied to any text
 
     @property
     def domain_count(self) -> int:

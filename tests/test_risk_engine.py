@@ -39,6 +39,7 @@ def _font(
     copyright: str | None = "Copyright 2026 Acme Type",
     license_desc: str | None = "Desktop license.",
     num_glyphs: int | None = 800,
+    applied: bool = True,
 ) -> DetectedFont:
     return DetectedFont(
         family=family,
@@ -53,7 +54,17 @@ def _font(
             license_description=license_desc,
             num_glyphs=num_glyphs,
         ),
+        applied=applied,
     )
+
+
+def test_declared_but_unused_font_scored_lower(rules: RulesConfig) -> None:
+    used = evaluate([_font()], rules, Registry(), NOW)[0]
+    unused = evaluate([_font(applied=False)], rules, Registry(), NOW)[0]
+    assert used.applied is True
+    assert unused.applied is False
+    assert used.score > 0
+    assert unused.score < used.score  # halved because it's served but not applied
 
 
 def test_aggregate_merges_across_domains() -> None:
