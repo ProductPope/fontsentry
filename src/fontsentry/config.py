@@ -93,3 +93,9 @@ def save_registry(path: Path, registry: Registry) -> None:
     """Serialize a validated license registry to YAML (drops unset optional fields)."""
 
     _dump_yaml(path, registry.model_dump(mode="json", exclude_none=True))
+
+
+def save_rules(path: Path, rules: RulesConfig) -> None:
+    """Serialize a validated rules config to YAML (scoring first, then rules)."""
+
+    _dump_yaml(path, rules.model_dump(mode="json"))
