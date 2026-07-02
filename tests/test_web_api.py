@@ -173,3 +173,59 @@ def test_registry_invalid_rejected(tmp_path: Path) -> None:
             json={"entries": [{"owner": "X", "license_type": "Web"}]},  # missing family
         )
         assert resp.status_code == 422
+
+
+_RULES_PAYLOAD = {
+    "scoring": {"max_raw": 90, "bands": {"medium": 30, "high": 60}},
+    "rules": [
+        {
+            "id": "desktop-format-on-web",
+            "description": "Desktop font on the web.",
+            "weight": 30,
+            "confidence": 0.85,
+            "when": {"type": "format_on_web", "params": {"formats": ["ttf", "otf"]}},
+        }
+    ],
+}
+
+
+def test_rules_get_falls_back_to_example(tmp_path: Path) -> None:
+    # No config_dir override -> uses the repo config dir, which has rules.example.yaml.
+    with _client(tmp_path) as client:
+        resp = client.get("/api/config/rules")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["scoring"]["max_raw"] > 0
+        assert body["scoring"]["bands"]["high"] >= body["scoring"]["bands"]["medium"]
+        assert len(body["rules"]) >= 1
+        assert all("weight" in r and "confidence" in r for r in body["rules"])
+
+
+def test_rules_roundtrip(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    with _client(tmp_path, config_dir=config_dir) as client:
+        put = client.put("/api/config/rules", json=_RULES_PAYLOAD)
+        assert put.status_code == 200
+
+        # Persisted to the real (gitignored) file, then read back.
+        assert (config_dir / "rules.yaml").exists()
+        got = client.get("/api/config/rules").json()
+        assert got["scoring"]["bands"]["medium"] == 30
+        assert got["rules"][0]["id"] == "desktop-format-on-web"
+        assert got["rules"][0]["weight"] == 30
+
+
+def test_rules_invalid_confidence_rejected(tmp_path: Path) -> None:
+    bad = {
+        "scoring": {"max_raw": 90, "bands": {"medium": 30, "high": 60}},
+        "rules": [
+            {
+                "id": "r1",
+                "weight": 10,
+                "confidence": 1.5,  # out of range (0..1)
+                "when": {"type": "format_on_web", "params": {}},
+            }
+        ],
+    }
+    with _client(tmp_path, config_dir=tmp_path / "config") as client:
+        assert client.put("/api/config/rules", json=bad).status_code == 422
