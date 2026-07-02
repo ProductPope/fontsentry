@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (additive; pre-v5 reports still load).
 
 ### Changed
+- Fonts served via `@font-face` but **not applied to any text** (declared but
+  never referenced by a `font-family` usage) are now flagged as such and scored
+  lower (halved), so an unused hosted font no longer overstates its risk. The
+  finding still appears — hosting the file can itself be a licensing concern.
 - Font-family detection ignores CSS custom-property references
   (`var(--…)`) — these are variable lookups, not real families, and were
   surfacing as noise findings (e.g. `var(--bs-body-font-family)`).

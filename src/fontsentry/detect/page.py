@@ -66,14 +66,18 @@ async def detect_page(fetcher: Fetcher, page_url: str) -> list[DetectedFont]:
     used_families: set[str] = set()
     detected: list[DetectedFont] = []
 
+    # Which families are actually referenced by a font-family usage. Used both to
+    # find system fonts (used but no @font-face) and to mark @font-face fonts that
+    # are served but not applied to any text.
+    for css_text, _base in blocks:
+        used_families.update(parse_font_families(css_text))
+    used_lower = {u.lower() for u in used_families}
+
     for css_text, base_url in blocks:
         for rule in parse_font_faces(css_text, base_url=base_url):
             face_families.add(rule.family.lower())
-            detected.append(await _detect_face(fetcher, rule, page_url, page_host))
-
-    # Families requested in CSS but never defined by an @font-face are system fonts.
-    for css_text, _base in blocks:
-        used_families.update(parse_font_families(css_text))
+            applied = rule.family.lower() in used_lower
+            detected.append(await _detect_face(fetcher, rule, page_url, page_host, applied))
 
     for family in used_families:
         if family.lower() not in face_families:
@@ -90,7 +94,7 @@ async def detect_page(fetcher: Fetcher, page_url: str) -> list[DetectedFont]:
 
 
 async def _detect_face(
-    fetcher: Fetcher, rule: FontFaceRule, page_url: str, page_host: str
+    fetcher: Fetcher, rule: FontFaceRule, page_url: str, page_host: str, applied: bool
 ) -> DetectedFont:
     source = _best_source(rule)
     font_url = source.url if source else None
@@ -115,4 +119,5 @@ async def _detect_face(
         source_page=page_url,
         font_url=font_url,
         metadata=metadata,
+        applied=applied,
     )

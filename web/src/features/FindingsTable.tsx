@@ -92,6 +92,14 @@ function FindingDetail({
     <div className="space-y-5 bg-surface2 px-4 py-4 text-sm">
       <ScoreGauge score={finding.score} band={finding.band} thresholds={thresholds} />
 
+      {!finding.applied && (
+        <p className="rounded-tk bg-surface px-3 py-2 text-xs text-muted">
+          <strong>Served but not applied.</strong> This font file is hosted on the site (via
+          <code className="mx-1 font-mono">@font-face</code>) but no text on the page renders in it,
+          so the score is lowered. Hosting the file can still be a licensing concern.
+        </p>
+      )}
+
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-4">
           <div>
