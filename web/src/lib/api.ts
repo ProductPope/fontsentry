@@ -77,6 +77,22 @@ export interface RunReport {
   domains: DomainReport[];
 }
 
+export interface FindingDelta {
+  family: string;
+  owner: string | null;
+  old_score: number;
+  new_score: number;
+  old_domains: string[];
+  new_domains: string[];
+}
+
+export interface DiffResult {
+  new_findings: Finding[];
+  resolved_findings: Finding[];
+  changed: FindingDelta[];
+  unchanged_count: number;
+}
+
 export interface RunMeta {
   id: string;
   generated_at: string;
@@ -189,6 +205,7 @@ export const api = {
   getRuns: () => request<RunMeta[]>("/api/runs"),
   getFirstSeen: () => request<FirstSeen[]>("/api/first-seen"),
   getRun: (id: string) => request<RunReport>(`/api/runs/${encodeURIComponent(id)}`),
+  getRunDiff: (id: string) => request<DiffResult>(`/api/runs/${encodeURIComponent(id)}/diff`),
   startScan: (mode: "demo" | "real") =>
     request<{ job_id: string }>("/api/scan", {
       method: "POST",
