@@ -1,31 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "./components/Button";
-import { Card } from "./components/Card";
-import { Select } from "./components/Select";
-import { Spinner } from "./components/Spinner";
-import { Tabs } from "./components/Tabs";
-import { ThemeToggle } from "./components/ThemeToggle";
+import { Sidebar } from "./components/Sidebar";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
-import { DomainsView } from "./features/DomainsView";
-import { Faq } from "./features/Faq";
-import { FindingsTable } from "./features/FindingsTable";
+import { OverviewScreen } from "./features/OverviewScreen";
+import type { View } from "./features/OverviewScreen";
+import { RegistrySetup } from "./features/RegistrySetup";
 import { ScanControls } from "./features/ScanControls";
 import { ScanProgress } from "./features/ScanProgress";
 import { ScheduleDialog } from "./features/ScheduleDialog";
-import { SetupSection } from "./features/SetupSection";
-import { SummaryBar } from "./features/SummaryBar";
+import { Stub } from "./features/Stub";
+import { TargetsSetup } from "./features/TargetsSetup";
 import { api } from "./lib/api";
 import type { Job, RunMeta, RunReport } from "./lib/api";
+import { useHashRoute } from "./lib/useHashRoute";
+import type { Route } from "./lib/useHashRoute";
 
-type View = "fonts" | "domains";
-
-const TABS = [
-  { id: "fonts", label: "Fonts" },
-  { id: "domains", label: "Domains" },
-];
+const TITLES: Record<Route, string> = {
+  overview: "Overview",
+  audits: "Audits",
+  registry: "Registry",
+  targets: "Targets",
+  rules: "Rules",
+};
 
 export default function App() {
+  const { route, navigate } = useHashRoute();
+
   const [runs, setRuns] = useState<RunMeta[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [report, setReport] = useState<RunReport | null>(null);
@@ -77,74 +78,50 @@ export default function App() {
       await refreshRuns();
       setSelectedId(runId);
       setView("fonts");
+      navigate("overview");
     },
-    [refreshRuns],
+    [refreshRuns, navigate],
   );
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-stroke bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <div>
-            <h1 className="text-lg font-bold">FontSentry</h1>
-            <p className="text-sm text-muted">heuristic estimate · not legal advice</p>
+    <div className="grid min-h-screen grid-cols-[248px_minmax(0,1fr)]">
+      <Sidebar route={route} onNavigate={navigate} />
+
+      <div className="min-w-0">
+        <header className="sticky top-0 z-40 border-b border-stroke bg-surface/85 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+            <h1 className="text-lg font-bold">{TITLES[route]}</h1>
+            <div className="flex items-center gap-2">
+              <ScanControls onComplete={onScanComplete} notify={notify} onProgress={setScanJob} />
+              <Button variant="secondary" onClick={() => setScheduleOpen(true)}>
+                Schedule
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ScanControls onComplete={onScanComplete} notify={notify} onProgress={setScanJob} />
-            <Button variant="secondary" onClick={() => setScheduleOpen(true)}>
-              Schedule
-            </Button>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+        </header>
 
-      {scanJob && scanJob.status === "running" && <ScanProgress job={scanJob} />}
+        {scanJob && scanJob.status === "running" && <ScanProgress job={scanJob} />}
 
-      <main className="mx-auto max-w-5xl space-y-5 px-6 py-6">
-        <SetupSection notify={notify} />
+        <main className="mx-auto max-w-5xl px-6 py-6">
+          {route === "overview" && (
+            <OverviewScreen
+              runs={runs}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              report={report}
+              loading={loading}
+              view={view}
+              onView={setView}
+            />
+          )}
+          {route === "audits" && <Stub title="Audits" />}
+          {route === "registry" && <RegistrySetup notify={notify} />}
+          {route === "targets" && <TargetsSetup notify={notify} />}
+          {route === "rules" && <Stub title="Rules" />}
+        </main>
+      </div>
 
-        {runs.length === 0 ? (
-          <Card>
-            <p className="text-muted">
-              No audits yet. Click <strong>Start audit</strong> (try the demo mode) to produce
-              your first report.
-            </p>
-          </Card>
-        ) : (
-          <>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Run</span>
-              <Select
-                value={selectedId}
-                onChange={(e) => setSelectedId(e.target.value)}
-                className="font-mono text-xs"
-              >
-                {runs.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.id}
-                  </option>
-                ))}
-              </Select>
-            </label>
-
-            {report && <SummaryBar report={report} />}
-
-            <Tabs tabs={TABS} active={view} onChange={(id) => setView(id as View)} />
-
-            {loading && <Spinner label="Loading report…" />}
-
-            {report && view === "fonts" && <FindingsTable findings={report.findings} />}
-            {report && view === "domains" && <DomainsView domains={report.domains} />}
-
-            <Faq />
-          </>
-        )}
-      </main>
-
-      {scheduleOpen && (
-        <ScheduleDialog onClose={() => setScheduleOpen(false)} notify={notify} />
-      )}
+      {scheduleOpen && <ScheduleDialog onClose={() => setScheduleOpen(false)} notify={notify} />}
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
     </div>
   );
