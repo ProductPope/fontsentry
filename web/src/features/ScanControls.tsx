@@ -1,55 +1,23 @@
 import { useState } from "react";
 import { Button } from "../components/Button";
-import type { ToastKind } from "../components/Toast";
 import { cn } from "../lib/cn";
-import { api } from "../lib/api";
-import type { Job } from "../lib/api";
 
-type Mode = "real" | "demo";
+export type ScanMode = "real" | "demo";
 
-// "Your data" is the default: once a user has added their own domains, an audit
+// "Your data" is the default: once a user has added their domains, an audit
 // should run against them, not the sample dataset. Demo is an explicit opt-in.
-const MODES: { id: Mode; label: string }[] = [
+const MODES: { id: ScanMode; label: string }[] = [
   { id: "real", label: "Your data" },
   { id: "demo", label: "Demo data" },
 ];
 
-async function pollJob(jobId: string, onProgress: (job: Job) => void): Promise<string> {
-  for (let i = 0; i < 600; i++) {
-    const job = await api.getJob(jobId);
-    onProgress(job);
-    if (job.status === "done" && job.run_id) return job.run_id;
-    if (job.status === "error") throw new Error(job.error ?? "scan failed");
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error("scan timed out");
-}
-
 interface ScanControlsProps {
-  onComplete: (runId: string) => void;
-  notify: (message: string, kind: ToastKind) => void;
-  onProgress: (job: Job | null) => void;
+  onStart: (mode: ScanMode) => void;
+  running: boolean;
 }
 
-export function ScanControls({ onComplete, notify, onProgress }: ScanControlsProps) {
-  const [mode, setMode] = useState<Mode>("real");
-  const [running, setRunning] = useState(false);
-
-  async function start() {
-    setRunning(true);
-    notify(`Audit started on ${mode === "real" ? "your data" : "demo data"}…`, "info");
-    try {
-      const { job_id } = await api.startScan(mode);
-      const runId = await pollJob(job_id, onProgress);
-      notify("Audit complete", "success");
-      onComplete(runId);
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "Audit failed", "error");
-    } finally {
-      setRunning(false);
-      onProgress(null);
-    }
-  }
+export function ScanControls({ onStart, running }: ScanControlsProps) {
+  const [mode, setMode] = useState<ScanMode>("real");
 
   return (
     <div className="flex items-center gap-2">
@@ -74,7 +42,7 @@ export function ScanControls({ onComplete, notify, onProgress }: ScanControlsPro
           </button>
         ))}
       </div>
-      <Button onClick={start} disabled={running}>
+      <Button onClick={() => onStart(mode)} disabled={running}>
         {running ? "Auditing…" : "Start audit"}
       </Button>
     </div>
