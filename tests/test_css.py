@@ -59,6 +59,13 @@ def test_parse_font_families_usage() -> None:
     assert "serif" not in families  # generic keyword dropped
 
 
+def test_parse_font_families_drops_var_references() -> None:
+    text = "body { font-family: var(--bs-body-font-family), 'Demo Sans', sans-serif; }"
+    families = css.parse_font_families(text)
+    assert "Demo Sans" in families
+    assert not any(f.lower().startswith("var(") for f in families)
+
+
 def test_format_helpers() -> None:
     assert css.format_from_hint("woff2") is FontFormat.WOFF2
     assert css.format_from_hint("'truetype'") is FontFormat.TTF
