@@ -137,6 +137,23 @@ def test_invalid_mode_rejected(tmp_path: Path) -> None:
         assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 400
 
 
+def test_scan_accepts_discover_subdomains_flag(tmp_path: Path) -> None:
+    # The flag is accepted; in demo mode CT lookup is skipped (real-mode only),
+    # so the offline demo scan still completes normally.
+    with _client(tmp_path) as client:
+        started = client.post("/api/scan", json={"mode": "demo", "discover_subdomains": True})
+        assert started.status_code == 200
+        job_id = started.json()["job_id"]
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            job = client.get(f"/api/jobs/{job_id}").json()
+            if job["status"] == "done":
+                return
+            assert job["status"] != "error", job.get("error")
+            time.sleep(0.05)
+        raise AssertionError("scan did not finish in time")
+
+
 def test_schedules_list_ok(tmp_path: Path) -> None:
     # Read-only; harmless on any OS (returns [] off Windows).
     with _client(tmp_path) as client:

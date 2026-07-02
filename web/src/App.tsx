@@ -104,11 +104,11 @@ export default function App() {
   );
 
   const runAudit = useCallback(
-    async (mode: "real" | "demo") => {
+    async (mode: "real" | "demo", discoverSubdomains = false) => {
       setScanning(true);
       notify(`Audit started on ${mode === "real" ? "your data" : "demo data"}…`, "info");
       try {
-        const { job_id } = await api.startScan(mode);
+        const { job_id } = await api.startScan(mode, discoverSubdomains);
         const runId = await pollJob(job_id, setScanJob);
         notify("Audit complete", "success");
         await onScanComplete(runId);

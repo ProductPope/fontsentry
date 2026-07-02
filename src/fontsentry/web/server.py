@@ -74,6 +74,9 @@ class FirstSeen(BaseModel):
 
 class ScanRequest(BaseModel):
     mode: str = "demo"  # "demo" | "real"
+    # Opt-in: also seed discovery with public subdomains from Certificate
+    # Transparency logs (queries an external service; real mode only).
+    discover_subdomains: bool = False
 
 
 class ScanStarted(BaseModel):
@@ -240,7 +243,15 @@ def create_app(
         job = jobs.create()
         # Fire-and-forget; status is polled via /api/jobs/{id}.
         task = asyncio.create_task(
-            _run_scan_job(jobs, job.id, request.mode, reports_dir, config_dir, registry_dir)
+            _run_scan_job(
+                jobs,
+                job.id,
+                request.mode,
+                reports_dir,
+                config_dir,
+                registry_dir,
+                request.discover_subdomains,
+            )
         )
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
@@ -310,8 +321,12 @@ async def _run_scan_job(
     reports_dir: Path,
     config_dir: Path,
     registry_dir: Path,
+    discover_subdomains: bool = False,
 ) -> None:
     now = datetime.now(UTC).replace(microsecond=0)
+    # CT lookup queries an external service, so only for real scans (the demo
+    # runs offline against a filesystem transport).
+    discover_ct = discover_subdomains and mode == "real"
     if mode == "demo":
         settings = demo.demo_settings()
         rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
@@ -338,6 +353,7 @@ async def _run_scan_job(
             now=now,
             reports_dir=reports_dir,
             progress=on_progress,
+            discover_ct=discover_ct,
         )
         jobs.mark_done(job_id, json_path.name)
     except Exception as exc:
