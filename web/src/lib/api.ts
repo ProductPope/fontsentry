@@ -35,7 +35,8 @@ export interface Finding {
   triggered_rules: TriggeredRule[];
   registry_match: boolean;
   suppression_reason: string | null;
-  example_url: string | null;
+  example_urls: string[];
+  page_count: number;
 }
 
 export interface RunSummary {

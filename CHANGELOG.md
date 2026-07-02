@@ -12,9 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Find subdomains** when starting a real audit to seed the crawl with public
   subdomains from crt.sh. Off by default and real-mode only — it queries an
   external service (the domain leaves the machine); it never brute-forces DNS.
-- Each finding records an **example page URL** where the font was seen
-  (`Finding.example_url`), shown under "Where it appears" in the finding
-  detail. Report schema bumped to **v5** (additive; pre-v5 reports still load).
+- Each finding records **which pages the font was seen on** — a distinct page
+  count plus a few sample URLs (`Finding.page_count` / `example_urls`), shown as
+  "Seen on N pages, e.g. …" in the finding detail. Report schema bumped to **v5**
+  (additive; pre-v5 reports still load).
 
 ### Changed
 - Demo and example data are fully brand-neutral: real names (system fallback

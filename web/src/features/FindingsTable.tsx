@@ -122,18 +122,24 @@ function FindingDetail({
             <p className="font-mono text-xs break-words text-muted">
               {finding.domains.join(", ") || "—"}
             </p>
-            {finding.example_url && (
-              <p className="mt-1 text-xs text-muted">
-                Example page:{" "}
-                <a
-                  href={finding.example_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-mono break-all text-accent underline"
-                >
-                  {finding.example_url}
-                </a>
-              </p>
+            {finding.example_urls.length > 0 && (
+              <div className="mt-1 text-xs text-muted">
+                Seen on {finding.page_count} page{finding.page_count === 1 ? "" : "s"}, e.g.:
+                <ul className="mt-0.5 space-y-0.5">
+                  {finding.example_urls.map((u) => (
+                    <li key={u}>
+                      <a
+                        href={u}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono break-all text-accent underline"
+                      >
+                        {u}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
           <div>
