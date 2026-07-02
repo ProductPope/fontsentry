@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "./components/Button";
 import { Sidebar } from "./components/Sidebar";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
+import { AuditsScreen } from "./features/AuditsScreen";
 import { OverviewScreen } from "./features/OverviewScreen";
 import type { View } from "./features/OverviewScreen";
 import { RegistrySetup } from "./features/RegistrySetup";
 import { RulesScreen } from "./features/RulesScreen";
 import { ScanControls } from "./features/ScanControls";
 import { ScanProgress } from "./features/ScanProgress";
-import { ScheduleDialog } from "./features/ScheduleDialog";
-import { Stub } from "./features/Stub";
 import { TargetsSetup } from "./features/TargetsSetup";
 import { api } from "./lib/api";
 import type { Job, RunMeta, RunReport } from "./lib/api";
@@ -33,7 +31,6 @@ export default function App() {
   const [report, setReport] = useState<RunReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<View>("fonts");
-  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scanJob, setScanJob] = useState<Job | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -84,6 +81,15 @@ export default function App() {
     [refreshRuns, navigate],
   );
 
+  const onOpenRun = useCallback(
+    (runId: string) => {
+      setSelectedId(runId);
+      setView("fonts");
+      navigate("overview");
+    },
+    [navigate],
+  );
+
   return (
     <div className="grid min-h-screen grid-cols-[248px_minmax(0,1fr)]">
       <Sidebar route={route} onNavigate={navigate} />
@@ -94,9 +100,6 @@ export default function App() {
             <h1 className="text-lg font-bold">{TITLES[route]}</h1>
             <div className="flex items-center gap-2">
               <ScanControls onComplete={onScanComplete} notify={notify} onProgress={setScanJob} />
-              <Button variant="secondary" onClick={() => setScheduleOpen(true)}>
-                Schedule
-              </Button>
             </div>
           </div>
         </header>
@@ -115,14 +118,20 @@ export default function App() {
               onView={setView}
             />
           )}
-          {route === "audits" && <Stub title="Audits" />}
+          {route === "audits" && (
+            <AuditsScreen
+              runs={runs}
+              selectedId={selectedId}
+              onOpenRun={onOpenRun}
+              notify={notify}
+            />
+          )}
           {route === "registry" && <RegistrySetup notify={notify} />}
           {route === "targets" && <TargetsSetup notify={notify} />}
           {route === "rules" && <RulesScreen notify={notify} />}
         </main>
       </div>
 
-      {scheduleOpen && <ScheduleDialog onClose={() => setScheduleOpen(false)} notify={notify} />}
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
     </div>
   );
