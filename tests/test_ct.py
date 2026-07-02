@@ -25,9 +25,18 @@ async def test_ct_subdomains_parses_and_filters() -> None:
     assert subs == ["blog.example.com", "shop.example.com"]
 
 
-async def test_ct_subdomains_returns_empty_on_error() -> None:
-    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(500)))
+async def test_ct_subdomains_retries_then_returns_empty() -> None:
+    calls = 0
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(502)  # crt.sh transient failure
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     try:
-        assert await ct_subdomains(client, "example.com") == []
+        result = await ct_subdomains(client, "example.com", attempts=3, backoff=0)
     finally:
         await client.aclose()
+    assert result == []
+    assert calls == 3  # retried before giving up
