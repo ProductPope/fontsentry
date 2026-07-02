@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 
 from fontsentry.models import (
+    DomainFont,
+    DomainReport,
     EmbeddingMethod,
     Finding,
     FindingStatus,
@@ -71,6 +73,25 @@ def test_latest_runs_orders_newest_first(tmp_path: Path) -> None:
         "fontsentry-20260301T000000Z.report.json",
         "fontsentry-20260201T000000Z.report.json",
     ]
+
+
+def test_first_seen_map_earliest_wins(tmp_path: Path) -> None:
+    def report_at(ts: str, families: list[str]) -> None:
+        report = json_report.build_report(
+            [],
+            datetime.strptime(ts, "%Y%m%dT%H%M%SZ"),
+            domains=[
+                DomainReport(domain="example.com", fonts=[DomainFont(family=f) for f in families])
+            ],
+        )
+        json_report.write_run(report, tmp_path)
+
+    report_at("20260101T000000Z", ["Atlas"])
+    report_at("20260201T000000Z", ["Atlas", "Beacon"])  # Atlas seen earlier; Beacon is new
+
+    m = json_report.first_seen_map(tmp_path)
+    assert m[("example.com", "Atlas")] == datetime(2026, 1, 1, 0, 0, 0)
+    assert m[("example.com", "Beacon")] == datetime(2026, 2, 1, 0, 0, 0)
 
 
 def test_render_html_contains_findings_and_disclaimer() -> None:
