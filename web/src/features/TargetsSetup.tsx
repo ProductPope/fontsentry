@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button";
+import { Card } from "../components/Card";
 import { cn } from "../lib/cn";
 import type { ToastKind } from "../components/Toast";
 import { api } from "../lib/api";
@@ -45,13 +46,22 @@ const STATUS_LABEL: Record<LiveStatus, string> = {
   unscanned: "not scanned",
 };
 
-export function TargetsSetup({ notify }: { notify: (message: string, kind: ToastKind) => void }) {
+interface TargetsSetupProps {
+  notify: (message: string, kind: ToastKind) => void;
+  onRunAudit: () => void;
+  running: boolean;
+}
+
+export function TargetsSetup({ notify, onRunAudit, running }: TargetsSetupProps) {
   const [loading, setLoading] = useState(true);
   // Edited as one-per-line text. `loadedTargets` preserves each domain's
   // subdomain_seeds (not editable here) so a save never drops them.
   const [domainsText, setDomainsText] = useState("");
   const [loadedTargets, setLoadedTargets] = useState<Target[]>([]);
   const [saving, setSaving] = useState(false);
+  // After a save that changed the list, show a success step with CTAs instead
+  // of the editor.
+  const [saved, setSaved] = useState(false);
   // Live/unreachable per domain comes from the latest run, not the config.
   const [liveByDomain, setLiveByDomain] = useState<Map<string, boolean>>(new Map());
   const fileRef = useRef<HTMLInputElement>(null);
@@ -68,7 +78,6 @@ export function TargetsSetup({ notify }: { notify: (message: string, kind: Toast
       )
       .finally(() => setLoading(false));
 
-    // Best-effort: fold in the latest run's domain reachability.
     void api
       .getRuns()
       .then(async (runs) => {
@@ -94,6 +103,7 @@ export function TargetsSetup({ notify }: { notify: (message: string, kind: Toast
   async function save() {
     setSaving(true);
     try {
+      const before = new Set(loadedTargets.map((t) => normalizeDomain(t.domain)));
       const seedsByDomain = new Map(
         loadedTargets.map((t) => [normalizeDomain(t.domain), t.subdomain_seeds]),
       );
@@ -101,9 +111,17 @@ export function TargetsSetup({ notify }: { notify: (message: string, kind: Toast
         domain,
         subdomain_seeds: seedsByDomain.get(normalizeDomain(domain)) ?? [],
       }));
-      const saved = await api.saveTargets({ targets });
-      setLoadedTargets(saved.targets);
-      notify(`Saved ${saved.targets.length} domain(s)`, "success");
+      const savedTargets = await api.saveTargets({ targets });
+      setLoadedTargets(savedTargets.targets);
+
+      // Success step appears whenever the set of domains actually changed.
+      const after = savedTargets.targets.map((t) => normalizeDomain(t.domain));
+      const changed = after.length !== before.size || after.some((d) => !before.has(d));
+      if (changed) {
+        setSaved(true);
+      } else {
+        notify("No changes to save", "info");
+      }
     } catch (e) {
       notify(e instanceof Error ? e.message : "Could not save domains", "error");
     } finally {
@@ -117,12 +135,51 @@ export function TargetsSetup({ notify }: { notify: (message: string, kind: Toast
       notify("No domains found in that CSV", "error");
       return;
     }
-    // Merge into the current list, de-duplicated by normalized domain.
     const existing = splitLines(domainsText);
     const seen = new Set(existing.map(normalizeDomain));
     const added = imported.filter((d) => !seen.has(d));
     setDomainsText([...existing, ...added].join("\n"));
     notify(`Imported ${added.length} new domain(s) — review, then Save`, "info");
+  }
+
+  if (loading) {
+    return (
+      <section className="max-w-3xl space-y-3">
+        <h2 className="text-base font-semibold">Targets</h2>
+        <p className="text-sm text-muted">Loading…</p>
+      </section>
+    );
+  }
+
+  if (saved) {
+    const count = loadedTargets.length;
+    return (
+      <section className="max-w-xl">
+        <Card className="space-y-4 text-center">
+          <div>
+            <div
+              className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-band-low-bg text-band-low"
+              aria-hidden="true"
+            >
+              ✓
+            </div>
+            <h2 className="mt-2 text-base font-semibold">Domains saved</h2>
+            <p className="mt-1 text-sm text-muted">
+              {count} domain{count === 1 ? "" : "s"} saved to your local config. Run an audit to
+              scan them now, or keep editing the list.
+            </p>
+          </div>
+          <div className="flex justify-center gap-2">
+            <Button onClick={onRunAudit} disabled={running}>
+              {running ? "Auditing…" : "Run audit"}
+            </Button>
+            <Button variant="secondary" onClick={() => setSaved(false)} disabled={running}>
+              Edit domains
+            </Button>
+          </div>
+        </Card>
+      </section>
+    );
   }
 
   return (
@@ -134,69 +191,65 @@ export function TargetsSetup({ notify }: { notify: (message: string, kind: Toast
           never leave this machine.
         </p>
       </div>
-      {loading ? (
-        <p className="text-sm text-muted">Loading…</p>
-      ) : (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <textarea
-              value={domainsText}
-              onChange={(e) => setDomainsText(e.target.value)}
-              rows={8}
-              spellCheck={false}
-              placeholder={"example.com\nexample.org"}
-              className="w-full rounded-tk border border-stroke bg-surface px-3 py-2 font-mono text-sm text-ink"
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <textarea
+            value={domainsText}
+            onChange={(e) => setDomainsText(e.target.value)}
+            rows={8}
+            spellCheck={false}
+            placeholder={"example.com\nexample.org"}
+            className="w-full rounded-tk border border-stroke bg-surface px-3 py-2 font-mono text-sm text-ink"
+          />
+          <div className="flex gap-2">
+            <Button onClick={save} disabled={saving}>
+              {saving ? "Saving…" : "Save domains"}
+            </Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+              Import CSV
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void importCsv(file);
+                e.target.value = "";
+              }}
             />
-            <div className="flex gap-2">
-              <Button onClick={save} disabled={saving}>
-                {saving ? "Saving…" : "Save domains"}
-              </Button>
-              <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-                Import CSV
-              </Button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void importCsv(file);
-                  e.target.value = ""; // allow re-importing the same file
-                }}
-              />
-            </div>
           </div>
-
-          {statusRows.length > 0 && (
-            <div className="overflow-x-auto rounded-card border border-stroke">
-              <table className="w-full border-collapse bg-surface text-sm">
-                <caption className="sr-only">Target reachability in the latest run</caption>
-                <thead>
-                  <tr className="bg-surface2 text-left text-muted">
-                    <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]">
-                      Domain
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]">
-                      Latest run
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statusRows.map((r) => (
-                    <tr key={r.domain} className="border-t border-stroke">
-                      <td className="px-4 py-2 font-mono text-xs">{r.domain}</td>
-                      <td className={cn("px-4 py-2 font-medium", STATUS_TONE[r.status])}>
-                        {STATUS_LABEL[r.status]}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      )}
+
+        {statusRows.length > 0 && (
+          <div className="overflow-x-auto rounded-card border border-stroke">
+            <table className="w-full border-collapse bg-surface text-sm">
+              <caption className="sr-only">Target reachability in the latest run</caption>
+              <thead>
+                <tr className="bg-surface2 text-left text-muted">
+                  <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]">
+                    Domain
+                  </th>
+                  <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]">
+                    Latest run
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {statusRows.map((r) => (
+                  <tr key={r.domain} className="border-t border-stroke">
+                    <td className="px-4 py-2 font-mono text-xs">{r.domain}</td>
+                    <td className={cn("px-4 py-2 font-medium", STATUS_TONE[r.status])}>
+                      {STATUS_LABEL[r.status]}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
