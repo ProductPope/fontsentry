@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (additive; pre-v5 reports still load).
 
 ### Changed
+- Font-family detection ignores CSS custom-property references
+  (`var(--…)`) — these are variable lookups, not real families, and were
+  surfacing as noise findings (e.g. `var(--bs-body-font-family)`).
 - Demo and example data are fully brand-neutral: real names (system fallback
   fonts, an open-font service) are replaced with invented ones in the demo
   dataset, `registry/licenses.example.yaml`, and the UI's "Insert examples" rows.

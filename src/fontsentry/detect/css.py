@@ -165,8 +165,15 @@ def _split_families(value: str) -> set[str]:
     out: set[str] = set()
     for part in value.split(","):
         name = _unquote(part)
-        # Drop shorthand noise (sizes, weights) and generic keywords.
-        if name and not name[0].isdigit() and name.lower() not in _GENERIC_FAMILIES:
+        # Drop shorthand noise (sizes, weights), generic keywords, and CSS
+        # custom-property references (e.g. `var(--bs-body-font-family)`), which
+        # are variable lookups, not real family names.
+        if (
+            name
+            and not name[0].isdigit()
+            and not name.lower().startswith("var(")
+            and name.lower() not in _GENERIC_FAMILIES
+        ):
             out.add(name)
     return out
 
