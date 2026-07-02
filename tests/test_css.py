@@ -52,7 +52,7 @@ def test_non_font_face_rules_ignored() -> None:
 
 
 def test_parse_font_families_usage() -> None:
-    text = "h1 { font-family: 'Harbor Serif', Georgia, serif; } p { font-family: Demo Sans; }"
+    text = "h1 { font-family: 'Harbor Serif', Ledger, serif; } p { font-family: Demo Sans; }"
     families = css.parse_font_families(text)
     assert "Harbor Serif" in families
     assert "Demo Sans" in families

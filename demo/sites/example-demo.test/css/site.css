@@ -20,7 +20,7 @@
   src: url("/fonts/publicglyphs.woff2") format("woff2");
 }
 
-body { font-family: "Atlas Grotesk Private", "Helvetica Neue", sans-serif; }
-h1 { font-family: "Harbor Serif", Georgia, serif; }
+body { font-family: "Atlas Grotesk Private", "Common Sans", sans-serif; }
+h1 { font-family: "Harbor Serif", "Common Serif", serif; }
 .display { font-family: "Acme Display", system-ui; }
 .body-alt { font-family: "Public Glyphs Sans", sans-serif; }
