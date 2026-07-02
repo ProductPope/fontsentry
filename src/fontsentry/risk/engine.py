@@ -40,7 +40,7 @@ class _Accumulator:
     embeddings: set[EmbeddingMethod] = field(default_factory=set)
     metadata: FontMetadata | None = None
     occurrences: int = 0
-    example_url: str | None = None
+    pages: set[str] = field(default_factory=set)
 
 
 def _domain_of(url: str) -> str:
@@ -68,8 +68,7 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
         acc.formats.add(font.font_format)
         acc.embeddings.add(font.embedding)
         acc.occurrences += 1
-        if acc.example_url is None:
-            acc.example_url = font.source_page
+        acc.pages.add(font.source_page)
 
     result: list[AggregatedFont] = []
     for acc in groups.values():
@@ -82,7 +81,8 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
                 embeddings=sorted(acc.embeddings, key=lambda e: e.value),
                 metadata=acc.metadata,
                 occurrences=acc.occurrences,
-                example_url=acc.example_url,
+                example_urls=sorted(acc.pages)[:5],
+                page_count=len(acc.pages),
             )
         )
     result.sort(key=lambda a: a.family.lower())
@@ -162,7 +162,8 @@ def evaluate(
                 triggered_rules=triggered,
                 registry_match=suppression.entry is not None,
                 suppression_reason=suppression.reason,
-                example_url=agg.example_url,
+                example_urls=agg.example_urls,
+                page_count=agg.page_count,
             )
         )
 

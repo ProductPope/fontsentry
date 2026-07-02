@@ -71,10 +71,12 @@ async def test_atlas_is_high_risk_cross_domain(findings: dict[str, Finding]) -> 
     )
 
 
-async def test_findings_carry_example_url(findings: dict[str, Finding]) -> None:
+async def test_findings_carry_example_pages(findings: dict[str, Finding]) -> None:
     atlas = findings["Atlas Grotesk Private"]
-    assert atlas.example_url is not None
-    assert atlas.example_url.startswith("http")
+    assert atlas.example_urls
+    assert all(u.startswith("http") for u in atlas.example_urls)
+    assert len(atlas.example_urls) <= 5
+    assert atlas.page_count >= len(atlas.example_urls)
 
 
 async def test_harbor_is_suppressed(findings: dict[str, Finding]) -> None:
