@@ -23,6 +23,17 @@ const TITLES: Record<Route, string> = {
   rules: "Rules",
 };
 
+async function pollJob(jobId: string, onProgress: (job: Job) => void): Promise<string> {
+  for (let i = 0; i < 600; i++) {
+    const job = await api.getJob(jobId);
+    onProgress(job);
+    if (job.status === "done" && job.run_id) return job.run_id;
+    if (job.status === "error") throw new Error(job.error ?? "scan failed");
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error("scan timed out");
+}
+
 export default function App() {
   const { route, navigate } = useHashRoute();
 
@@ -32,6 +43,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<View>("fonts");
   const [scanJob, setScanJob] = useState<Job | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [navOpen, setNavOpen] = useState(false); // mobile drawer
 
@@ -91,6 +103,25 @@ export default function App() {
     [navigate],
   );
 
+  const runAudit = useCallback(
+    async (mode: "real" | "demo") => {
+      setScanning(true);
+      notify(`Audit started on ${mode === "real" ? "your data" : "demo data"}…`, "info");
+      try {
+        const { job_id } = await api.startScan(mode);
+        const runId = await pollJob(job_id, setScanJob);
+        notify("Audit complete", "success");
+        await onScanComplete(runId);
+      } catch (e) {
+        notify(e instanceof Error ? e.message : "Audit failed", "error");
+      } finally {
+        setScanning(false);
+        setScanJob(null);
+      }
+    },
+    [notify, onScanComplete],
+  );
+
   return (
     <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)]">
       <Sidebar
@@ -124,7 +155,7 @@ export default function App() {
               <h1 className="text-lg font-bold">{TITLES[route]}</h1>
             </div>
             <div className="flex items-center gap-2">
-              <ScanControls onComplete={onScanComplete} notify={notify} onProgress={setScanJob} />
+              <ScanControls onStart={runAudit} running={scanning} />
             </div>
           </div>
         </header>
@@ -152,7 +183,13 @@ export default function App() {
             />
           )}
           {route === "registry" && <RegistrySetup notify={notify} />}
-          {route === "targets" && <TargetsSetup notify={notify} />}
+          {route === "targets" && (
+            <TargetsSetup
+              notify={notify}
+              onRunAudit={() => runAudit("real")}
+              running={scanning}
+            />
+          )}
           {route === "rules" && <RulesScreen notify={notify} />}
         </main>
       </div>
