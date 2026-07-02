@@ -28,6 +28,7 @@ from fontsentry.models import (
     Finding,
     FindingStatus,
     FontFormat,
+    HostAsset,
     Registry,
     RiskBand,
     RulesConfig,
@@ -57,6 +58,7 @@ class _DomainUsage:
     hosts: set[str] = field(default_factory=set)
     embeddings: set[EmbeddingMethod] = field(default_factory=set)
     formats: set[FontFormat] = field(default_factory=set)
+    assets: dict[str, set[str]] = field(default_factory=dict)  # host -> font-file URLs
 
 
 def _build_domain_reports(
@@ -81,10 +83,13 @@ def _build_domain_reports(
         for det in detections_by_domain.get(domain, []):
             if det.embedding is EmbeddingMethod.SYSTEM:
                 continue
+            host = _host(det.source_page)
             entry = usage.setdefault(det.family, _DomainUsage())
-            entry.hosts.add(_host(det.source_page))
+            entry.hosts.add(host)
             entry.embeddings.add(det.embedding)
             entry.formats.add(det.font_format)
+            if det.font_url:
+                entry.assets.setdefault(host, set()).add(det.font_url)
 
         fonts: list[DomainFont] = []
         for family, used in sorted(usage.items(), key=lambda kv: kv[0].lower()):
@@ -98,6 +103,10 @@ def _build_domain_reports(
                     embeddings=sorted(used.embeddings, key=lambda e: e.value),
                     formats=sorted(used.formats, key=lambda f: f.value),
                     hosts=sorted(used.hosts),
+                    assets=[
+                        HostAsset(host=h, urls=sorted(urls))
+                        for h, urls in sorted(used.assets.items())
+                    ],
                 )
             )
 

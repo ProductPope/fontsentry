@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JSON that use `foundry` must be updated to `owner`.
 
 ### Added
+- Per-host **asset paths**: each detected font now records the font-file URL(s) it
+  was served from on each host (`DomainFont.assets`), surfaced as a **Source** column
+  in the web UI's Domains view. Report JSON schema bumped to **v4** — additive, so
+  pre-v4 reports still load (the field defaults to empty).
 - Web UI **Setup** section (collapsible, open on first visit): edit the domains to
   scan and the owned-license registry — including how each license may be used
   (allowed domains, max domains, validity) — directly from the dashboard. Backed
