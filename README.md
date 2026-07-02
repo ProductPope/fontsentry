@@ -15,6 +15,11 @@ registry you maintain are suppressed automatically.
 > "worth a human looking at the license", not "infringement". FontSentry does not
 > determine legal liability. Always confirm with the owner or your legal team.
 
+> [!TIP]
+> **Not technical?** See [START_HERE.md](START_HERE.md) — set up and run the
+> local app by pasting one prompt into Claude Code, then do everything in the
+> browser (no CLI, no config files).
+
 ## Status
 
 Early development. See [CHANGELOG.md](CHANGELOG.md) and the build phases in
