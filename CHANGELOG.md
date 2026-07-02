@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-02
+
 ### Changed
 - **Breaking:** renamed the `foundry` field to `owner` throughout — domain models,
   report JSON (schema bumped to v3), the license registry YAML key, the risk-rule
@@ -15,6 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JSON that use `foundry` must be updated to `owner`.
 
 ### Added
+- **Redesigned local web UI** — a sidebar-navigated app (Overview, Audits,
+  Registry, Targets, Rules) with dependency-free hash routing, a light/dark theme,
+  self-hosted IBM Plex fonts (offline), and a token-based design system. Everything
+  a non-technical user needs happens in the browser — no CLI or YAML editing; see
+  `START_HERE.md` for the one-paste Claude Code setup prompt.
+  - **Overview dashboard**: risk-posture cards (open findings per band + suppressed)
+    with "vs last run" deltas, a portfolio card, an active-findings trend sparkline,
+    and a "Changes since last run" panel.
+  - **Rules** screen to edit rule weights/confidence and band thresholds, backed by
+    `GET`/`PUT /api/config/rules`.
+  - **Audits** screen: a run timeline (click to open a run) and schedule management.
+  - **Registry** as license cards with an add/edit form and **proof-file upload**
+    (`POST`/`GET /api/registry/proof`; extension-allowlisted, size-capped,
+    traversal-safe).
+  - **Targets** with per-domain reachability (from the latest run) and CSV import.
+  - **Plain-language finding detail** — why it's flagged, what to do, and a
+    score-breakdown gauge showing which rules fired.
+  - **First-run onboarding** guiding add-websites → run → read results.
+  - Responsive mobile drawer and a WCAG-AA contrast pass.
 - **Changes since last run**: the Overview surfaces new / resolved / changed
   findings versus the previous run, backed by `GET /api/runs/{id}/diff` (reusing
   the existing `diff_runs`). A run with no earlier run returns an empty diff.
@@ -59,4 +80,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   baseline. "Start audit" runs scans; "Schedule recurring audit" creates Windows
   Task Scheduler entries that run even when the UI is closed.
 
-[Unreleased]: https://github.com/fontsentry/fontsentry/commits/main
+[Unreleased]: https://github.com/fontsentry/fontsentry/compare/v0.2.0...main
+[0.2.0]: https://github.com/fontsentry/fontsentry/releases/tag/v0.2.0
