@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -188,6 +188,18 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
                           <span className="font-mono">{e.max_domains}</span>
                         </Line>
                       )}
+                      {e.proof_path && (
+                        <Line label="Proof">
+                          <a
+                            href={api.proofUrl(e.proof_path)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-accent underline"
+                          >
+                            {e.proof_path}
+                          </a>
+                        </Line>
+                      )}
                       {e.notes && <Line label="Notes">{e.notes}</Line>}
                     </dl>
                     <div className="mt-auto flex gap-2 pt-1">
@@ -268,6 +280,21 @@ function LicenseModal({
   notify: (message: string, kind: ToastKind) => void;
 }) {
   const [f, setF] = useState<FormState>(() => toForm(initial));
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onProof(file: File) {
+    setUploading(true);
+    try {
+      const { name } = await api.uploadProof(file);
+      setF((prev) => ({ ...prev, proof_path: name }));
+      notify("Proof attached", "success");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Could not upload proof", "error");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function submit() {
     if (!f.owner.trim() || !f.family.trim() || !f.license_type.trim()) {
@@ -340,6 +367,48 @@ function LicenseModal({
             value={f.notes ?? ""}
             onChange={(e) => setF({ ...f, notes: e.target.value || null })}
           />
+        </Field>
+        <Field label="Proof (PDF or image, optional)">
+          {f.proof_path ? (
+            <div className="flex items-center gap-2 text-sm">
+              <a
+                href={api.proofUrl(f.proof_path)}
+                target="_blank"
+                rel="noreferrer"
+                className="min-w-0 truncate text-accent underline"
+              >
+                {f.proof_path}
+              </a>
+              <Button
+                variant="ghost"
+                className="px-2"
+                onClick={() => setF({ ...f, proof_path: null })}
+              >
+                Remove
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                {uploading ? "Uploading…" : "Attach file"}
+              </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void onProof(file);
+                  e.target.value = "";
+                }}
+              />
+            </>
+          )}
         </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onCancel}>

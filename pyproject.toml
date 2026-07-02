@@ -34,7 +34,7 @@ dependencies = [
 # Heavy, opt-in. Only needed for the JavaScript-injected-font fallback renderer.
 browser = ["playwright>=1.52"]
 # Local web UI backend (the `fontsentry serve` command).
-web = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+web = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9"]
 
 [project.scripts]
 fontsentry = "fontsentry.cli:app"
@@ -51,6 +51,7 @@ dev = [
     "mypy>=1.16",
     "types-pyyaml>=6.0",
     "fastapi>=0.115",  # for TestClient-based web API tests
+    "python-multipart>=0.0.9",  # multipart parsing for the proof-upload endpoint tests
 ]
 
 [build-system]
