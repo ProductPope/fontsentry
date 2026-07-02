@@ -71,6 +71,12 @@ async def test_atlas_is_high_risk_cross_domain(findings: dict[str, Finding]) -> 
     )
 
 
+async def test_findings_carry_example_url(findings: dict[str, Finding]) -> None:
+    atlas = findings["Atlas Grotesk Private"]
+    assert atlas.example_url is not None
+    assert atlas.example_url.startswith("http")
+
+
 async def test_harbor_is_suppressed(findings: dict[str, Finding]) -> None:
     harbor = findings["Harbor Serif"]
     assert harbor.status is FindingStatus.RESOLVED
