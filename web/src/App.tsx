@@ -33,6 +33,7 @@ export default function App() {
   const [view, setView] = useState<View>("fonts");
   const [scanJob, setScanJob] = useState<Job | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [navOpen, setNavOpen] = useState(false); // mobile drawer
 
   const notify = useCallback((message: string, kind: ToastKind) => {
     setToast({ message, kind });
@@ -91,13 +92,37 @@ export default function App() {
   );
 
   return (
-    <div className="grid min-h-screen grid-cols-[248px_minmax(0,1fr)]">
-      <Sidebar route={route} onNavigate={navigate} />
+    <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)]">
+      <Sidebar
+        route={route}
+        onNavigate={navigate}
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+      />
 
       <div className="min-w-0">
         <header className="sticky top-0 z-40 border-b border-stroke bg-surface/85 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-            <h1 className="text-lg font-bold">{TITLES[route]}</h1>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setNavOpen(true)}
+                aria-label="Open navigation"
+                aria-controls="app-sidebar"
+                aria-expanded={navOpen}
+                className="-ml-1 rounded-tk p-1 text-muted hover:text-ink md:hidden"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M4 7h16M4 12h16M4 17h16"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+              <h1 className="text-lg font-bold">{TITLES[route]}</h1>
+            </div>
             <div className="flex items-center gap-2">
               <ScanControls onComplete={onScanComplete} notify={notify} onProgress={setScanJob} />
             </div>

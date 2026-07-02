@@ -104,7 +104,7 @@ export function RulesScreen({ notify }: { notify: (message: string, kind: ToastK
           <div className="overflow-x-auto rounded-card border border-stroke">
             <table className="w-full border-collapse bg-surface text-sm">
               <thead>
-                <tr className="bg-surface2 text-left text-faint">
+                <tr className="bg-surface2 text-left text-muted">
                   <th scope="col" className={TH}>
                     Rule
                   </th>

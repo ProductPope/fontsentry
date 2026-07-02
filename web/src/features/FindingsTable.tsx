@@ -258,7 +258,7 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
         <table className="w-full border-collapse bg-surface text-sm">
           <caption className="sr-only">Detected fonts and their risk</caption>
           <thead>
-            <tr className="bg-surface2 text-left text-faint">
+            <tr className="bg-surface2 text-left text-muted">
               <th scope="col" className={TH}>
                 Font
               </th>
