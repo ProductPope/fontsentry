@@ -229,3 +229,34 @@ def test_rules_invalid_confidence_rejected(tmp_path: Path) -> None:
     }
     with _client(tmp_path, config_dir=tmp_path / "config") as client:
         assert client.put("/api/config/rules", json=bad).status_code == 422
+
+
+def test_proof_upload_roundtrip(tmp_path: Path) -> None:
+    registry_dir = tmp_path / "registry"
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        up = client.post(
+            "/api/registry/proof",
+            files={"file": ("invoice.pdf", b"%PDF-1.4 hi", "application/pdf")},
+        )
+        assert up.status_code == 200
+        name = up.json()["name"]
+        assert name == "invoice.pdf"
+        assert (registry_dir / "proofs" / name).exists()
+
+        got = client.get(f"/api/registry/proof/{name}")
+        assert got.status_code == 200
+        assert got.content == b"%PDF-1.4 hi"
+
+
+def test_proof_upload_rejects_bad_type(tmp_path: Path) -> None:
+    with _client(tmp_path, registry_dir=tmp_path / "registry") as client:
+        r = client.post(
+            "/api/registry/proof",
+            files={"file": ("evil.exe", b"MZ", "application/octet-stream")},
+        )
+        assert r.status_code == 400
+
+
+def test_proof_get_traversal_rejected(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        assert client.get("/api/registry/proof/..%2f..%2fsecret").status_code in (400, 404)
