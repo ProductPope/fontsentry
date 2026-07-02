@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from fontsentry.crawl.cache import HttpCache
+from fontsentry.crawl.ct import ct_subdomains
 from fontsentry.crawl.discovery import discover_pages
 from fontsentry.crawl.fetcher import Fetcher
 from fontsentry.crawl.robots import RobotsManager
@@ -133,12 +134,16 @@ async def run_scan(
     client: httpx.AsyncClient,
     now: datetime,
     progress: ProgressFn = _noop_progress,
+    discover_ct: bool = False,
 ) -> RunReport:
     """Crawl, detect, and score; return the run report (font- and domain-centric).
 
     Runs in two global passes so progress maps to real, user-visible steps:
     discover every domain's pages first, then identify fonts on every page. The
     output is independent of pass order (aggregation and sorting are order-free).
+
+    ``discover_ct`` (opt-in) additionally seeds discovery with public subdomains
+    from Certificate Transparency logs — this queries an external service.
     """
 
     crawl = settings.crawl
@@ -152,6 +157,12 @@ async def run_scan(
     # Pass 1 — discover subdomains and pages, per domain.
     progress("discover", 0, len(targets), "Discovering subdomains and pages")
     for i, target in enumerate(targets):
+        if discover_ct:
+            extra = await ct_subdomains(client, target.domain)
+            if extra:
+                target = target.model_copy(
+                    update={"subdomain_seeds": [*target.subdomain_seeds, *extra]}
+                )
         pages_by_domain[target.domain] = await discover_pages(fetcher, target, crawl)
         progress("discover", i + 1, len(targets), f"Discovered {target.domain}")
 
@@ -184,11 +195,19 @@ async def scan_and_write(
     now: datetime,
     reports_dir: Path,
     progress: ProgressFn = _noop_progress,
+    discover_ct: bool = False,
 ) -> tuple[RunReport, Path, Path]:
     """Run a scan and persist the JSON and HTML reports. Returns (report, json, html)."""
 
     report = await run_scan(
-        targets, settings, rules, registry, client=client, now=now, progress=progress
+        targets,
+        settings,
+        rules,
+        registry,
+        client=client,
+        now=now,
+        progress=progress,
+        discover_ct=discover_ct,
     )
     progress("report", 0, 1, "Writing report")
     json_path = write_run(report, reports_dir)
