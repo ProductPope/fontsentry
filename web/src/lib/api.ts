@@ -210,4 +210,22 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(rules),
     }),
+  // Multipart upload — no JSON Content-Type (the browser sets the boundary).
+  uploadProof: async (file: File): Promise<{ name: string }> => {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch("/api/registry/proof", { method: "POST", body });
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        const b = (await res.json()) as { detail?: string };
+        if (b.detail) detail = b.detail;
+      } catch {
+        // non-JSON error body; keep statusText
+      }
+      throw new Error(detail);
+    }
+    return (await res.json()) as { name: string };
+  },
+  proofUrl: (name: string) => `/api/registry/proof/${encodeURIComponent(name)}`,
 };
