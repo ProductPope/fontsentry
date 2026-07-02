@@ -105,7 +105,10 @@ export function Faq() {
     subdomain_seeds: ["blog.example.com"]
   - domain: "example.org"`}
         </pre>
-        Subdomains are also discovered passively (sitemap + links); the tool never brute-forces.
+        Subdomains are discovered passively (sitemap + links). You can also tick{" "}
+        <strong>Find subdomains</strong> when starting an audit to pull public subdomains from
+        Certificate Transparency logs — that one queries an external service, so it is off by
+        default. The tool never brute-forces DNS.
       </Item>
     </section>
   );
