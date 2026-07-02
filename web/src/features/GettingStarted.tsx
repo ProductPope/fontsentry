@@ -28,8 +28,9 @@ export function GettingStarted() {
           </div>
         </Step>
         <Step n={2} title="Run an audit">
-          Use <strong>Start audit</strong> at the top-right. Not ready with your real sites yet?
-          Choose <strong>demo</strong> to see how it works on sample data.
+          Use <strong>Start audit</strong> at the top-right — it runs on <strong>Your data</strong>{" "}
+          by default. Not ready with your real sites? Switch to the <strong>Demo data</strong> tab
+          to try it on sample data.
         </Step>
         <Step n={3} title="Read the results">
           Each font gets a risk band — <span className="font-medium text-band-high">High</span>{" "}
