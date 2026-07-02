@@ -116,6 +116,11 @@ async def test_domain_view_present(report: RunReport) -> None:
     assert "self_hosted" in atlas.embeddings
     assert "ttf" in atlas.formats
 
+    # ...and the per-host font-file URL(s) it was served from (schema v4).
+    assert atlas.assets, "expected per-host asset URLs for a self-hosted font"
+    assert {a.host for a in atlas.assets} <= set(atlas.hosts)
+    assert all(url for a in atlas.assets for url in a.urls)
+
 
 async def test_domain_view_per_domain_fonts(report: RunReport) -> None:
     shop = next(d for d in report.domains if d.domain == "example-shop.test")

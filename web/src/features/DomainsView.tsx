@@ -16,6 +16,15 @@ interface HostRow {
   formats: string[];
   band: Band;
   status: Status;
+  assetUrls: string[];
+}
+
+// Short label for a font-file URL column: the filename, plus "+N" when a host
+// served more than one file for the same font. Full URLs go in the title.
+function assetLabel(urls: string[]): string {
+  if (urls.length === 0) return "—";
+  const first = urls[0]!.split("?")[0]!.split("/").pop() || urls[0]!;
+  return urls.length > 1 ? `${first} +${urls.length - 1}` : first;
 }
 
 // One row per (host, font): subdomains become their own rows.
@@ -34,6 +43,7 @@ function toRows(domains: DomainReport[]): HostRow[] {
           formats: f.formats,
           band: f.band,
           status: f.status,
+          assetUrls: f.assets.find((a) => a.host === host)?.urls ?? [],
         });
       }
     }
@@ -103,6 +113,9 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
                 Format
               </th>
               <th scope="col" className={TH}>
+                Source
+              </th>
+              <th scope="col" className={TH}>
                 Band
               </th>
               <th scope="col" className={TH}>
@@ -121,6 +134,21 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
                 <td className="px-4 py-2">{r.owner ?? "—"}</td>
                 <td className="px-4 py-2 font-mono text-xs">{r.embeddings.join(", ") || "—"}</td>
                 <td className="px-4 py-2 font-mono text-xs">{r.formats.join(", ") || "—"}</td>
+                <td className="max-w-[16rem] truncate px-4 py-2 font-mono text-xs text-muted">
+                  {r.assetUrls.length > 0 ? (
+                    <a
+                      href={r.assetUrls[0]}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={r.assetUrls.join("\n")}
+                      className="text-accent underline"
+                    >
+                      {assetLabel(r.assetUrls)}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td className="px-4 py-2">
                   <RiskBadge band={r.band} />
                 </td>
@@ -131,7 +159,7 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-muted">
+                <td colSpan={8} className="px-4 py-6 text-center text-muted">
                   No fonts match the filters.
                 </td>
               </tr>

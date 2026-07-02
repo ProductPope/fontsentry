@@ -44,6 +44,11 @@ export interface RunSummary {
   by_band: Partial<Record<Band, number>>;
 }
 
+export interface HostAsset {
+  host: string;
+  urls: string[];
+}
+
 export interface DomainFont {
   family: string;
   owner: string | null;
@@ -52,6 +57,7 @@ export interface DomainFont {
   embeddings: string[];
   formats: string[];
   hosts: string[];
+  assets: HostAsset[];
 }
 
 export interface DomainReport {

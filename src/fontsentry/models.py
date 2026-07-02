@@ -145,6 +145,15 @@ class RunSummary(BaseModel):
     by_band: dict[RiskBand, int] = Field(default_factory=dict)
 
 
+class HostAsset(BaseModel):
+    """The font-file URL(s) a font was served from on one host."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    host: str
+    urls: list[str] = Field(default_factory=list)
+
+
 class DomainFont(BaseModel):
     """A font used on one domain, with how it was embedded and the hosts it was seen on."""
 
@@ -157,6 +166,9 @@ class DomainFont(BaseModel):
     embeddings: list[EmbeddingMethod] = Field(default_factory=list)
     formats: list[FontFormat] = Field(default_factory=list)
     hosts: list[str] = Field(default_factory=list)
+    # Per-host font-file URLs (asset paths). Empty for pre-v4 reports and for
+    # fonts with no directly fetched file (e.g. some CDN/API embeddings).
+    assets: list[HostAsset] = Field(default_factory=list)
 
 
 class DomainReport(BaseModel):
@@ -177,7 +189,7 @@ class RunReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int = 3
+    schema_version: int = 4
     generated_at: datetime
     summary: RunSummary
     findings: list[Finding] = Field(default_factory=list)
