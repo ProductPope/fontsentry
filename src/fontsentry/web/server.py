@@ -22,7 +22,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from fontsentry import config, demo
-from fontsentry.models import Registry, RulesConfig, RunReport, RunSummary, TargetsConfig
+from fontsentry.models import (
+    DiffResult,
+    Registry,
+    RulesConfig,
+    RunReport,
+    RunSummary,
+    TargetsConfig,
+)
+from fontsentry.report.diff import diff_runs
 from fontsentry.report.json_report import first_seen_map, load_run
 from fontsentry.scan import scan_and_write
 from fontsentry.web.jobs import Job, JobManager
@@ -133,6 +141,20 @@ def create_app(
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return load_run(path)
+
+    @app.get("/api/runs/{run_id}/diff")
+    async def get_run_diff(run_id: str) -> DiffResult:
+        # Diff a run against the one chronologically before it. An empty result
+        # means either no earlier run exists or nothing changed.
+        path = _safe_run_path(reports_dir, run_id)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="run not found")
+        files = sorted(reports_dir.glob("fontsentry-*.report.json"))  # oldest first
+        names = [p.name for p in files]
+        idx = names.index(run_id) if run_id in names else -1
+        if idx <= 0:
+            return DiffResult()
+        return diff_runs(load_run(files[idx - 1]), load_run(path))
 
     @app.get("/api/config/targets")
     async def get_targets() -> TargetsConfig:
