@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Demo and example data are fully brand-neutral: real names (system fallback
+  fonts, an open-font service) are replaced with invented ones in the demo
+  dataset, `registry/licenses.example.yaml`, and the UI's "Insert examples" rows.
+  The real-CDN embedding classifications (google_fonts / adobe_fonts / monotype)
+  and CSS fallback stacks are unchanged — those are functional, not branding.
+
 ## [0.2.0] - 2026-07-02
 
 ### Changed

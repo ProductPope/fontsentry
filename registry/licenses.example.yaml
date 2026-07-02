@@ -13,23 +13,23 @@
 # omit it for no cap. So "unlimited" = allowed_domains ["*"] and no max_domains.
 
 entries:
-  # 1) Open font (OFL) self-hosted after downloading from Google Fonts. Open
-  #    licenses are never flagged, so an entry is optional — shown for reference.
-  - owner: "Google Fonts"
+  # 1) Open font (OFL) self-hosted after downloading from an open-font service.
+  #    Open licenses are never flagged, so an entry is optional — shown for reference.
+  - owner: "Public Glyphs Foundation"
     family: "Beacon Sans"
-    license_type: "Google Fonts — self-hosted (OFL)"
+    license_type: "Open (OFL) — self-hosted"
     allowed_domains:
       - "example.com"
     notes: "Open license (OFL); self-hosted @font-face. Unrestricted."
 
-  # 2) Same open font, delivered live via the Google Fonts API
-  #    (fonts.googleapis.com) instead of being self-hosted.
-  - owner: "Google Fonts"
+  # 2) Same open font, delivered live via an open-font web service (a hosted CDN)
+  #    instead of being self-hosted.
+  - owner: "Public Glyphs Foundation"
     family: "Meadow Text"
-    license_type: "Google Fonts — API (OFL)"
+    license_type: "Open (OFL) — web service"
     allowed_domains:
       - "example.com"
-    notes: "Open license (OFL); loaded from the Google Fonts API."
+    notes: "Open license (OFL); loaded from an open-font web service."
 
   # 3) Commercial license tied to a SINGLE domain (max_domains: 1).
   - owner: "Meridian Letterworks"

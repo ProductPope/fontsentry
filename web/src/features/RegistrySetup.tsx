@@ -11,8 +11,8 @@ import type { RegistryEntry } from "../lib/api";
 import { cn } from "../lib/cn";
 
 const LICENSE_TYPES = [
-  "Google Fonts — self-hosted (OFL)",
-  "Google Fonts — API (OFL)",
+  "Open (OFL) — self-hosted",
+  "Open (OFL) — web service",
   "Commercial — per domain",
   "Commercial — unlimited",
 ];
@@ -21,9 +21,9 @@ const LICENSE_TYPES = [
 // Mirrors registry/licenses.example.yaml; names are invented.
 const EXAMPLES: RegistryEntry[] = [
   {
-    owner: "Google Fonts",
+    owner: "Public Glyphs Foundation",
     family: "Beacon Sans",
-    license_type: "Google Fonts — self-hosted (OFL)",
+    license_type: "Open (OFL) — self-hosted",
     allowed_domains: ["example.com"],
     max_domains: null,
     proof_path: null,
