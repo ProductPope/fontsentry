@@ -7,6 +7,7 @@ import { cn } from "../lib/cn";
 import { DomainsView } from "./DomainsView";
 import { Faq } from "./Faq";
 import { FindingsTable } from "./FindingsTable";
+import { GettingStarted } from "./GettingStarted";
 import type { Band, RunMeta, RunReport } from "../lib/api";
 
 export type View = "fonts" | "domains";
@@ -54,14 +55,7 @@ export function OverviewScreen({
   }, [report]);
 
   if (runs.length === 0) {
-    return (
-      <Card>
-        <p className="text-muted">
-          No audits yet. Click <strong>Start audit</strong> (try the demo mode) to produce your
-          first report.
-        </p>
-      </Card>
-    );
+    return <GettingStarted />;
   }
 
   return (
