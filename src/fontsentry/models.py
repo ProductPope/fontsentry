@@ -93,7 +93,8 @@ class AggregatedFont(BaseModel):
     embeddings: list[EmbeddingMethod] = Field(default_factory=list)
     metadata: FontMetadata | None = None
     occurrences: int = 0
-    example_url: str | None = None  # a representative page the font was seen on
+    example_urls: list[str] = Field(default_factory=list)  # sample pages the font was seen on
+    page_count: int = 0  # distinct pages the font was seen on
 
     @property
     def domain_count(self) -> int:
@@ -129,7 +130,8 @@ class Finding(BaseModel):
     triggered_rules: list[TriggeredRule] = Field(default_factory=list)
     registry_match: bool = False
     suppression_reason: str | None = None
-    example_url: str | None = None  # a representative page the font was seen on
+    example_urls: list[str] = Field(default_factory=list)  # sample pages the font was seen on
+    page_count: int = 0  # distinct pages the font was seen on
 
     @property
     def domain_count(self) -> int:
