@@ -11,39 +11,67 @@ function findingKey(f: Finding): string {
   return `${f.family}::${f.owner ?? ""}`;
 }
 
+function isSystemOnly(f: Finding): boolean {
+  return f.embeddings.length > 0 && f.embeddings.every((e) => e === "system");
+}
+
+// Plain-language next step for a non-technical operator.
+function actionText(f: Finding): string {
+  if (f.status === "resolved") {
+    return "No action needed — a matching license in your Registry already covers this.";
+  }
+  if (isSystemOnly(f)) {
+    return "This is a system / fallback font (not embedded on the page). Usually nothing to do.";
+  }
+  return (
+    "If you own a license that permits this use, add it under Registry — the same owner and " +
+    "font family, plus the domains it covers. On the next scan this clears automatically."
+  );
+}
+
 function FindingDetail({ finding }: { finding: Finding }) {
   const m = finding.metadata;
+  const resolved = finding.status === "resolved";
   return (
-    <div className="grid gap-4 bg-surface2 px-4 py-3 text-sm sm:grid-cols-2">
-      <div>
-        <h3 className="mb-1 font-semibold">Triggered rules</h3>
-        {finding.triggered_rules.length > 0 ? (
-          <ul className="space-y-1">
-            {finding.triggered_rules.map((r) => (
-              <li key={r.id}>
-                <span className="font-medium">{r.id}</span>{" "}
-                <span className="text-muted">(+{r.points})</span>
-                <div className="text-muted">{r.description}</div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted">{finding.suppression_reason ?? "No rules triggered."}</p>
-        )}
+    <div className="grid gap-5 bg-surface2 px-4 py-4 text-sm sm:grid-cols-2">
+      <div className="space-y-4">
+        <div>
+          <h3 className="mb-1 font-semibold">{resolved ? "Why it's cleared" : "Why it's flagged"}</h3>
+          {resolved ? (
+            <p className="text-band-low">
+              {finding.suppression_reason ?? "Covered by a license in your registry."}
+            </p>
+          ) : finding.triggered_rules.length > 0 ? (
+            <ul className="list-disc space-y-1 pl-5 text-muted">
+              {finding.triggered_rules.map((r) => (
+                <li key={r.id}>{r.description || r.id}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted">No specific reasons recorded.</p>
+          )}
+        </div>
+        <div>
+          <h3 className="mb-1 font-semibold">What you can do</h3>
+          <p className="text-muted">{actionText(finding)}</p>
+        </div>
       </div>
-      <div>
-        <h3 className="mb-1 font-semibold">Details</h3>
-        <dl className="space-y-1">
-          <Row label="Domains" value={finding.domains.join(", ")} />
-          <Row label="Designer" value={m?.designer ?? "—"} />
-          <Row label="Copyright" value={m?.copyright ?? "—"} />
-          <Row label="License" value={m?.license_description ?? "—"} />
-          <Row label="Glyphs" value={m?.num_glyphs != null ? String(m.num_glyphs) : "—"} />
-          <Row
-            label="Registry"
-            value={finding.registry_match ? finding.suppression_reason ?? "matched" : "no match"}
-          />
-        </dl>
+
+      <div className="space-y-4">
+        <div>
+          <h3 className="mb-1 font-semibold">Where it appears</h3>
+          <p className="font-mono text-xs break-words text-muted">
+            {finding.domains.join(", ") || "—"}
+          </p>
+        </div>
+        <div>
+          <h3 className="mb-1 font-semibold">Font details</h3>
+          <dl className="space-y-1">
+            <Row label="Designer" value={m?.designer ?? "—"} />
+            <Row label="Copyright" value={m?.copyright ?? "—"} />
+            <Row label="License" value={m?.license_description ?? "—"} />
+          </dl>
+        </div>
       </div>
     </div>
   );
