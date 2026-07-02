@@ -122,6 +122,19 @@ function FindingDetail({
             <p className="font-mono text-xs break-words text-muted">
               {finding.domains.join(", ") || "—"}
             </p>
+            {finding.example_url && (
+              <p className="mt-1 text-xs text-muted">
+                Example page:{" "}
+                <a
+                  href={finding.example_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono break-all text-accent underline"
+                >
+                  {finding.example_url}
+                </a>
+              </p>
+            )}
           </div>
           <div>
             <h3 className="mb-1 font-semibold">Font details</h3>
