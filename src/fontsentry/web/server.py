@@ -201,10 +201,13 @@ def create_app(
         return rules
 
     @app.post("/api/registry/proof")
-    async def upload_proof(file: UploadFile) -> dict[str, str]:
+    async def upload_proof(request: Request, file: UploadFile) -> dict[str, str]:
         # Never trust the client filename: keep only its basename, restrict the
         # charset, allowlist the extension, and cap the size. The result is what
         # gets stored in RegistryEntry.proof_path.
+        length = request.headers.get("content-length")
+        if length and length.isdigit() and int(length) > _MAX_PROOF_BYTES:
+            raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
         raw = Path(file.filename or "").name
         if Path(raw).suffix.lower() not in _PROOF_EXTS:
             raise HTTPException(status_code=400, detail="unsupported file type")
@@ -223,8 +226,10 @@ def create_app(
     async def get_proof(name: str) -> FileResponse:
         if "/" in name or "\\" in name or ".." in name:
             raise HTTPException(status_code=400, detail="invalid proof name")
-        path = registry_dir / "proofs" / name
-        if not path.is_file():
+        proofs = (registry_dir / "proofs").resolve()
+        path = (proofs / name).resolve()
+        # Belt-and-suspenders: the resolved file must sit directly inside proofs/.
+        if path.parent != proofs or not path.is_file():
             raise HTTPException(status_code=404, detail="proof not found")
         return FileResponse(path)
 
