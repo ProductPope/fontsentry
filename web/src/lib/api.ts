@@ -127,6 +127,34 @@ export interface RegistryConfig {
   entries: RegistryEntry[];
 }
 
+export interface RuleCondition {
+  type: string;
+  params: Record<string, unknown>;
+}
+
+export interface Rule {
+  id: string;
+  description: string;
+  weight: number;
+  confidence: number;
+  when: RuleCondition;
+}
+
+export interface BandThresholds {
+  medium: number;
+  high: number;
+}
+
+export interface Scoring {
+  max_raw: number;
+  bands: BandThresholds;
+}
+
+export interface RulesConfig {
+  scoring: Scoring;
+  rules: Rule[];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -175,5 +203,11 @@ export const api = {
     request<RegistryConfig>("/api/config/registry", {
       method: "PUT",
       body: JSON.stringify(registry),
+    }),
+  getRules: () => request<RulesConfig>("/api/config/rules"),
+  saveRules: (rules: RulesConfig) =>
+    request<RulesConfig>("/api/config/rules", {
+      method: "PUT",
+      body: JSON.stringify(rules),
     }),
 };

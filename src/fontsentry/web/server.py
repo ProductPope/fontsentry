@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from fontsentry import config, demo
-from fontsentry.models import Registry, RunReport, RunSummary, TargetsConfig
+from fontsentry.models import Registry, RulesConfig, RunReport, RunSummary, TargetsConfig
 from fontsentry.report.json_report import load_run
 from fontsentry.scan import scan_and_write
 from fontsentry.web.jobs import Job, JobManager
@@ -143,6 +143,20 @@ def create_app(
     async def put_registry(registry: Registry) -> Registry:
         config.save_registry(registry_dir / "licenses.yaml", registry)
         return registry
+
+    @app.get("/api/config/rules")
+    async def get_rules() -> RulesConfig:
+        # Rules have no empty default (scoring is required), so fall back to the
+        # committed example when no real rules.yaml exists — same file the scan uses.
+        try:
+            return config.load_rules(config.resolve_config_path(config_dir, "rules"))
+        except config.ConfigError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.put("/api/config/rules")
+    async def put_rules(rules: RulesConfig) -> RulesConfig:
+        config.save_rules(config_dir / "rules.yaml", rules)
+        return rules
 
     @app.post("/api/scan")
     async def start_scan(request: ScanRequest) -> ScanStarted:
