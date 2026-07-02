@@ -48,7 +48,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -56,7 +56,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-md rounded-tk border border-stroke bg-surface p-5 shadow-lg"
+        className="w-full max-w-md rounded-card border border-stroke bg-surface p-5 shadow-tk-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className="mb-4 text-base font-semibold">

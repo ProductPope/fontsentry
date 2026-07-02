@@ -75,7 +75,7 @@ export function ScanProgress({ job }: { job: Job }) {
                   className={
                     "flex h-5 w-5 items-center justify-center rounded-full text-xs " +
                     (done
-                      ? "bg-accent text-white"
+                      ? "bg-accent text-accent-fg"
                       : active
                         ? "border-2 border-accent text-accent"
                         : "border border-stroke text-muted")
@@ -93,21 +93,23 @@ export function ScanProgress({ job }: { job: Job }) {
         </ol>
 
         <div className="flex items-center gap-3">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-canvas">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken">
             <div
               className={"h-full bg-accent transition-all" + (determinate ? "" : " animate-pulse")}
               style={{ width: determinate ? `${percent}%` : "100%" }}
             />
           </div>
-          {determinate && <span className="w-10 text-right text-sm text-muted">{percent}%</span>}
+          {determinate && (
+            <span className="w-10 text-right font-mono text-sm text-muted">{percent}%</span>
+          )}
         </div>
 
         <div className="flex flex-wrap justify-between gap-x-4 text-sm text-muted">
           <span>
             {job.message || "Starting…"}
-            {determinate && ` (${job.current}/${job.total})`}
+            {determinate && <span className="font-mono"> ({job.current}/{job.total})</span>}
           </span>
-          <span className="tabular-nums">
+          <span className="font-mono tabular-nums">
             Elapsed {fmtDuration(now - startedAt.current)} · ETA {eta}
           </span>
         </div>

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 function Item({ q, children }: { q: string; children: ReactNode }) {
   return (
-    <details className="group rounded-tk border border-stroke bg-surface">
+    <details className="group rounded-card border border-stroke bg-surface">
       <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-medium">
         {q}
         <span aria-hidden="true" className="text-muted group-open:hidden">
@@ -99,7 +99,7 @@ export function Faq() {
       <Item q="How do I load a list of domains to scan?">
         Edit <code>config/targets.yaml</code> (copy from <code>config/targets.example.yaml</code>),
         then run a <em>real</em> audit:
-        <pre className="mt-2 overflow-x-auto rounded-tk border border-stroke bg-canvas p-3 text-ink">
+        <pre className="mt-2 overflow-x-auto rounded-tk border border-stroke bg-sunken p-3 font-mono text-ink">
           {`targets:
   - domain: "example.com"
     subdomain_seeds: ["blog.example.com"]
