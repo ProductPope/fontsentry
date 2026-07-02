@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from fontsentry import config, demo
 from fontsentry.models import Registry, RulesConfig, RunReport, RunSummary, TargetsConfig
-from fontsentry.report.json_report import load_run
+from fontsentry.report.json_report import first_seen_map, load_run
 from fontsentry.scan import scan_and_write
 from fontsentry.web.jobs import Job, JobManager
 from fontsentry.web.scheduler import (
@@ -56,6 +56,12 @@ class RunMeta(BaseModel):
     id: str
     generated_at: datetime
     summary: RunSummary
+
+
+class FirstSeen(BaseModel):
+    domain: str
+    family: str
+    first_seen: datetime
 
 
 class ScanRequest(BaseModel):
@@ -112,6 +118,14 @@ def create_app(
                 RunMeta(id=path.name, generated_at=report.generated_at, summary=report.summary)
             )
         return metas
+
+    @app.get("/api/first-seen")
+    async def get_first_seen() -> list[FirstSeen]:
+        # Computed from the report files on disk; no stored per-font history.
+        return [
+            FirstSeen(domain=domain, family=family, first_seen=ts)
+            for (domain, family), ts in first_seen_map(reports_dir).items()
+        ]
 
     @app.get("/api/runs/{run_id}")
     async def get_run(run_id: str) -> RunReport:

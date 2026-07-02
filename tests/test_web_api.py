@@ -70,6 +70,16 @@ def test_scan_then_list_and_fetch(tmp_path: Path) -> None:
         assert report["summary"]["open_findings"] >= 1
 
 
+def test_first_seen_after_scan(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        _run_demo_scan(client)
+        resp = client.get("/api/first-seen")
+        assert resp.status_code == 200
+        rows = resp.json()
+        assert rows and all({"domain", "family", "first_seen"} <= set(r) for r in rows)
+        assert any(r["family"] == "Atlas Grotesk Private" for r in rows)
+
+
 def test_run_not_found(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/runs/missing.report.json").status_code == 404
