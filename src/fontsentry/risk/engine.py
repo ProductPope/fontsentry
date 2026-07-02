@@ -41,6 +41,7 @@ class _Accumulator:
     metadata: FontMetadata | None = None
     occurrences: int = 0
     pages: set[str] = field(default_factory=set)
+    applied: bool = False
 
 
 def _domain_of(url: str) -> str:
@@ -69,6 +70,7 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
         acc.embeddings.add(font.embedding)
         acc.occurrences += 1
         acc.pages.add(font.source_page)
+        acc.applied = acc.applied or font.applied
 
     result: list[AggregatedFont] = []
     for acc in groups.values():
@@ -83,6 +85,7 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
                 occurrences=acc.occurrences,
                 example_urls=sorted(acc.pages)[:5],
                 page_count=len(acc.pages),
+                applied=acc.applied,
             )
         )
     result.sort(key=lambda a: a.family.lower())
@@ -148,6 +151,11 @@ def evaluate(
     for agg in aggregate(fonts):
         suppression = evaluate_suppression(agg, registry, now)
         triggered, score, band = _score_font(agg, rules, suppression.entry, now)
+        # A font served via @font-face but not applied to any text is a weaker
+        # signal (the file is hosted, but nothing renders in it): halve the score.
+        if not agg.applied:
+            score = round(score * 0.5)
+            band = band_for(score, rules)
         findings.append(
             Finding(
                 family=agg.family,
@@ -164,6 +172,7 @@ def evaluate(
                 suppression_reason=suppression.reason,
                 example_urls=agg.example_urls,
                 page_count=agg.page_count,
+                applied=agg.applied,
             )
         )
 
