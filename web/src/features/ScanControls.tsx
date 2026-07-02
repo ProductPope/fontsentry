@@ -12,15 +12,16 @@ const MODES: { id: ScanMode; label: string }[] = [
 ];
 
 interface ScanControlsProps {
-  onStart: (mode: ScanMode) => void;
+  onStart: (mode: ScanMode, discoverSubdomains: boolean) => void;
   running: boolean;
 }
 
 export function ScanControls({ onStart, running }: ScanControlsProps) {
   const [mode, setMode] = useState<ScanMode>("real");
+  const [discover, setDiscover] = useState(false);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div
         role="group"
         aria-label="Data source"
@@ -42,7 +43,19 @@ export function ScanControls({ onStart, running }: ScanControlsProps) {
           </button>
         ))}
       </div>
-      <Button onClick={() => onStart(mode)} disabled={running}>
+      <label
+        className="flex items-center gap-1.5 text-xs text-muted"
+        title="Also find public subdomains from Certificate Transparency logs. This queries an external service, so your domain leaves this machine. Real data only."
+      >
+        <input
+          type="checkbox"
+          checked={discover}
+          onChange={(e) => setDiscover(e.target.checked)}
+          disabled={running}
+        />
+        Find subdomains
+      </label>
+      <Button onClick={() => onStart(mode, discover)} disabled={running}>
         {running ? "Auditing…" : "Start audit"}
       </Button>
     </div>

@@ -207,10 +207,10 @@ export const api = {
   getFirstSeen: () => request<FirstSeen[]>("/api/first-seen"),
   getRun: (id: string) => request<RunReport>(`/api/runs/${encodeURIComponent(id)}`),
   getRunDiff: (id: string) => request<DiffResult>(`/api/runs/${encodeURIComponent(id)}/diff`),
-  startScan: (mode: "demo" | "real") =>
+  startScan: (mode: "demo" | "real", discoverSubdomains = false) =>
     request<{ job_id: string }>("/api/scan", {
       method: "POST",
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({ mode, discover_subdomains: discoverSubdomains }),
     }),
   getJob: (id: string) => request<Job>(`/api/jobs/${encodeURIComponent(id)}`),
   getSchedules: () => request<ScheduleInfo[]>("/api/schedules"),

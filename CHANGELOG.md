@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Opt-in public-subdomain discovery** via Certificate Transparency: tick
+  **Find subdomains** when starting a real audit to seed the crawl with public
+  subdomains from crt.sh. Off by default and real-mode only — it queries an
+  external service (the domain leaves the machine); it never brute-forces DNS.
 - Each finding records an **example page URL** where the font was seen
   (`Finding.example_url`), shown under "Where it appears" in the finding
   detail. Report schema bumped to **v5** (additive; pre-v5 reports still load).
