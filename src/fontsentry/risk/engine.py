@@ -17,6 +17,7 @@ from fontsentry.models import (
     Finding,
     FontFormat,
     FontMetadata,
+    PrivacyClass,
     Registry,
     RegistryEntry,
     RiskBand,
@@ -46,6 +47,30 @@ class _Accumulator:
 
 def _domain_of(url: str) -> str:
     return urlparse(url).hostname or url
+
+
+# Delivery methods that route the font (and each visitor's IP) through a third
+# party — the GDPR/RODO concern. SELF_HOSTED and SYSTEM stay on the site/device.
+_THIRD_PARTY_EMBEDDINGS = frozenset(
+    {
+        EmbeddingMethod.GOOGLE_FONTS,
+        EmbeddingMethod.ADOBE_FONTS,
+        EmbeddingMethod.MONOTYPE,
+        EmbeddingMethod.OTHER_CDN,
+    }
+)
+
+
+def _classify_privacy(embeddings: set[EmbeddingMethod]) -> PrivacyClass:
+    has_third_party = any(e in _THIRD_PARTY_EMBEDDINGS for e in embeddings)
+    has_self_hosted = EmbeddingMethod.SELF_HOSTED in embeddings
+    if has_third_party and has_self_hosted:
+        return PrivacyClass.MIXED
+    if has_third_party:
+        return PrivacyClass.THIRD_PARTY_API
+    if has_self_hosted:
+        return PrivacyClass.SELF_HOSTED
+    return PrivacyClass.NOT_APPLICABLE
 
 
 def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
@@ -86,6 +111,7 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
                 example_urls=sorted(acc.pages)[:5],
                 page_count=len(acc.pages),
                 applied=acc.applied,
+                privacy=_classify_privacy(acc.embeddings),
             )
         )
     result.sort(key=lambda a: a.family.lower())
@@ -173,6 +199,7 @@ def evaluate(
                 example_urls=agg.example_urls,
                 page_count=agg.page_count,
                 applied=agg.applied,
+                privacy=agg.privacy,
             )
         )
 

@@ -43,6 +43,18 @@ class RiskBand(StrEnum):
     HIGH = "high"
 
 
+class PrivacyClass(StrEnum):
+    """How a font's delivery affects visitor privacy — the axis is independent of
+    the license risk band. Third-party delivery (e.g. the Google Fonts API) sends
+    each visitor's IP to that third party, a GDPR/RODO concern even when the font
+    itself is freely licensed."""
+
+    SELF_HOSTED = "self_hosted"  # served from the site's own hosts — no leakage
+    THIRD_PARTY_API = "third_party_api"  # served from a third party (Google/Adobe/CDN)
+    MIXED = "mixed"  # both self-hosted and third-party across pages
+    NOT_APPLICABLE = "not_applicable"  # system/fallback font — nothing is downloaded
+
+
 class FindingStatus(StrEnum):
     OPEN = "open"
     RESOLVED = "resolved"
@@ -99,6 +111,7 @@ class AggregatedFont(BaseModel):
     example_urls: list[str] = Field(default_factory=list)  # sample pages the font was seen on
     page_count: int = 0  # distinct pages the font was seen on
     applied: bool = True  # referenced by a font-family usage somewhere (not just @font-face)
+    privacy: PrivacyClass = PrivacyClass.NOT_APPLICABLE  # delivery-based privacy axis
 
     @property
     def domain_count(self) -> int:
@@ -137,6 +150,7 @@ class Finding(BaseModel):
     example_urls: list[str] = Field(default_factory=list)  # sample pages the font was seen on
     page_count: int = 0  # distinct pages the font was seen on
     applied: bool = True  # False = served via @font-face but not applied to any text
+    privacy: PrivacyClass = PrivacyClass.NOT_APPLICABLE  # delivery-based privacy axis
 
     @property
     def domain_count(self) -> int:
@@ -198,7 +212,7 @@ class RunReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int = 6
+    schema_version: int = 7
     generated_at: datetime
     duration_seconds: float = 0.0  # wall-clock scan time; powers ETA estimates
     summary: RunSummary
