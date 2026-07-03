@@ -343,7 +343,7 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
   return (
     <section aria-label="Findings" className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
+        <div role="group" aria-label="Filter findings" className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
           {FOCUS_CHIPS.map((c) => (
             <button
               key={c.id}

@@ -58,6 +58,8 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return;
+    // Errors stay until dismissed (WCAG 2.2.1); info/success auto-dismiss.
+    if (toast.kind === "error") return;
     const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
   }, [toast]);

@@ -14,10 +14,11 @@ const kinds: Record<ToastKind, string> = {
 };
 
 export function Toast({ message, kind, onDismiss }: ToastState & { onDismiss: () => void }) {
+  const isError = kind === "error";
   return (
     <div
-      role="status"
-      aria-live="polite"
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
       className={cn(
         "fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-tk border-l-4 bg-surface px-4 py-3 text-sm shadow-tk-lg",
         kinds[kind],

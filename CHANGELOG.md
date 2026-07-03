@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Accessibility: forms, toggles, and error messages** — the Targets textarea has
+  a programmatic label (1.3.1); the add-license form shows an inline, field-associated
+  error with `aria-required`/`aria-invalid` instead of a toast only (3.3.1/3.3.3);
+  segmented single-select toggles are wrapped in `role="group"` with a label
+  (1.3.1/4.1.2); error toasts use `role="alert"`/`aria-live="assertive"` and no
+  longer auto-dismiss (2.2.1/4.1.3).
 - **Accessibility: findings table (WCAG 1.4.1 / 4.1.2)** — the Delivery badge now
   carries a screen-reader text label (not colour + `⚠` glyph alone); the sortable
   Score header exposes `aria-sort`; expandable rows link to their detail via
