@@ -198,6 +198,7 @@ export function TargetsSetup({ notify, onRunAudit, running }: TargetsSetupProps)
             onChange={(e) => setDomainsText(e.target.value)}
             rows={8}
             spellCheck={false}
+            aria-label="Domains to scan, one per line"
             placeholder={"example.com\nexample.org"}
             className="w-full rounded-tk border border-stroke bg-surface px-3 py-2 font-mono text-sm text-ink"
           />

@@ -130,7 +130,7 @@ export function OverviewScreen({
   const trend = useMemo(() => [...runs].reverse().map((r) => r.summary.open_findings), [runs]);
 
   const sourceToggle = (
-    <div className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
+    <div role="group" aria-label="Data source" className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
       {SOURCES.map((s) => (
         <button
           key={s.id}

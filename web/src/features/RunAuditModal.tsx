@@ -64,7 +64,11 @@ export function RunAuditModal({ onClose, onStart, running }: RunAuditModalProps)
       <div className="space-y-4">
         <div>
           <span className="mb-1 block text-sm font-medium">Data source</span>
-          <div className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
+          <div
+            role="group"
+            aria-label="Data source"
+            className="flex rounded-tk border border-stroke bg-surface2 p-0.5"
+          >
             {MODES.map((m) => (
               <button
                 key={m.id}

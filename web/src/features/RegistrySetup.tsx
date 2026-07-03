@@ -293,6 +293,7 @@ function LicenseModal({
 }) {
   const [f, setF] = useState<FormState>(() => toForm(initial));
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(false); // required fields missing on submit
   const fileRef = useRef<HTMLInputElement>(null);
 
   const owners = [...new Set(knownFonts.map((k) => k.owner).filter((o): o is string => !!o))].sort();
@@ -323,9 +324,10 @@ function LicenseModal({
 
   function submit() {
     if (!f.owner.trim() || !f.family.trim() || !f.license_type.trim()) {
-      notify("A license needs an owner, font family, and license type", "error");
+      setError(true);
       return;
     }
+    setError(false);
     onSave({
       owner: f.owner.trim(),
       family: f.family.trim(),
@@ -357,12 +359,20 @@ function LicenseModal({
         ))}
       </datalist>
       <div className="space-y-3">
+        {error && (
+          <p id="license-error" role="alert" className="text-sm font-medium text-band-high">
+            A license needs an owner, font family, and license type.
+          </p>
+        )}
         <Field label="Font family">
           <TextInput
             list="known-families"
             placeholder="start typing — pick a detected or well-known font"
             value={f.family}
             onChange={(e) => onFamily(e.target.value)}
+            aria-required="true"
+            aria-invalid={error && !f.family.trim()}
+            aria-describedby={error ? "license-error" : undefined}
           />
         </Field>
         <Field label="Owner (foundry / vendor / service)">
@@ -370,6 +380,9 @@ function LicenseModal({
             list="known-owners"
             value={f.owner}
             onChange={(e) => setF({ ...f, owner: e.target.value })}
+            aria-required="true"
+            aria-invalid={error && !f.owner.trim()}
+            aria-describedby={error ? "license-error" : undefined}
           />
         </Field>
         <Field label="License type">
@@ -378,6 +391,9 @@ function LicenseModal({
             placeholder="Commercial — per domain"
             value={f.license_type}
             onChange={(e) => setF({ ...f, license_type: e.target.value })}
+            aria-required="true"
+            aria-invalid={error && !f.license_type.trim()}
+            aria-describedby={error ? "license-error" : undefined}
           />
         </Field>
         <Field label="Allowed domains (comma-separated, or * for any)">
