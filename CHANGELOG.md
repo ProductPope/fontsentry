@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CSS-escaped family names no longer duplicate a font**: an unquoted
+  `font-family` with backslash-escaped spaces (e.g. `Font Awesome\ 5 Free`) is
+  now unescaped to match its quoted form, so the same font isn't counted twice.
+
 ### Added
 - **Privacy (GDPR/RODO) axis, independent of the license band**: every finding is
   now classified by delivery — `self_hosted`, `third_party_api`, `mixed`, or
