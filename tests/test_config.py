@@ -27,6 +27,7 @@ def test_example_files_load(config_dir: Path, registry_dir: Path) -> None:
         "paid-cdn-no-registry",
         "missing-copyright",
         "expired-license",
+        "paid-tier-in-name",
         "subset-signal",
     }
     assert "Atlas Grotesk Private" in {e.family for e in registry.entries}
