@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Accessibility: text contrast (WCAG 1.4.3)** — darkened the `faint` metadata
+  text token in both themes and the HTML report's low/medium risk badges so small
+  text clears the 4.5:1 AA threshold.
+
 ### Added
 - **Documentation-freshness guard** (`tests/test_docs.py`): CI now fails if a rule
   predicate, a default rule id, or a `CrawlSettings` field is undocumented, or if
