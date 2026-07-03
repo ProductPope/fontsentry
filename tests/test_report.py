@@ -67,6 +67,25 @@ def test_csv_preserves_and_quotes_special_chars() -> None:
     assert rows[1][0] == 'Ac"me, Sans'  # round-trips through the CSV quoting intact
 
 
+def test_load_run_tolerates_unknown_fields(tmp_path: Path) -> None:
+    # Forward/back-compat: a report written by another tool version carrying an
+    # unknown field (top-level and nested) must still load, not hard-fail.
+    import json
+
+    report = json_report.build_report(
+        [_finding("Atlas", score=50, band=RiskBand.MEDIUM)], GENERATED
+    )
+    raw = json.loads(report.model_dump_json())
+    raw["some_future_field"] = 123
+    raw["findings"][0]["another_new_field"] = "x"
+    path = tmp_path / "fontsentry-20260630T120000Z.report.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = json_report.load_run(path)
+    assert loaded.findings[0].family == "Atlas"
+    assert not hasattr(loaded, "some_future_field")  # unknown field dropped, not kept
+
+
 def test_build_summary_counts() -> None:
     findings = [
         _finding("A", score=80, band=RiskBand.HIGH),

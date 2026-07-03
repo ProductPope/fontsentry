@@ -8,6 +8,7 @@ only processes on this machine can reach it.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -45,6 +46,8 @@ from fontsentry.web.scheduler import (
     is_windows,
     list_schedules,
 )
+
+logger = logging.getLogger(__name__)
 
 # Keep strong references to in-flight scan tasks so they are not garbage-collected.
 _background_tasks: set[asyncio.Task[None]] = set()
@@ -154,7 +157,8 @@ def create_app(
         ):
             try:
                 report = load_run(path)
-            except (OSError, ValueError):
+            except (OSError, ValueError) as exc:
+                logger.warning("skipping unreadable report %s: %s", path.name, exc)
                 continue
             metas.append(
                 RunMeta(id=path.name, generated_at=report.generated_at, summary=report.summary)
@@ -168,7 +172,8 @@ def create_app(
         for path in sorted(reports_dir.glob("fontsentry-*.report.json"), reverse=True)[:5]:
             try:
                 rep = load_run(path)
-            except (OSError, ValueError):
+            except (OSError, ValueError) as exc:
+                logger.warning("skipping unreadable report %s: %s", path.name, exc)
                 continue
             pages = sum(d.pages_scanned for d in rep.domains)
             if rep.duration_seconds > 0 and pages > 0:
@@ -198,7 +203,12 @@ def create_app(
             _reports_for(reports_dir, "real").glob("fontsentry-*.report.json"), reverse=True
         )
         if reports:
-            for finding in load_run(reports[0]).findings:
+            try:
+                latest = load_run(reports[0])
+            except (OSError, ValueError) as exc:
+                logger.warning("skipping unreadable report %s: %s", reports[0].name, exc)
+                latest = None
+            for finding in latest.findings if latest else []:
                 key = finding.family.strip().lower()
                 if key and key not in by_key:
                     by_key[key] = KnownFont(

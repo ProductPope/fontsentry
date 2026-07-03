@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Old reports survive tool upgrades**: report models now ignore unknown fields
+  (forward/back-compatible), so a report written by a different schema version
+  still loads instead of silently vanishing from the run list. Config files stay
+  strict (typos still rejected), and unreadable reports are now logged when
+  skipped rather than dropped silently.
+
 ### Added
 - **CLI ↔ API parity**: `fontsentry scan` gains `--discover-subdomains`,
   `--max-pages`, and `--csv` (write a findings CSV alongside the JSON/HTML),
