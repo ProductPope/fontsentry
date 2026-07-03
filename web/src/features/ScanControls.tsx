@@ -1,63 +1,12 @@
-import { useState } from "react";
 import { Button } from "../components/Button";
-import { cn } from "../lib/cn";
 
 export type ScanMode = "real" | "demo";
 
-// "Your data" is the default: once a user has added their domains, an audit
-// should run against them, not the sample dataset. Demo is an explicit opt-in.
-const MODES: { id: ScanMode; label: string }[] = [
-  { id: "real", label: "Your data" },
-  { id: "demo", label: "Demo data" },
-];
-
-interface ScanControlsProps {
-  onStart: (mode: ScanMode, discoverSubdomains: boolean) => void;
-  running: boolean;
-}
-
-export function ScanControls({ onStart, running }: ScanControlsProps) {
-  const [mode, setMode] = useState<ScanMode>("real");
-  const [discover, setDiscover] = useState(false);
-
+// Opens the run-audit settings modal (source, subdomains, page cap, ETA).
+export function ScanControls({ onOpen, running }: { onOpen: () => void; running: boolean }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div
-        role="group"
-        aria-label="Data source"
-        className="flex rounded-tk border border-stroke bg-surface2 p-0.5"
-      >
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => setMode(m.id)}
-            disabled={running}
-            aria-pressed={mode === m.id}
-            className={cn(
-              "rounded-chip px-3 py-1 text-sm font-medium transition-colors",
-              mode === m.id ? "bg-surface text-ink shadow-tk" : "text-muted hover:text-ink",
-            )}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-      <label
-        className="flex items-center gap-1.5 text-xs text-muted"
-        title="Also find public subdomains from Certificate Transparency logs. This queries an external service, so your domain leaves this machine. Real data only."
-      >
-        <input
-          type="checkbox"
-          checked={discover}
-          onChange={(e) => setDiscover(e.target.checked)}
-          disabled={running}
-        />
-        Find subdomains
-      </label>
-      <Button onClick={() => onStart(mode, discover)} disabled={running}>
-        {running ? "Auditing…" : "Start audit"}
-      </Button>
-    </div>
+    <Button onClick={onOpen} disabled={running}>
+      {running ? "Auditing…" : "Start audit"}
+    </Button>
   );
 }
