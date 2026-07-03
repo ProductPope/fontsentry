@@ -341,7 +341,10 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
     });
 
   return (
-    <section aria-label="Findings" className="space-y-3">
+    <section aria-labelledby="findings-heading" className="space-y-3">
+      <h2 id="findings-heading" className="sr-only">
+        Findings
+      </h2>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div role="group" aria-label="Filter findings" className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
           {FOCUS_CHIPS.map((c) => (

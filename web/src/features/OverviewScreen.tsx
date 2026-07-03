@@ -210,6 +210,7 @@ export function OverviewScreen({
           <div className="text-xs font-semibold uppercase tracking-wide text-faint">
             License risk
           </div>
+          <h2 className="sr-only">Risk posture</h2>
           <section aria-label="Risk posture" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Posture
               label="High"

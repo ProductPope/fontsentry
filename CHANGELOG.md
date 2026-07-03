@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Accessibility: navigation & structure** — a "Skip to content" link bypasses the
+  sidebar (2.4.1); content sections carry headings so the outline has no gaps
+  (1.3.1/2.4.6); the mobile navigation drawer moves focus in on open and closes on
+  Escape (2.1.1/2.4.3).
 - **Accessibility: forms, toggles, and error messages** — the Targets textarea has
   a programmatic label (1.3.1); the add-license form shows an inline, field-associated
   error with `aria-required`/`aria-invalid` instead of a toast only (3.3.1/3.3.3);
