@@ -2,13 +2,61 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from fontsentry import config
 from fontsentry.config import ConfigError
-from fontsentry.models import RiskBand
+from fontsentry.models import (
+    Registry,
+    RegistryEntry,
+    RiskBand,
+    Settings,
+    Target,
+    TargetsConfig,
+)
+
+
+def test_targets_save_load_roundtrip(tmp_path: Path) -> None:
+    path = tmp_path / "targets.yaml"
+    original = TargetsConfig(
+        targets=[Target(domain="example.com", subdomain_seeds=["blog.example.com"])]
+    )
+    config.save_targets(path, original)
+    loaded = config.load_targets(path)
+    assert loaded.targets[0].domain == "example.com"
+    assert loaded.targets[0].subdomain_seeds == ["blog.example.com"]
+
+
+def test_registry_save_load_preserves_optional_fields(tmp_path: Path) -> None:
+    path = tmp_path / "licenses.yaml"
+    original = Registry(
+        entries=[
+            RegistryEntry(
+                owner="Meridian Letterworks",
+                family="Atlas Grotesk Private",
+                license_type="Web, single domain",
+                allowed_domains=["example.com"],
+                max_domains=1,
+                valid_until=date(2027, 12, 31),
+                notes="renew before expiry",
+            )
+        ]
+    )
+    config.save_registry(path, original)
+    entry = config.load_registry(path).entries[0]
+    assert entry.max_domains == 1
+    assert entry.valid_until == date(2027, 12, 31)
+    assert entry.notes == "renew before expiry"
+
+
+def test_empty_yaml_file_loads_defaults(tmp_path: Path) -> None:
+    path = tmp_path / "settings.yaml"
+    path.write_text("# just a comment\n", encoding="utf-8")
+    loaded = config.load_settings(path)
+    assert loaded == Settings()  # empty mapping -> all defaults
 
 
 def test_example_files_load(config_dir: Path, registry_dir: Path) -> None:

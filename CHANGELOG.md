@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Test suite deepened to benchmark grade** (168 → 255 tests): direct coverage
+  for `detect/page`, per-predicate rule edge cases, registry suppression
+  boundaries, config save/load round-trips, robots crawl-delay + allow-by-default,
+  CT-log response shapes, sitemap-index, charset decode, and SSRF/size-cap paths.
+
 ### Fixed
 - **Old reports survive tool upgrades**: report models now ignore unknown fields
   (forward/back-compatible), so a report written by a different schema version
