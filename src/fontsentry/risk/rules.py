@@ -24,6 +24,9 @@ class PredicateContext:
     entry: RegistryEntry | None
     now: date
     params: dict[str, Any]
+    # True only when a *valid* registry entry covers this font (not merely that an
+    # entry exists — an expired/non-covering entry must not grant safe harbor).
+    covered: bool = False
 
 
 Predicate = Callable[[PredicateContext], bool]
@@ -83,7 +86,9 @@ def format_on_web(ctx: PredicateContext) -> bool:
 
 def commercial_unregistered(ctx: PredicateContext) -> bool:
     # Needs evidence: we only assert "commercial" when we have name-table metadata.
-    if ctx.entry is not None or ctx.agg.metadata is None:
+    # An expired/non-covering registry entry does NOT count as coverage, so the
+    # commercial signal still stands (gate on `covered`, not on entry existence).
+    if ctx.covered or ctx.agg.metadata is None:
         return False
     return not _looks_open_licensed(ctx) and not _owner_is_free(ctx) and not _family_is_open(ctx)
 
@@ -108,7 +113,7 @@ def self_host_prohibited(ctx: PredicateContext) -> bool:
 
 
 def paid_cdn_unregistered(ctx: PredicateContext) -> bool:
-    if ctx.entry is not None:
+    if ctx.covered:  # a valid license covers it; expired/non-covering does not
         return False
     wanted: set[EmbeddingMethod] = set()
     for name in ctx.params.get("cdns", []):

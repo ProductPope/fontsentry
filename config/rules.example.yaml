@@ -54,6 +54,7 @@ rules:
     description: "Font present on more domains than the registry entry's max_domains allows."
     weight: 40
     confidence: 0.9
+    hard: true   # a definite over-limit violation — don't discount if unrendered
     when:
       type: max_domains_exceeded
       params: {}
@@ -64,6 +65,7 @@ rules:
     description: "Self-hosted font from a owner/family whose license forbids self-hosting."
     weight: 35
     confidence: 0.7
+    hard: true   # prohibited self-hosting is a violation regardless of rendering
     when:
       type: self_host_prohibited
       params:
@@ -96,6 +98,7 @@ rules:
     description: "A matching registry license has expired (valid_until in the past)."
     weight: 40
     confidence: 0.95
+    hard: true   # an expired license is a real lapse regardless of rendering
     when:
       type: license_expired
       params: {}
@@ -107,6 +110,7 @@ rules:
     description: "Family name indicates a paid tier (e.g. Font Awesome Pro)."
     weight: 40
     confidence: 0.7
+    hard: true   # serving a paid tier is a concern even if not applied to text
     when:
       type: family_name_matches
       params:

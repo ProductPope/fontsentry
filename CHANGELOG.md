@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Risk scoring closes three false-negative gaps** (a real violation could be
+  silently under-scored):
+  - Fonts are aggregated by **(family, owner)**, so a benign/free owner on one
+    page can no longer mask a commercial owner of the same family on another.
+  - A rule can be marked **`hard: true`** (expired/over-limit license, prohibited
+    self-hosting, paid tier); such findings are **not** score-halved when the font
+    is served-but-not-applied.
+  - An **expired or non-covering** registry entry no longer grants safe harbor —
+    the commercial/paid-CDN signals still fire (coverage now means a *valid*
+    license, not merely that an entry exists).
+
 ### Added
 - **SSRF guard for the crawler**: font/CSS/redirect/CT URLs that resolve to
   loopback/private/link-local/reserved addresses are refused (redirects are now

@@ -16,6 +16,7 @@ from fontsentry.models import (
     DetectedFont,
     EmbeddingMethod,
     Finding,
+    FindingStatus,
     FontFormat,
     FontMetadata,
     PrivacyClass,
@@ -77,15 +78,18 @@ def _classify_privacy(embeddings: set[EmbeddingMethod]) -> PrivacyClass:
 def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
     """Merge per-page detections into one identity per font family across all domains."""
 
-    groups: dict[str, _Accumulator] = {}
+    # Identity is (family, owner): the same family string with a different owner
+    # is a different font, so a benign/free owner on one page can't mask a
+    # commercial owner on another (that would silence the commercial signal).
+    groups: dict[tuple[str, str], _Accumulator] = {}
     for font in fonts:
-        key = font.family.strip().lower()
+        owner = font.metadata.owner if font.metadata else None
+        key = (font.family.strip().lower(), (owner or "").strip().lower())
         acc = groups.get(key)
         if acc is None:
             acc = _Accumulator(family=font.family)
             groups[key] = acc
 
-        owner = font.metadata.owner if font.metadata else None
         if acc.owner is None and owner:
             acc.owner = owner
         if acc.metadata is None and font.metadata is not None:
@@ -144,7 +148,11 @@ def validate_rules(rules: RulesConfig) -> list[str]:
 
 
 def _score_font(
-    agg: AggregatedFont, rules: RulesConfig, entry: RegistryEntry | None, now: date
+    agg: AggregatedFont,
+    rules: RulesConfig,
+    entry: RegistryEntry | None,
+    covered: bool,
+    now: date,
 ) -> tuple[list[TriggeredRule], int, RiskBand]:
     raw = 0.0
     triggered: list[TriggeredRule] = []
@@ -152,7 +160,9 @@ def _score_font(
         predicate = PREDICATES.get(rule.when.type)
         if predicate is None:
             raise EngineError(f"rule {rule.id!r}: unknown condition type {rule.when.type!r}")
-        ctx = PredicateContext(agg=agg, entry=entry, now=now, params=rule.when.params)
+        ctx = PredicateContext(
+            agg=agg, entry=entry, covered=covered, now=now, params=rule.when.params
+        )
         if predicate(ctx):
             points = rule.weight * rule.confidence
             raw += points
@@ -175,13 +185,18 @@ def evaluate(
 ) -> list[Finding]:
     """Aggregate, suppress, and score every detected font into findings."""
 
+    hard_rule_ids = {rule.id for rule in rules.rules if rule.hard}
     findings: list[Finding] = []
     for agg in aggregate(fonts):
         suppression = evaluate_suppression(agg, registry, now)
-        triggered, score, band = _score_font(agg, rules, suppression.entry, now)
+        covered = suppression.status is FindingStatus.RESOLVED
+        triggered, score, band = _score_font(agg, rules, suppression.entry, covered, now)
         # A font served via @font-face but not applied to any text is a weaker
-        # signal (the file is hosted, but nothing renders in it): halve the score.
-        if not agg.applied:
+        # signal (hosted, but nothing renders in it): halve the score — UNLESS a
+        # hard violation fired (expired/over-limit license, paid tier), which is a
+        # real concern regardless of whether the font is rendered.
+        hard_fired = hard_rule_ids & {t.id for t in triggered}
+        if not agg.applied and not hard_fired:
             score = round(score * 0.5)
             band = band_for(score, rules)
         findings.append(
