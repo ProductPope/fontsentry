@@ -2,6 +2,7 @@
 
 export type Band = "low" | "medium" | "high";
 export type Status = "open" | "resolved";
+export type PrivacyClass = "self_hosted" | "third_party_api" | "mixed" | "not_applicable";
 
 export interface FontMetadata {
   family_name: string | null;
@@ -38,6 +39,7 @@ export interface Finding {
   example_urls: string[];
   page_count: number;
   applied: boolean;
+  privacy: PrivacyClass;
 }
 
 export interface RunSummary {

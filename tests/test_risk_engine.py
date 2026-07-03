@@ -14,6 +14,7 @@ from fontsentry.models import (
     FindingStatus,
     FontFormat,
     FontMetadata,
+    PrivacyClass,
     Registry,
     RegistryEntry,
     RiskBand,
@@ -222,6 +223,39 @@ def test_paid_tier_in_name_flags_font_awesome_pro(rules: RulesConfig) -> None:
     fired = {t.id for t in finding.triggered_rules}
     assert "paid-tier-in-name" in fired
     assert finding.band in (RiskBand.MEDIUM, RiskBand.HIGH)
+
+
+def test_privacy_axis_is_independent_of_license(rules: RulesConfig) -> None:
+    # Google Fonts served via the API is freely licensed but a GDPR concern: the
+    # privacy axis must flag it as third-party regardless of the license score.
+    google = _font(
+        family="Roboto",
+        owner=None,
+        embedding=EmbeddingMethod.GOOGLE_FONTS,
+        fmt=FontFormat.WOFF2,
+    )
+    finding = evaluate([google], rules, Registry(), NOW)[0]
+    assert finding.privacy is PrivacyClass.THIRD_PARTY_API
+
+    # Self-hosted delivery is clean on the privacy axis.
+    self_hosted = evaluate([_font(embedding=EmbeddingMethod.SELF_HOSTED)], rules, Registry(), NOW)[
+        0
+    ]
+    assert self_hosted.privacy is PrivacyClass.SELF_HOSTED
+
+
+def test_privacy_mixed_when_self_hosted_and_third_party() -> None:
+    fonts = [
+        _font(family="Roboto", page="https://a.com/", embedding=EmbeddingMethod.GOOGLE_FONTS),
+        _font(family="Roboto", page="https://a.com/b", embedding=EmbeddingMethod.SELF_HOSTED),
+    ]
+    assert aggregate(fonts)[0].privacy is PrivacyClass.MIXED
+
+
+def test_privacy_not_applicable_for_system_font() -> None:
+    assert aggregate([_font(embedding=EmbeddingMethod.SYSTEM)])[0].privacy is (
+        PrivacyClass.NOT_APPLICABLE
+    )
 
 
 def test_validate_rules_clean(rules: RulesConfig) -> None:

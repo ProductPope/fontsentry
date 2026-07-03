@@ -5,6 +5,30 @@ import { TextInput } from "../components/TextInput";
 import { cn } from "../lib/cn";
 import { api } from "../lib/api";
 import type { Band, Finding, Status } from "../lib/api";
+import { delivery, isPrivacyFlagged, needsAction, privacyAdvice } from "../lib/privacy";
+
+type Focus = "action" | "privacy" | "all";
+
+const FOCUS_CHIPS: { id: Focus; label: string }[] = [
+  { id: "action", label: "Needs action" },
+  { id: "privacy", label: "Privacy (GDPR)" },
+  { id: "all", label: "All" },
+];
+
+function DeliveryBadge({ finding }: { finding: Finding }) {
+  const d = delivery(finding);
+  return (
+    <span
+      className={cn(
+        "inline-block rounded-chip px-2 py-0.5 text-xs font-medium",
+        d.flagged ? "bg-band-medium-bg text-band-medium" : "text-faint",
+      )}
+    >
+      {d.flagged ? "⚠ " : ""}
+      {d.label}
+    </span>
+  );
+}
 
 // Comp table-header cell: small uppercase, faint, wide tracking.
 const TH = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]";
@@ -87,10 +111,18 @@ function FindingDetail({
   const resolved = finding.status === "resolved";
   const firedIds = new Set(finding.triggered_rules.map((r) => r.id));
   const didNotApply = (rules ?? []).filter((r) => !firedIds.has(r.id));
+  const advice = privacyAdvice(finding);
 
   return (
     <div className="space-y-5 bg-surface2 px-4 py-4 text-sm">
       <ScoreGauge score={finding.score} band={finding.band} thresholds={thresholds} />
+
+      {advice && (
+        <p className="rounded-tk border-l-2 border-band-medium bg-surface px-3 py-2 text-xs text-muted">
+          <strong className="text-band-medium">Delivery: {delivery(finding).label}.</strong>{" "}
+          {advice}
+        </p>
+      )}
 
       {!finding.applied && (
         <p className="rounded-tk bg-surface px-3 py-2 text-xs text-muted">
@@ -215,7 +247,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export function FindingsTable({ findings }: { findings: Finding[] }) {
   const [search, setSearch] = useState("");
-  const [band, setBand] = useState<Band | "all">("all");
+  const [focus, setFocus] = useState<Focus>("action");
   const [status, setStatus] = useState<Status | "all">("all");
   const [desc, setDesc] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -239,7 +271,9 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return findings
-      .filter((f) => (band === "all" ? true : f.band === band))
+      .filter((f) =>
+        focus === "action" ? needsAction(f) : focus === "privacy" ? isPrivacyFlagged(f) : true,
+      )
       .filter((f) => (status === "all" ? true : f.status === status))
       .filter(
         (f) =>
@@ -248,38 +282,56 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
           (f.owner ?? "").toLowerCase().includes(q),
       )
       .sort((a, b) => (desc ? b.score - a.score : a.score - b.score));
-  }, [findings, search, band, status, desc]);
+  }, [findings, search, focus, status, desc]);
+
+  const hiddenCount = findings.length - rows.length;
 
   return (
     <section aria-label="Findings" className="space-y-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="text-sm">
-          <span className="mb-1 block font-medium">Search</span>
-          <TextInput
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="font or owner"
-            aria-label="Search findings"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium">Band</span>
-          <Select value={band} onChange={(e) => setBand(e.target.value as Band | "all")}>
-            <option value="all">all</option>
-            <option value="high">high</option>
-            <option value="medium">medium</option>
-            <option value="low">low</option>
-          </Select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium">Status</span>
-          <Select value={status} onChange={(e) => setStatus(e.target.value as Status | "all")}>
-            <option value="all">all</option>
-            <option value="open">open</option>
-            <option value="resolved">resolved</option>
-          </Select>
-        </label>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
+          {FOCUS_CHIPS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setFocus(c.id)}
+              aria-pressed={focus === c.id}
+              className={cn(
+                "rounded-chip px-3 py-1 text-sm font-medium transition-colors",
+                focus === c.id ? "bg-surface text-ink shadow-tk" : "text-muted hover:text-ink",
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium">Search</span>
+            <TextInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="font or owner"
+              aria-label="Search findings"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium">Status</span>
+            <Select value={status} onChange={(e) => setStatus(e.target.value as Status | "all")}>
+              <option value="all">all</option>
+              <option value="open">open</option>
+              <option value="resolved">resolved</option>
+            </Select>
+          </label>
+        </div>
       </div>
+
+      {focus === "action" && hiddenCount > 0 && (
+        <p className="text-xs text-faint">
+          {hiddenCount} open-licensed / low-risk font{hiddenCount === 1 ? "" : "s"} hidden — switch
+          to <strong>All</strong> to see everything.
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-card border border-stroke">
         <table className="w-full border-collapse bg-surface text-sm">
@@ -293,7 +345,7 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
                 Owner
               </th>
               <th scope="col" className={TH}>
-                Embedding
+                Delivery
               </th>
               <th scope="col" className={TH}>
                 Domains
@@ -366,7 +418,9 @@ function FindingRows({
           </button>
         </td>
         <td className="px-4 py-2">{finding.owner ?? "—"}</td>
-        <td className="px-4 py-2 font-mono text-xs">{finding.embeddings.join(", ") || "—"}</td>
+        <td className="px-4 py-2">
+          <DeliveryBadge finding={finding} />
+        </td>
         <td className="px-4 py-2 font-mono tabular-nums">{finding.domains.length}</td>
         <td className="px-4 py-2 font-mono font-semibold tabular-nums">{finding.score}</td>
         <td className="px-4 py-2">
