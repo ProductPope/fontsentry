@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from fontsentry.web.server import create_app
@@ -461,3 +462,33 @@ def test_proof_upload_rejects_bad_type(tmp_path: Path) -> None:
 def test_proof_get_traversal_rejected(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/registry/proof/..%2f..%2fsecret").status_code in (400, 404)
+
+
+def test_safe_run_path_resolve_and_contain(tmp_path: Path) -> None:
+    from fontsentry.web.server import _safe_run_path
+
+    # A legitimate report id resolves inside reports_dir.
+    ok = _safe_run_path(tmp_path, "fontsentry-x.report.json")
+    assert ok.parent == tmp_path.resolve()
+
+    for bad in (
+        "../secret.report.json",
+        "sub/dir.report.json",
+        "notareport.txt",
+        "x.report.json/..",
+    ):
+        with pytest.raises(HTTPException):
+            _safe_run_path(tmp_path, bad)
+
+
+def test_proof_upload_over_cap_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import fontsentry.web.server as server
+
+    monkeypatch.setattr(server, "_MAX_PROOF_BYTES", 1024)
+    with _client(tmp_path, registry_dir=tmp_path / "registry") as client:
+        big = client.post(
+            "/api/registry/proof",
+            files={"file": ("big.pdf", b"%PDF-" + b"A" * 4096, "application/pdf")},
+        )
+        assert big.status_code == 413
+        assert not (tmp_path / "registry" / "proofs" / "big.pdf").exists()

@@ -132,8 +132,10 @@ def missing_name_field(ctx: PredicateContext) -> bool:
         "unique_id": meta.unique_id,
     }
     for field in ctx.params.get("fields", []):
-        value = field_map.get(str(field))
-        if not value:
+        # Only known field names count; an unknown/misspelled name is ignored
+        # rather than treated as "missing" (which would fire the rule spuriously).
+        key = str(field)
+        if key in field_map and not field_map[key]:
             return True
     return False
 

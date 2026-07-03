@@ -33,5 +33,17 @@ def test_classify_embedding(url: str, page_host: str | None, expected: Embedding
     assert classify_embedding(url, page_host) is expected
 
 
+def test_data_uri_is_self_hosted() -> None:
+    assert classify_embedding("data:font/woff2;base64,AAAA") is EmbeddingMethod.SELF_HOSTED
+
+
+def test_provider_match_wins_over_same_site() -> None:
+    # A known provider host is classified as the provider even if page_host looks related.
+    assert (
+        classify_embedding("https://fonts.gstatic.com/f.woff2", "gstatic.com")
+        is EmbeddingMethod.GOOGLE_FONTS
+    )
+
+
 def test_none_url_is_self_hosted() -> None:
     assert classify_embedding(None) is EmbeddingMethod.SELF_HOSTED
