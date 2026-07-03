@@ -65,10 +65,17 @@ class FindingStatus(StrEnum):
 # --------------------------------------------------------------------------- #
 
 
+# Report models are machine-written and read back across tool versions, so they
+# tolerate unknown fields (forward/back-compat): an old report with a since-removed
+# field still loads. Config models (human-edited YAML) stay extra="forbid" to catch
+# typos. See docs/rules.md / CHANGELOG.
+_REPORT_MODEL_CONFIG = ConfigDict(extra="ignore")
+
+
 class FontMetadata(BaseModel):
     """Fields read from a font file's `name` table (any may be missing/stripped)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     family_name: str | None = None
     owner: str | None = None  # name ID 8 (manufacturer)
@@ -122,7 +129,7 @@ class AggregatedFont(BaseModel):
 class TriggeredRule(BaseModel):
     """A rule that fired for a finding, with the points it contributed."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     id: str
     description: str
@@ -134,7 +141,7 @@ class TriggeredRule(BaseModel):
 class Finding(BaseModel):
     """A scored font identity: the unit of a report."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     family: str
     family_group: str = ""  # base family with weight/style variants folded away
@@ -162,7 +169,7 @@ class Finding(BaseModel):
 class RunSummary(BaseModel):
     """Headline counts for one scan run."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     total_findings: int = 0
     open_findings: int = 0
@@ -173,7 +180,7 @@ class RunSummary(BaseModel):
 class HostAsset(BaseModel):
     """The font-file URL(s) a font was served from on one host."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     host: str
     urls: list[str] = Field(default_factory=list)
@@ -182,7 +189,7 @@ class HostAsset(BaseModel):
 class DomainFont(BaseModel):
     """A font used on one domain, with how it was embedded and the hosts it was seen on."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     family: str
     owner: str | None = None
@@ -199,7 +206,7 @@ class DomainFont(BaseModel):
 class DomainReport(BaseModel):
     """The domain-centric view of a scan: one target domain and what was found on it."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     domain: str
     is_live: bool = False
@@ -212,7 +219,7 @@ class DomainReport(BaseModel):
 class RunReport(BaseModel):
     """A complete scan run: the JSON source of truth that every output derives from."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _REPORT_MODEL_CONFIG
 
     schema_version: int = 8
     generated_at: datetime

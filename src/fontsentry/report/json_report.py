@@ -7,6 +7,7 @@ timestamped file per run.
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,8 @@ from fontsentry.models import (
     RunReport,
     RunSummary,
 )
+
+logger = logging.getLogger(__name__)
 
 _TIMESTAMP_FORMAT = "%Y%m%dT%H%M%SZ"
 
@@ -75,7 +78,8 @@ def first_seen_map(reports_dir: Path) -> dict[tuple[str, str], datetime]:
     for path in sorted(reports_dir.glob("fontsentry-*.report.json")):
         try:
             report = load_run(path)
-        except (OSError, ValueError):
+        except (OSError, ValueError) as exc:
+            logger.warning("skipping unreadable report %s: %s", path.name, exc)
             continue
         for domain in report.domains:
             for font in domain.fonts:
