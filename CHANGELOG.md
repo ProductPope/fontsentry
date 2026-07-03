@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A malformed font no longer aborts the whole scan**: font-table decompilation
+  errors (corrupt name/maxp) are caught and surfaced as `FontReadError` instead
+  of crashing the crawl.
+- **Look-alike hosts are no longer treated as same-site**: `_same_site` now
+  requires an exact host or dot-bounded subdomain, so `notexample.com` on
+  `example.com` is correctly classified third-party (its privacy signal is kept).
+- **`font` shorthand parsed correctly**: the family list is taken from after the
+  size token, so `font: bold 12px/1.5 "Demo Sans"` records `Demo Sans` instead of
+  a garbage `bold 12px/1.5 …` family (removes spurious system findings).
+- **Scan jobs fail loudly**: a bad config now marks the job `error` instead of
+  leaving it stuck `running` (and no longer leaks the HTTP client).
+- **CSRF hardening**: state-changing requests with `Sec-Fetch-Site: cross-site`
+  are rejected even when the `Origin` header is absent.
+- **Crawled URLs are only linked when `http(s)`**: font-file / page URLs from
+  audited sites render as plain text if they use a `javascript:`/`data:` scheme.
+
 ### Added
 - **Font-variant grouping**: weight/style variants of one family (`metropolis`,
   `metropolis-bold`, `OpenSans-Regular`, …) now fold into a base family

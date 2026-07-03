@@ -83,6 +83,21 @@ def test_font_face_family_unescaped() -> None:
     assert css.parse_font_faces(text)[0].family == "Font Awesome 5 Free"
 
 
+def test_font_shorthand_extracts_family_not_size() -> None:
+    # The `font` shorthand packs size/line-height before the family; only the
+    # family list should be extracted, not the size tokens.
+    text = 'p { font: bold 12px/1.5 "Demo Sans", serif; } a { font: .875rem/1.5 Consolas; }'
+    families = css.parse_font_families(text)
+    assert "Demo Sans" in families
+    assert "Consolas" in families
+    assert not any(f[0].isdigit() or "px" in f or "rem" in f for f in families)
+    assert "serif" not in families  # generic keyword still dropped
+
+
+def test_font_shorthand_system_keyword_yields_no_family() -> None:
+    assert css.parse_font_families("button { font: menu; }") == set()
+
+
 def test_format_helpers() -> None:
     assert css.format_from_hint("woff2") is FontFormat.WOFF2
     assert css.format_from_hint("'truetype'") is FontFormat.TTF

@@ -219,6 +219,38 @@ def test_origin_guard_blocks_cross_origin(tmp_path: Path) -> None:
         assert allowed.status_code == 200
 
 
+def test_origin_guard_blocks_sec_fetch_site_cross_site(tmp_path: Path) -> None:
+    # Closes the null-Origin CSRF gap: browsers send Sec-Fetch-Site even when
+    # Origin is absent for some requests.
+    with _client(tmp_path) as client:
+        blocked = client.post(
+            "/api/scan", json={"mode": "demo"}, headers={"Sec-Fetch-Site": "cross-site"}
+        )
+        assert blocked.status_code == 403
+        allowed = client.post(
+            "/api/scan", json={"mode": "demo"}, headers={"Sec-Fetch-Site": "same-origin"}
+        )
+        assert allowed.status_code == 200
+
+
+def test_scan_bad_config_marks_job_error_not_zombie(tmp_path: Path) -> None:
+    # A real-mode scan against a config dir with no valid files must mark the job
+    # as error, not leave it stuck "running" forever (regression for the config-
+    # load-before-try bug).
+    with _client(tmp_path, config_dir=tmp_path / "missing-config") as client:
+        started = client.post("/api/scan", json={"mode": "real"})
+        assert started.status_code == 200
+        job_id = started.json()["job_id"]
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            job = client.get(f"/api/jobs/{job_id}").json()
+            if job["status"] == "error":
+                return
+            assert job["status"] != "done", "scan unexpectedly succeeded with no config"
+            time.sleep(0.05)
+        raise AssertionError("job never reached error state — stuck running (zombie)")
+
+
 def test_invalid_mode_rejected(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 400

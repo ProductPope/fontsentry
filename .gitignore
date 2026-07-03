@@ -52,3 +52,6 @@ htmlcov/
 Thumbs.db
 .idea/
 .vscode/
+
+# --- Local agent/editor settings (never publish) ---
+.claude/settings.local.json

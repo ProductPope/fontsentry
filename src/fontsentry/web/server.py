@@ -135,6 +135,11 @@ def create_app(
             origin = request.headers.get("origin")
             if origin and urlparse(origin).hostname not in _ALLOWED_HOSTS:
                 return Response("cross-origin request rejected", status_code=403)
+            # Browsers always send Sec-Fetch-Site; reject cross-site even when the
+            # Origin header is absent (closes the null-Origin CSRF gap). Non-browser
+            # clients (curl, tests) omit this header and are unaffected.
+            if request.headers.get("sec-fetch-site") == "cross-site":
+                return Response("cross-origin request rejected", status_code=403)
         return await call_next(request)
 
     @app.get("/api/health")
@@ -411,23 +416,28 @@ async def _run_scan_job(
     # CT lookup queries an external service, so only for real scans (the demo
     # runs offline against a filesystem transport).
     discover_ct = discover_subdomains and mode == "real"
-    if mode == "demo":
-        settings = demo.demo_settings()
-        rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
-        registry = config.load_registry(demo.demo_registry_path())
-        targets = demo.demo_targets()
-        client = demo.demo_client()
-    else:
-        settings = config.load_settings(config.resolve_config_path(config_dir, "settings"))
-        rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
-        registry = config.load_registry(config.resolve_config_path(registry_dir, "licenses"))
-        targets = config.load_targets(config.resolve_config_path(config_dir, "targets")).targets
-        client = httpx.AsyncClient()
 
     def on_progress(phase: str, current: int, total: int, message: str) -> None:
         jobs.update_progress(job_id, phase, current, total, message)
 
+    # Config loading is inside the try so a bad rules.yaml / targets.yaml marks the
+    # job as error instead of leaving it stuck "running" forever (and leaking the
+    # HTTP client). client stays None until created, so finally can guard it.
+    client: httpx.AsyncClient | None = None
     try:
+        if mode == "demo":
+            settings = demo.demo_settings()
+            rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
+            registry = config.load_registry(demo.demo_registry_path())
+            targets = demo.demo_targets()
+            client = demo.demo_client()
+        else:
+            settings = config.load_settings(config.resolve_config_path(config_dir, "settings"))
+            rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
+            registry = config.load_registry(config.resolve_config_path(registry_dir, "licenses"))
+            targets = config.load_targets(config.resolve_config_path(config_dir, "targets")).targets
+            client = httpx.AsyncClient()
+
         _report, json_path, _html = await scan_and_write(
             targets,
             settings,
@@ -444,4 +454,5 @@ async def _run_scan_job(
     except Exception as exc:
         jobs.mark_error(job_id, str(exc))
     finally:
-        await client.aclose()
+        if client is not None:
+            await client.aclose()

@@ -48,6 +48,11 @@ def read_font_metadata(data: bytes) -> tuple[FontMetadata, FontFormat]:
     except (TTLibError, ValueError, OSError) as exc:
         raise FontReadError(f"could not parse font: {exc}") from exc
 
+    # With lazy=True the tables are decompiled here, not at construction, so a
+    # font with a corrupt name/maxp table raises only now — and fonttools throws
+    # a wide range of types (AssertionError, struct.error, IndexError, ...) on
+    # malformed input. Catch broadly and surface as FontReadError so one bad font
+    # from a crawled origin can't abort the whole scan.
     try:
         name = font.get("name")
 
@@ -72,5 +77,7 @@ def read_font_metadata(data: bytes) -> tuple[FontMetadata, FontFormat]:
             num_glyphs=num_glyphs,
         )
         return metadata, _format_of(font)
+    except Exception as exc:  # fonttools raises many types on malformed tables
+        raise FontReadError(f"could not read font tables: {exc}") from exc
     finally:
         font.close()

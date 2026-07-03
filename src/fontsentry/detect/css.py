@@ -181,9 +181,29 @@ def parse_font_families(css_text: str) -> set[str]:
         if getattr(node, "type", None) != "qualified-rule":
             continue
         for decl in _declarations(node.content):
-            if decl.lower_name in ("font-family", "font"):
-                families.update(_split_families(_serialize(decl.value)))
+            value = _serialize(decl.value)
+            if decl.lower_name == "font-family":
+                families.update(_split_families(value))
+            elif decl.lower_name == "font":
+                families.update(_split_families(_shorthand_family_list(value)))
     return families
+
+
+# The `font` shorthand packs style/variant/weight/size[/line-height] before the
+# family list, e.g. `bold 12px/1.5 "Helvetica Neue", sans-serif`. Take only the
+# tail after the font-size token; without it (system keywords like `menu`, or
+# `inherit`) there is no family list to extract.
+_FONT_SIZE = re.compile(
+    r".*?(?:\d*\.?\d+(?:px|em|rem|ex|ch|vw|vh|vmin|vmax|cm|mm|in|pt|pc|q|%)"
+    r"|\b(?:xx-small|x-small|small|medium|large|x-large|xx-large|smaller|larger)\b)"
+    r"\s*(?:/\s*\S+)?\s*",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _shorthand_family_list(value: str) -> str:
+    match = _FONT_SIZE.match(value)
+    return value[match.end() :] if match else ""
 
 
 def _split_families(value: str) -> set[str]:
