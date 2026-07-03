@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 
 from fontsentry.crawl.cache import HttpCache
+from fontsentry.crawl.ct import ct_subdomains
 from fontsentry.crawl.discovery import (
     discover_pages,
     extract_links,
@@ -182,6 +183,58 @@ async def test_fetcher_semaphore_allows_concurrency() -> None:
         fetcher = Fetcher(client, _settings(concurrency=5))
         await asyncio.gather(*(fetcher.fetch(f"https://example.com/p{i}") for i in range(5)))
     assert peak >= 2  # requests overlapped rather than running strictly serially
+
+
+async def test_robots_crawl_delay_and_policy_cached() -> None:
+    calls = {"robots": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            calls["robots"] += 1
+            return httpx.Response(200, text="User-agent: *\nCrawl-delay: 5")
+        return _html("<p>x</p>")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        robots = RobotsManager(client, "FontSentry/test")
+        assert await robots.allowed("https://example.com/a") is True
+        assert await robots.crawl_delay("https://example.com/a") == 5.0
+    assert calls["robots"] == 1  # policy fetched once per origin, then cached
+
+
+async def test_robots_allow_by_default_on_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        robots = RobotsManager(client, "FontSentry/test")
+        assert await robots.allowed("https://example.com/anything") is True
+        assert await robots.crawl_delay("https://example.com/anything") is None
+
+
+async def test_ct_non_list_json_returns_empty_without_retry() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(200, json={"error": "nope"})  # valid JSON, wrong shape
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        assert await ct_subdomains(client, "example.com") == []
+    assert calls["n"] == 1  # unexpected shape -> no retry
+
+
+async def test_ct_extracts_and_filters_hosts() -> None:
+    rows = [
+        {"name_value": "a.example.com\n*.b.example.com"},
+        "not-a-dict",
+        {"name_value": "example.com"},  # apex excluded
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=rows)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        assert await ct_subdomains(client, "example.com") == ["a.example.com", "b.example.com"]
 
 
 async def test_conditional_304_uses_cache(tmp_path: Path) -> None:
