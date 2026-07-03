@@ -132,6 +132,7 @@ export interface ScheduleSpec {
 export interface Job {
   id: string;
   status: "running" | "done" | "error";
+  mode: "real" | "demo";
   run_id: string | null;
   error: string | null;
   phase: string; // "" | "discover" | "detect" | "score" | "report"
@@ -233,6 +234,7 @@ export const api = {
   scanEstimate: (hosts: number, maxPages: number) =>
     request<ScanEstimate>(`/api/scan/estimate?hosts=${hosts}&max_pages=${maxPages}`),
   getJob: (id: string) => request<Job>(`/api/jobs/${encodeURIComponent(id)}`),
+  getActiveJobs: () => request<Job[]>("/api/jobs"),
   getSchedules: () => request<ScheduleInfo[]>("/api/schedules"),
   createSchedule: (spec: ScheduleSpec) =>
     request<ScheduleInfo>("/api/schedules", {

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **UI re-attaches to a running audit**: on load the app checks `GET /api/jobs`
+  for an in-flight scan (started from the CLI, another tab, or a prior session)
+  and shows its live progress — the progress bar is no longer limited to scans
+  started from the button. Jobs now record their `mode` so the view lands on the
+  right data set when the scan finishes.
+
 ### Fixed
 - **CSS-escaped family names no longer duplicate a font**: an unquoted
   `font-family` with backslash-escaped spaces (e.g. `Font Awesome\ 5 Free`) is

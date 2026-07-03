@@ -22,6 +22,7 @@ class JobStatus(StrEnum):
 class Job(BaseModel):
     id: str
     status: JobStatus = JobStatus.RUNNING
+    mode: str = "real"  # "real" | "demo" — which data set the scan ran on
     run_id: str | None = None
     error: str | None = None
     # Live progress, updated as the scan moves through its phases.
@@ -35,13 +36,18 @@ class JobManager:
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
 
-    def create(self) -> Job:
-        job = Job(id=uuid.uuid4().hex)
+    def create(self, mode: str = "real") -> Job:
+        job = Job(id=uuid.uuid4().hex, mode=mode)
         self._jobs[job.id] = job
         return job
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
+
+    def active(self) -> list[Job]:
+        """Currently-running jobs, so a freshly-loaded UI can re-attach to a scan
+        it did not start itself (e.g. one kicked off from the CLI or another tab)."""
+        return [j for j in self._jobs.values() if j.status is JobStatus.RUNNING]
 
     def update_progress(
         self, job_id: str, phase: str, current: int, total: int, message: str

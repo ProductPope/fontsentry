@@ -215,6 +215,32 @@ def test_scan_accepts_discover_subdomains_flag(tmp_path: Path) -> None:
         raise AssertionError("scan did not finish in time")
 
 
+def test_active_jobs_lists_running_scan(tmp_path: Path) -> None:
+    # A freshly-loaded UI re-attaches via GET /api/jobs. Once the scan finishes
+    # the job is no longer "running", so it drops off the active list.
+    with _client(tmp_path) as client:
+        started = client.post("/api/scan", json={"mode": "demo"})
+        job_id = started.json()["job_id"]
+
+        active = client.get("/api/jobs").json()
+        assert any(j["id"] == job_id and j["mode"] == "demo" for j in active)
+
+        run_id = _run_demo_scan_wait(client, job_id)
+        assert run_id
+        assert all(j["id"] != job_id for j in client.get("/api/jobs").json())
+
+
+def _run_demo_scan_wait(client: TestClient, job_id: str) -> str:
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        job = client.get(f"/api/jobs/{job_id}").json()
+        if job["status"] == "done":
+            return str(job["run_id"])
+        assert job["status"] != "error", job.get("error")
+        time.sleep(0.05)
+    raise AssertionError("scan job did not finish in time")
+
+
 def test_schedules_list_ok(tmp_path: Path) -> None:
     # Read-only; harmless on any OS (returns [] off Windows).
     with _client(tmp_path) as client:
