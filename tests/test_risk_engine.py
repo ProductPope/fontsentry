@@ -183,6 +183,47 @@ def test_score_clamped_and_banded(rules: RulesConfig) -> None:
     assert findings[0].band in (RiskBand.MEDIUM, RiskBand.HIGH)
 
 
+def test_open_family_not_flagged_commercial(rules: RulesConfig) -> None:
+    # Font Awesome Free is OFL-licensed but ships without a license string, so it
+    # would otherwise trip commercial-no-registry. The open_families allowlist
+    # keeps it out of that rule -> it lands LOW, not MEDIUM.
+    fonts = [
+        _font(
+            family="Font Awesome 5 Free",
+            owner=None,
+            embedding=EmbeddingMethod.OTHER_CDN,
+            fmt=FontFormat.WOFF2,
+            copyright="Copyright (c) Font Awesome",
+            license_desc=None,
+            num_glyphs=154,
+        )
+    ]
+    finding = evaluate(fonts, rules, Registry(), NOW)[0]
+    fired = {t.id for t in finding.triggered_rules}
+    assert "commercial-no-registry" not in fired
+    assert finding.band is RiskBand.LOW
+
+
+def test_paid_tier_in_name_flags_font_awesome_pro(rules: RulesConfig) -> None:
+    # The Pro tier is paid and per-domain: it fires paid-tier-in-name and lands
+    # at least MEDIUM, distinctly above the Free tier.
+    fonts = [
+        _font(
+            family="Font Awesome 6 Pro",
+            owner=None,
+            embedding=EmbeddingMethod.OTHER_CDN,
+            fmt=FontFormat.WOFF2,
+            copyright="Copyright (c) Font Awesome",
+            license_desc=None,
+            num_glyphs=154,
+        )
+    ]
+    finding = evaluate(fonts, rules, Registry(), NOW)[0]
+    fired = {t.id for t in finding.triggered_rules}
+    assert "paid-tier-in-name" in fired
+    assert finding.band in (RiskBand.MEDIUM, RiskBand.HIGH)
+
+
 def test_validate_rules_clean(rules: RulesConfig) -> None:
     assert validate_rules(rules) == []
 

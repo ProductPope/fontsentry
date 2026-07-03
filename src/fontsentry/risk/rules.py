@@ -52,6 +52,29 @@ def _owner_is_free(ctx: PredicateContext) -> bool:
     return (ctx.agg.owner or "").strip().lower() in free
 
 
+def _family_matches(family: str, contains_all: Any, excludes: Any) -> bool:
+    """True when `family` contains every substring in `contains_all` and none in
+    `excludes`. Matching is case-insensitive substring; an empty `contains_all`
+    never matches (a spec must positively name what it targets)."""
+    inc = [str(s).strip().lower() for s in contains_all or []]
+    exc = [str(s).strip().lower() for s in excludes or []]
+    if not inc:
+        return False
+    return all(s in family for s in inc) and not any(s in family for s in exc)
+
+
+def _family_is_open(ctx: PredicateContext) -> bool:
+    # A font can be recognized as openly licensed by its family name alone, for
+    # families whose name-table license string is stripped (e.g. Font Awesome
+    # Free/Brands carry no OFL string but are OFL-licensed). Each spec includes
+    # `excludes` so paid tiers of the same family (e.g. "... Pro") are NOT caught.
+    family = ctx.agg.family.strip().lower()
+    for spec in ctx.params.get("open_families", []):
+        if _family_matches(family, spec.get("contains_all", []), spec.get("excludes", [])):
+            return True
+    return False
+
+
 def format_on_web(ctx: PredicateContext) -> bool:
     targets = {str(f).lower() for f in ctx.params.get("formats", [])}
     present = {f.value for f in ctx.agg.formats}
@@ -62,7 +85,7 @@ def commercial_unregistered(ctx: PredicateContext) -> bool:
     # Needs evidence: we only assert "commercial" when we have name-table metadata.
     if ctx.entry is not None or ctx.agg.metadata is None:
         return False
-    return not _looks_open_licensed(ctx) and not _owner_is_free(ctx)
+    return not _looks_open_licensed(ctx) and not _owner_is_free(ctx) and not _family_is_open(ctx)
 
 
 def max_domains_exceeded(ctx: PredicateContext) -> bool:
@@ -119,6 +142,17 @@ def license_expired(ctx: PredicateContext) -> bool:
     return ctx.entry is not None and is_expired(ctx.entry, ctx.now)
 
 
+def family_name_matches(ctx: PredicateContext) -> bool:
+    # A positive risk signal carried by the family name itself — e.g. a paid tier
+    # like "Font Awesome ... Pro". `contains_all` must all be present; `excludes`
+    # (optional) must all be absent.
+    return _family_matches(
+        ctx.agg.family.strip().lower(),
+        ctx.params.get("contains_all", []),
+        ctx.params.get("excludes", []),
+    )
+
+
 def subset_signal(ctx: PredicateContext) -> bool:
     meta = ctx.agg.metadata
     if meta is None or meta.num_glyphs is None:
@@ -136,6 +170,7 @@ PREDICATES: dict[str, Predicate] = {
     "paid_cdn_unregistered": paid_cdn_unregistered,
     "missing_name_field": missing_name_field,
     "license_expired": license_expired,
+    "family_name_matches": family_name_matches,
     "subset_signal": subset_signal,
 }
 

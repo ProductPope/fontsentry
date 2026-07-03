@@ -41,6 +41,12 @@ rules:
       params:
         open_license_patterns: ["OFL", "Open Font License", "Apache", "GPL", "Ubuntu Font License"]
         free_owners: ["The Sentinel Type Co-op", "Public Glyphs Foundation"]
+        # Families that are openly licensed but ship without a license string in
+        # the name table, so open_license_patterns can't see it. Matched by name;
+        # `excludes` keeps paid tiers of the same family from being whitelisted.
+        open_families:
+          - contains_all: ["font awesome"]   # Free/Brands are OFL-licensed
+            excludes: ["pro", "duotone", "sharp"]  # ...but these tiers are paid
 
   # The same font appears on more domains than the registry license permits.
   # Evaluated across the FULL crawl (cross-domain rule).
@@ -93,6 +99,19 @@ rules:
     when:
       type: license_expired
       params: {}
+
+  # A paid tier announced by the family name itself. Font Awesome Pro (and its
+  # Pro-only Duotone/Sharp styles) is licensed per-domain, so serving it is a
+  # strong signal on its own — separate from the registry check above.
+  - id: paid-tier-in-name
+    description: "Family name indicates a paid tier (e.g. Font Awesome Pro)."
+    weight: 40
+    confidence: 0.7
+    when:
+      type: family_name_matches
+      params:
+        contains_all: ["font awesome", "pro"]
+        excludes: []
 
   # Low-confidence subsetting signal. Reliable subset detection is hard, so this
   # is a flag with deliberately low weight — it nudges, it does not decide.

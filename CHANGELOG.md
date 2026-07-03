@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Open icon fonts no longer false-positive; paid tiers flagged**: a new
+  `open_families` param on `commercial_unregistered` recognizes openly-licensed
+  families that ship without a license string (e.g. Font Awesome Free/Brands are
+  OFL) by name, so they drop to LOW instead of MEDIUM. A new `family_name_matches`
+  condition powers a `paid-tier-in-name` rule that flags paid tiers announced in
+  the family name (e.g. Font Awesome **Pro**). `excludes` on the allowlist keeps
+  paid tiers out of the open-family whitelist.
 - **Demo runs are isolated from real data**: demo audits now write to
   `reports/demo/` and never appear under "Your data". Overview has a **Your data
   / Demo data** toggle; the run-list, run, diff, CSV, and first-seen endpoints
