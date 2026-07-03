@@ -15,6 +15,10 @@ from selectolax.parser import HTMLParser
 
 from fontsentry.crawl.fetcher import Fetcher
 from fontsentry.models import CrawlSettings, Target
+from fontsentry.textutil import decode_text
+
+# A sitemap index can point at many child sitemaps; bound how many we follow.
+_MAX_CHILD_SITEMAPS = 20
 
 
 def _host(url: str) -> str:
@@ -59,6 +63,16 @@ def parse_sitemap(data: bytes) -> list[str]:
     return locs
 
 
+def is_sitemap_index(data: bytes) -> bool:
+    """True if the XML root is a <sitemapindex> (its <loc>s are child sitemaps)."""
+
+    try:
+        root = ElementTree.fromstring(data)
+    except ElementTree.ParseError:
+        return False
+    return root.tag.rsplit("}", 1)[-1] == "sitemapindex"
+
+
 def _is_html(content_type: str) -> bool:
     return "html" in content_type.lower()
 
@@ -74,7 +88,19 @@ async def discover_pages(fetcher: Fetcher, target: Target, settings: CrawlSettin
 
     sitemap = await fetcher.fetch(f"https://{domain}/sitemap.xml")
     if sitemap is not None and sitemap.ok:
-        for loc in parse_sitemap(sitemap.content):
+        locs = parse_sitemap(sitemap.content)
+        if is_sitemap_index(sitemap.content):
+            # The <loc>s are child sitemaps, not pages — fetch a bounded number
+            # and parse each as a urlset to get the real page URLs.
+            child_locs: list[str] = []
+            for child in locs[:_MAX_CHILD_SITEMAPS]:
+                if not _is_within(_host(child), domain, follow_subdomains=follow_subs):
+                    continue
+                sub = await fetcher.fetch(child)
+                if sub is not None and sub.ok:
+                    child_locs.extend(parse_sitemap(sub.content))
+            locs = child_locs
+        for loc in locs:
             if _is_within(_host(loc), domain, follow_subdomains=follow_subs):
                 seeds.append(loc)
 
@@ -96,7 +122,7 @@ async def discover_pages(fetcher: Fetcher, target: Target, settings: CrawlSettin
         pages.append(url)
 
         if depth < settings.max_depth:
-            html = result.content.decode("utf-8", errors="replace")
+            html = decode_text(result.content, result.content_type)
             for link in extract_links(html, url):
                 if link not in visited and _is_within(
                     _host(link), domain, follow_subdomains=follow_subs

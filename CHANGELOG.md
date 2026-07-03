@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **CLI ↔ API parity**: `fontsentry scan` gains `--discover-subdomains`,
+  `--max-pages`, and `--csv` (write a findings CSV alongside the JSON/HTML),
+  matching what the web API already offered.
+- **Sitemap-index support**: a `<sitemapindex>` is now recursed one level (up to
+  20 child sitemaps) so page discovery works on large sites that split their
+  sitemap, instead of silently finding nothing.
+
 ### Fixed
+- **Charset-aware decoding**: fetched HTML/CSS is decoded using the
+  `Content-Type` charset (then UTF-8), so a legacy latin-1 / Shift-JIS page no
+  longer yields mojibake family names that break registry matching.
+- **Redirected responses aren't mis-cached**: a body reached via a redirect is no
+  longer stored under the original URL (which could later serve the wrong content).
 - **Risk scoring closes three false-negative gaps** (a real violation could be
   silently under-scored):
   - Fonts are aggregated by **(family, owner)**, so a benign/free owner on one

@@ -13,7 +13,12 @@ from typing import Any
 import httpx
 
 from fontsentry.crawl.cache import HttpCache
-from fontsentry.crawl.discovery import discover_pages, extract_links, parse_sitemap
+from fontsentry.crawl.discovery import (
+    discover_pages,
+    extract_links,
+    is_sitemap_index,
+    parse_sitemap,
+)
 from fontsentry.crawl.fetcher import Fetcher
 from fontsentry.crawl.robots import RobotsManager
 from fontsentry.models import CrawlSettings, Target
@@ -226,6 +231,62 @@ def test_parse_sitemap() -> None:
 
 def test_parse_sitemap_malformed() -> None:
     assert parse_sitemap(b"not xml") == []
+
+
+def test_is_sitemap_index() -> None:
+    index = (
+        '<?xml version="1.0"?>'
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<sitemap><loc>https://example.com/sitemap-1.xml</loc></sitemap>"
+        "</sitemapindex>"
+    )
+    urlset = "<urlset><url><loc>https://example.com/p</loc></url></urlset>"
+    assert is_sitemap_index(index.encode()) is True
+    assert is_sitemap_index(urlset.encode()) is False
+    assert is_sitemap_index(b"not xml") is False
+
+
+async def test_discover_follows_sitemap_index() -> None:
+    index = (
+        '<?xml version="1.0"?>'
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<sitemap><loc>https://example.com/sitemap-1.xml</loc></sitemap>"
+        "</sitemapindex>"
+    )
+    child = (
+        '<?xml version="1.0"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<url><loc>https://example.com/deep-page</loc></url>"
+        "</urlset>"
+    )
+    routes = {
+        "https://example.com/": _html("<p>home</p>"),
+        "https://example.com/sitemap.xml": httpx.Response(
+            200, content=index.encode(), headers={"content-type": "application/xml"}
+        ),
+        "https://example.com/sitemap-1.xml": httpx.Response(
+            200, content=child.encode(), headers={"content-type": "application/xml"}
+        ),
+        "https://example.com/deep-page": _html("<p>deep</p>"),
+    }
+    async with _client(routes) as client:
+        pages = await discover_pages(
+            Fetcher(client, _settings()), Target(domain="example.com"), _settings()
+        )
+    assert "https://example.com/deep-page" in pages
+
+
+async def test_redirected_response_is_not_cached(tmp_path: Path) -> None:
+    cache = HttpCache(tmp_path)
+    routes = {
+        "https://example.com/a": httpx.Response(302, headers={"location": "https://example.com/b"}),
+        "https://example.com/b": _html("<p>b</p>"),
+    }
+    async with _client(routes) as client:
+        result = await Fetcher(client, _settings(), cache=cache).fetch("https://example.com/a")
+    assert result is not None and b"b" in result.content
+    # The redirected body must not be cached under the original url.
+    assert cache.load("https://example.com/a") is None
 
 
 # --------------------------------------------------------------------------- #
