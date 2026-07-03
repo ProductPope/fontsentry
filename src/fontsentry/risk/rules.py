@@ -85,11 +85,7 @@ def commercial_unregistered(ctx: PredicateContext) -> bool:
     # Needs evidence: we only assert "commercial" when we have name-table metadata.
     if ctx.entry is not None or ctx.agg.metadata is None:
         return False
-    return (
-        not _looks_open_licensed(ctx)
-        and not _owner_is_free(ctx)
-        and not _family_is_open(ctx)
-    )
+    return not _looks_open_licensed(ctx) and not _owner_is_free(ctx) and not _family_is_open(ctx)
 
 
 def max_domains_exceeded(ctx: PredicateContext) -> bool:
