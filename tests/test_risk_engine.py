@@ -9,6 +9,7 @@ import pytest
 
 from fontsentry import config
 from fontsentry.models import (
+    BandThresholds,
     DetectedFont,
     EmbeddingMethod,
     FindingStatus,
@@ -18,11 +19,40 @@ from fontsentry.models import (
     Registry,
     RegistryEntry,
     RiskBand,
+    Rule,
+    RuleCondition,
     RulesConfig,
+    Scoring,
 )
-from fontsentry.risk.engine import EngineError, aggregate, evaluate, validate_rules
+from fontsentry.risk.engine import (
+    EngineError,
+    _classify_privacy,
+    aggregate,
+    band_for,
+    evaluate,
+    validate_rules,
+)
 
 NOW = date(2026, 6, 30)
+
+
+def _rules(
+    *, max_raw: int = 90, medium: int = 30, high: int = 60, rules: list[Rule] | None = None
+) -> RulesConfig:
+    return RulesConfig(
+        scoring=Scoring(max_raw=max_raw, bands=BandThresholds(medium=medium, high=high)),
+        rules=rules
+        if rules is not None
+        else [
+            Rule(
+                id="fmt",
+                description="format on web",
+                weight=100,
+                confidence=1.0,
+                when=RuleCondition(type="format_on_web", params={"formats": ["ttf"]}),
+            )
+        ],
+    )
 
 
 @pytest.fixture
@@ -256,6 +286,135 @@ def test_privacy_not_applicable_for_system_font() -> None:
     assert aggregate([_font(embedding=EmbeddingMethod.SYSTEM)])[0].privacy is (
         PrivacyClass.NOT_APPLICABLE
     )
+
+
+def test_score_is_clamped_to_100_exactly() -> None:
+    # raw = 100, max_raw = 10 -> 100*100/10 = 1000 -> clamped to 100 (HIGH).
+    findings = evaluate([_font()], _rules(max_raw=10), Registry(), NOW)
+    assert findings[0].score == 100
+    assert findings[0].band is RiskBand.HIGH
+
+
+def test_triggered_rule_points_are_weight_times_confidence() -> None:
+    r = _rules(
+        rules=[
+            Rule(
+                id="fmt",
+                description="d",
+                weight=30,
+                confidence=0.85,
+                when=RuleCondition(type="format_on_web", params={"formats": ["ttf"]}),
+            )
+        ]
+    )
+    finding = evaluate([_font()], r, Registry(), NOW)[0]
+    assert finding.triggered_rules[0].points == 25.5
+
+
+def test_not_applied_halves_and_rebands_exactly() -> None:
+    # raw 60 (weight 60, conf 1, max_raw 100) -> score 60 (HIGH); applied=False
+    # halves to 30 and rebands to MEDIUM.
+    r = _rules(
+        max_raw=100,
+        rules=[
+            Rule(
+                id="fmt",
+                description="d",
+                weight=60,
+                confidence=1.0,
+                when=RuleCondition(type="format_on_web", params={"formats": ["ttf"]}),
+            )
+        ],
+    )
+    applied = evaluate([_font()], r, Registry(), NOW)[0]
+    unused = evaluate([_font(applied=False)], r, Registry(), NOW)[0]
+    assert (applied.score, applied.band) == (60, RiskBand.HIGH)
+    assert (unused.score, unused.band) == (30, RiskBand.MEDIUM)
+
+
+def test_findings_sorted_by_score_then_family() -> None:
+    fonts = [
+        _font(family="Zeta", owner="A", page="https://z.com/"),
+        _font(family="alpha", owner="A", page="https://a.com/"),
+        _font(family="Beta", owner="A", page="https://b.com/"),
+    ]
+    # All three trip the same rule -> equal score -> pure case-insensitive family sort.
+    order = [f.family for f in evaluate(fonts, _rules(), Registry(), NOW)]
+    assert order == ["alpha", "Beta", "Zeta"]
+
+
+def test_aggregate_owner_metadata_precedence_and_url_cap() -> None:
+    pages = [f"https://example.com/p{i}" for i in range(7)]
+    fonts = [
+        _font(family="Acme Sans", owner=None, page=pages[0]),  # first has no owner
+        *[_font(family="Acme Sans", owner="Acme Type", page=p) for p in pages[1:]],
+    ]
+    agg = aggregate(fonts)[0]
+    assert agg.owner == "Acme Type"  # first non-None wins
+    assert agg.page_count == 7
+    assert agg.occurrences == 7
+    assert len(agg.example_urls) == 5 and agg.example_urls == sorted(agg.example_urls)
+
+
+def test_aggregate_folds_case_and_whitespace() -> None:
+    fonts = [
+        _font(family="Acme Sans"),
+        _font(family=" acme sans "),
+        _font(family="ACME SANS"),
+    ]
+    assert len(aggregate(fonts)) == 1
+
+
+def test_adding_a_triggering_rule_never_lowers_score() -> None:
+    base = _rules(
+        rules=[
+            Rule(
+                id="fmt",
+                description="d",
+                weight=30,
+                confidence=0.85,
+                when=RuleCondition(type="format_on_web", params={"formats": ["ttf"]}),
+            )
+        ]
+    )
+    extra = _rules(
+        rules=[
+            *base.rules,
+            Rule(
+                id="sub",
+                description="d",
+                weight=5,
+                confidence=0.2,
+                when=RuleCondition(type="subset_signal", params={"max_glyphs": 10000}),
+            ),
+        ]
+    )
+    f = _font(fmt=FontFormat.WOFF2, num_glyphs=50)
+    assert (
+        evaluate([f], extra, Registry(), NOW)[0].score
+        >= evaluate([f], base, Registry(), NOW)[0].score
+    )
+
+
+def test_band_for_exact_boundaries() -> None:
+    r = _rules(medium=30, high=60)
+    assert band_for(29, r) is RiskBand.LOW
+    assert band_for(30, r) is RiskBand.MEDIUM
+    assert band_for(59, r) is RiskBand.MEDIUM
+    assert band_for(60, r) is RiskBand.HIGH
+
+
+def test_classify_privacy_table() -> None:
+    E = EmbeddingMethod
+    from fontsentry.models import PrivacyClass as P
+
+    assert _classify_privacy({E.GOOGLE_FONTS}) is P.THIRD_PARTY_API
+    assert _classify_privacy({E.SELF_HOSTED}) is P.SELF_HOSTED
+    assert _classify_privacy({E.GOOGLE_FONTS, E.SELF_HOSTED}) is P.MIXED
+    assert _classify_privacy({E.ADOBE_FONTS, E.MONOTYPE}) is P.THIRD_PARTY_API
+    assert _classify_privacy({E.SYSTEM}) is P.NOT_APPLICABLE
+    assert _classify_privacy({E.SYSTEM, E.SELF_HOSTED}) is P.SELF_HOSTED
+    assert _classify_privacy(set()) is P.NOT_APPLICABLE
 
 
 def test_validate_rules_clean(rules: RulesConfig) -> None:

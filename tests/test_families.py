@@ -45,3 +45,13 @@ def test_width_stays_distinct() -> None:
 def test_empty_strip_falls_back_to_input() -> None:
     # A name that is *only* a weight token keeps itself rather than vanishing.
     assert base_family("Bold") == "Bold"
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["metropolis-bold", "OpenSans-Regular", "Roboto Black", "Graphik Cond Web", "Noto Sans"],
+)
+def test_base_family_is_idempotent(name: str) -> None:
+    once = base_family(name)
+    assert base_family(once) == once
+    assert group_key(once) == group_key(name)

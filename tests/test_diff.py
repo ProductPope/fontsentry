@@ -31,6 +31,34 @@ def _report(findings: list[Finding]) -> RunReport:
     return build_report(findings, datetime(2026, 6, 30, 12, 0, 0))
 
 
+def test_diff_identity_is_case_and_whitespace_insensitive() -> None:
+    previous = _report([_finding("Atlas", score=50, domains=["a.com"], owner="Acme")])
+    current = _report([_finding(" atlas ", score=70, domains=["a.com"], owner="ACME")])
+    result = diff_runs(previous, current)
+    # Same (family, owner) identity modulo case/whitespace -> changed, not new+resolved.
+    assert result.new_findings == [] and result.resolved_findings == []
+    assert [c.family for c in result.changed] == [" atlas "]
+
+
+def test_diff_same_family_different_owner_are_distinct() -> None:
+    previous = _report([_finding("Atlas", score=50, domains=["a.com"], owner="Foundry A")])
+    current = _report([_finding("Atlas", score=50, domains=["a.com"], owner="Foundry B")])
+    result = diff_runs(previous, current)
+    assert [f.owner for f in result.new_findings] == ["Foundry B"]
+    assert [f.owner for f in result.resolved_findings] == ["Foundry A"]
+
+
+def test_diff_open_to_resolved_counts_as_resolved() -> None:
+    # The "we bought a license" case: same finding, OPEN previously, RESOLVED now.
+    previous = _report([_finding("Atlas", score=50, domains=["a.com"])])
+    current = _report(
+        [_finding("Atlas", score=50, domains=["a.com"], status=FindingStatus.RESOLVED)]
+    )
+    result = diff_runs(previous, current)
+    assert [f.family for f in result.resolved_findings] == ["Atlas"]
+    assert result.new_findings == []
+
+
 def test_new_and_resolved_findings() -> None:
     previous = _report([_finding("Stays", score=50, domains=["a.com"])])
     current = _report(

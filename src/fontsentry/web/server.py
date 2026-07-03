@@ -149,7 +149,9 @@ def create_app(
     @app.get("/api/runs")
     async def list_runs(source: str = "real") -> list[RunMeta]:
         metas: list[RunMeta] = []
-        for path in sorted(_reports_for(reports_dir, source).glob("*.report.json"), reverse=True):
+        for path in sorted(
+            _reports_for(reports_dir, source).glob("fontsentry-*.report.json"), reverse=True
+        ):
             try:
                 report = load_run(path)
             except (OSError, ValueError):
@@ -163,7 +165,7 @@ def create_app(
     async def scan_estimate(hosts: int, max_pages: int) -> ScanEstimate:
         # Estimate from recent runs' throughput (pages / wall-clock second).
         rates: list[float] = []
-        for path in sorted(reports_dir.glob("*.report.json"), reverse=True)[:5]:
+        for path in sorted(reports_dir.glob("fontsentry-*.report.json"), reverse=True)[:5]:
             try:
                 rep = load_run(path)
             except (OSError, ValueError):
@@ -192,7 +194,9 @@ def create_app(
         # of common families so there are suggestions before the first audit.
         # Keyed case-insensitively by family; detected entries win over catalog.
         by_key: dict[str, KnownFont] = {}
-        reports = sorted(_reports_for(reports_dir, "real").glob("*.report.json"), reverse=True)
+        reports = sorted(
+            _reports_for(reports_dir, "real").glob("fontsentry-*.report.json"), reverse=True
+        )
         if reports:
             for finding in load_run(reports[0]).findings:
                 key = finding.family.strip().lower()
@@ -298,9 +302,13 @@ def create_app(
         safe = re.sub(r"[^A-Za-z0-9._-]", "_", raw)
         if not safe or safe.startswith("."):
             raise HTTPException(status_code=400, detail="invalid filename")
-        data = await file.read()
-        if len(data) > _MAX_PROOF_BYTES:
-            raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
+        # Stream and abort past the cap: never buffer the whole (possibly lying
+        # about its length) upload into memory before rejecting it.
+        data = bytearray()
+        while chunk := await file.read(64 * 1024):
+            data.extend(chunk)
+            if len(data) > _MAX_PROOF_BYTES:
+                raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
         proofs = registry_dir / "proofs"
         proofs.mkdir(parents=True, exist_ok=True)
         (proofs / safe).write_bytes(data)
@@ -395,11 +403,17 @@ def create_app(
 
 
 def _safe_run_path(reports_dir: Path, run_id: str) -> Path:
-    """Resolve a run id to a path inside reports_dir, rejecting traversal."""
+    """Resolve a run id to a report file inside reports_dir. Resolve-and-contain
+    (not string checks): the resolved path must sit directly in reports_dir and be
+    a .report.json — this also blocks absolute/encoded/drive-relative escapes."""
 
-    if "/" in run_id or "\\" in run_id or ".." in run_id:
+    if not run_id.endswith(".report.json"):
         raise HTTPException(status_code=400, detail="invalid run id")
-    return reports_dir / run_id
+    base = reports_dir.resolve()
+    path = (base / run_id).resolve()
+    if path.parent != base:
+        raise HTTPException(status_code=400, detail="invalid run id")
+    return path
 
 
 async def _run_scan_job(

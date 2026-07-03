@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Subdomains are covered by their parent domain's license**: a license for
+  `example.com` now covers `www.example.com` (dot-bounded), and `max_domains`
+  counts distinct licensed domains (apex + subdomains under one license = one),
+  so real, valid licenses stop showing as open findings.
+- **CSV export is safe to open in a spreadsheet**: cells starting with
+  `= + - @` (from attacker-influenceable font metadata/URLs) are neutralized,
+  preventing CSV formula/DDE injection.
+- **Proof upload is streamed with a hard cap**: the 10 MB limit aborts mid-read
+  instead of buffering the whole (possibly length-lying) body first.
+- **`run_id` path handling is resolve-and-contain**: report ids are resolved and
+  verified to sit inside the reports dir (blocks absolute/encoded/drive escapes),
+  matching the proof-serve defense.
+- **Misspelled rule field names no longer fire spuriously**: `missing_name_field`
+  ignores unknown field names instead of treating them as "missing".
+- Report file globs are unified to `fontsentry-*.report.json` across all endpoints.
 - **A malformed font no longer aborts the whole scan**: font-table decompilation
   errors (corrupt name/maxp) are caught and surfaced as `FontReadError` instead
   of crashing the crawl.

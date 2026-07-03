@@ -41,6 +41,32 @@ def _finding(
     )
 
 
+def test_csv_neutralizes_formula_injection() -> None:
+    import csv as _csv
+
+    findings = [
+        Finding(family="=1+1", owner="@evil", score=50, band=RiskBand.MEDIUM),
+        Finding(family="-2+3", owner="+cmd", score=10, band=RiskBand.LOW),
+    ]
+    report = json_report.build_report(findings, GENERATED)
+    rows = list(_csv.reader(build_csv(report).splitlines()))
+    body = rows[1:]
+    # Every dangerous cell is prefixed with an apostrophe so spreadsheets treat
+    # it as text, not a formula.
+    assert body[0][0] == "'=1+1"
+    assert body[0][2] == "'@evil"
+    assert body[1][0] == "'-2+3"
+
+
+def test_csv_preserves_and_quotes_special_chars() -> None:
+    import csv as _csv
+
+    f = Finding(family='Ac"me, Sans', owner="Acme", score=5, band=RiskBand.LOW)
+    report = json_report.build_report([f], GENERATED)
+    rows = list(_csv.reader(build_csv(report).splitlines()))
+    assert rows[1][0] == 'Ac"me, Sans'  # round-trips through the CSV quoting intact
+
+
 def test_build_summary_counts() -> None:
     findings = [
         _finding("A", score=80, band=RiskBand.HIGH),

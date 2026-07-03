@@ -2,9 +2,10 @@
 
 A finding is suppressed (status RESOLVED, no alert) only when a matching license
 genuinely covers it: same owner + family, the license is not expired, every
-observed domain is allowed (or allowed_domains contains the "*" wildcard), and
-the global domain count is within max_domains. Anything short of that surfaces
-as an open finding.
+observed host is covered by an allowed domain (a license for "example.com" covers
+its subdomains like "www.example.com"; "*" covers everything), and the number of
+distinct licensed domains in use is within max_domains. Anything short of that
+surfaces as an open finding.
 """
 
 from __future__ import annotations
@@ -38,6 +39,18 @@ def is_expired(entry: RegistryEntry, now: date) -> bool:
     return entry.valid_until is not None and entry.valid_until < now
 
 
+def _covers(host: str, allowed: str) -> bool:
+    # A licensed domain covers itself and its subdomains (dot-bounded), matching
+    # how licenses are granted in practice: "example.com" covers "www.example.com".
+    return host == allowed or host.endswith("." + allowed)
+
+
+def _covering_domain(host: str, allowed: set[str]) -> str:
+    # The licensed domain a host falls under (for counting distinct sites toward
+    # max_domains); the host itself if it isn't covered by any.
+    return next((d for d in allowed if d != "*" and _covers(host, d)), host)
+
+
 @dataclass(frozen=True)
 class Suppression:
     status: FindingStatus
@@ -57,18 +70,25 @@ def evaluate_suppression(agg: AggregatedFont, registry: Registry, now: date) -> 
 
     allowed = {_norm(d) for d in entry.allowed_domains}
     observed = {_norm(d) for d in agg.domains}
+    wildcard = "*" in allowed
     # "*" is a wildcard: the license covers any domain (unlimited scope).
-    if "*" not in allowed and not observed <= allowed:
-        uncovered = sorted(observed - allowed)
-        return Suppression(
-            FindingStatus.OPEN, entry, f"domains not covered by license: {', '.join(uncovered)}"
-        )
+    if not wildcard:
+        uncovered = sorted(h for h in observed if not any(_covers(h, d) for d in allowed))
+        if uncovered:
+            return Suppression(
+                FindingStatus.OPEN,
+                entry,
+                f"domains not covered by license: {', '.join(uncovered)}",
+            )
 
-    if entry.max_domains is not None and agg.domain_count > entry.max_domains:
+    # Count distinct licensed domains in use (subdomains of one allowed domain
+    # count once), not raw hostnames, so www + apex under one license == 1 domain.
+    effective = observed if wildcard else {_covering_domain(h, allowed) for h in observed}
+    if entry.max_domains is not None and len(effective) > entry.max_domains:
         return Suppression(
             FindingStatus.OPEN,
             entry,
-            f"domain count {agg.domain_count} exceeds license max_domains {entry.max_domains}",
+            f"domain count {len(effective)} exceeds license max_domains {entry.max_domains}",
         )
 
     return Suppression(FindingStatus.RESOLVED, entry, "covered by a valid license")
