@@ -61,19 +61,34 @@ def test_scan_then_list_and_fetch(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         run_id = _run_demo_scan(client)
 
-        runs = client.get("/api/runs").json()
+        runs = client.get("/api/runs", params={"source": "demo"}).json()
         assert any(r["id"] == run_id for r in runs)
 
-        report = client.get(f"/api/runs/{run_id}").json()
+        report = client.get(f"/api/runs/{run_id}", params={"source": "demo"}).json()
         families = {f["family"] for f in report["findings"]}
         assert "Atlas Grotesk Private" in families
         assert report["summary"]["open_findings"] >= 1
 
 
+def test_demo_runs_isolated_from_real(tmp_path: Path) -> None:
+    # Demo scans write to reports/demo/ so "Your data" (source=real) never shows
+    # them. They surface only under source=demo, and fetching needs the same source.
+    with _client(tmp_path) as client:
+        run_id = _run_demo_scan(client)
+
+        assert (tmp_path / "demo" / run_id).exists()
+        assert client.get("/api/runs").json() == []  # real is empty
+        assert client.get(f"/api/runs/{run_id}").status_code == 404  # real lookup misses
+
+        demo_runs = client.get("/api/runs", params={"source": "demo"}).json()
+        assert any(r["id"] == run_id for r in demo_runs)
+        assert client.get(f"/api/runs/{run_id}", params={"source": "demo"}).status_code == 200
+
+
 def test_first_seen_after_scan(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         _run_demo_scan(client)
-        resp = client.get("/api/first-seen")
+        resp = client.get("/api/first-seen", params={"source": "demo"})
         assert resp.status_code == 200
         rows = resp.json()
         assert rows and all({"domain", "family", "first_seen"} <= set(r) for r in rows)
@@ -146,7 +161,7 @@ def test_scan_accepts_max_pages(tmp_path: Path) -> None:
 def test_export_csv(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         run_id = _run_demo_scan(client)
-        resp = client.get(f"/api/runs/{run_id}/export.csv")
+        resp = client.get(f"/api/runs/{run_id}/export.csv", params={"source": "demo"})
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/csv")
         assert "attachment" in resp.headers.get("content-disposition", "")

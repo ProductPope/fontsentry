@@ -95,6 +95,15 @@ def _web_dist() -> Path:
     return demo.repo_root() / "web" / "dist"
 
 
+def _reports_for(reports_dir: Path, source: str) -> Path:
+    """Reports live per data source: real runs in the root, demo runs in demo/.
+
+    Keeps demo audits out of "your data" — they're a separate, isolated set.
+    """
+
+    return reports_dir / "demo" if source == "demo" else reports_dir
+
+
 def create_app(
     *,
     reports_dir: Path = Path("reports"),
@@ -126,9 +135,9 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/api/runs")
-    async def list_runs() -> list[RunMeta]:
+    async def list_runs(source: str = "real") -> list[RunMeta]:
         metas: list[RunMeta] = []
-        for path in sorted(reports_dir.glob("*.report.json"), reverse=True):
+        for path in sorted(_reports_for(reports_dir, source).glob("*.report.json"), reverse=True):
             try:
                 report = load_run(path)
             except (OSError, ValueError):
@@ -157,23 +166,23 @@ def create_app(
         return ScanEstimate(eta_seconds=round(planned / rate, 0), based_on_runs=len(rates))
 
     @app.get("/api/first-seen")
-    async def get_first_seen() -> list[FirstSeen]:
+    async def get_first_seen(source: str = "real") -> list[FirstSeen]:
         # Computed from the report files on disk; no stored per-font history.
         return [
             FirstSeen(domain=domain, family=family, first_seen=ts)
-            for (domain, family), ts in first_seen_map(reports_dir).items()
+            for (domain, family), ts in first_seen_map(_reports_for(reports_dir, source)).items()
         ]
 
     @app.get("/api/runs/{run_id}")
-    async def get_run(run_id: str) -> RunReport:
-        path = _safe_run_path(reports_dir, run_id)
+    async def get_run(run_id: str, source: str = "real") -> RunReport:
+        path = _safe_run_path(_reports_for(reports_dir, source), run_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return load_run(path)
 
     @app.get("/api/runs/{run_id}/export.csv")
-    async def export_run_csv(run_id: str) -> Response:
-        path = _safe_run_path(reports_dir, run_id)
+    async def export_run_csv(run_id: str, source: str = "real") -> Response:
+        path = _safe_run_path(_reports_for(reports_dir, source), run_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
         filename = run_id.removesuffix(".report.json") + ".csv"
@@ -184,13 +193,14 @@ def create_app(
         )
 
     @app.get("/api/runs/{run_id}/diff")
-    async def get_run_diff(run_id: str) -> DiffResult:
+    async def get_run_diff(run_id: str, source: str = "real") -> DiffResult:
         # Diff a run against the one chronologically before it. An empty result
         # means either no earlier run exists or nothing changed.
-        path = _safe_run_path(reports_dir, run_id)
+        base = _reports_for(reports_dir, source)
+        path = _safe_run_path(base, run_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
-        files = sorted(reports_dir.glob("fontsentry-*.report.json"))  # oldest first
+        files = sorted(base.glob("fontsentry-*.report.json"))  # oldest first
         names = [p.name for p in files]
         idx = names.index(run_id) if run_id in names else -1
         if idx <= 0:
@@ -391,7 +401,7 @@ async def _run_scan_job(
             registry,
             client=client,
             now=now,
-            reports_dir=reports_dir,
+            reports_dir=_reports_for(reports_dir, mode),
             progress=on_progress,
             discover_ct=discover_ct,
             max_pages_per_domain=max_pages_per_domain,

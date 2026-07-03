@@ -58,7 +58,13 @@ function toRows(domains: DomainReport[]): HostRow[] {
   );
 }
 
-export function DomainsView({ domains }: { domains: DomainReport[] }) {
+export function DomainsView({
+  domains,
+  source = "real",
+}: {
+  domains: DomainReport[];
+  source?: "real" | "demo";
+}) {
   const [domainFilter, setDomainFilter] = useState("all");
   const [band, setBand] = useState<Band | "all">("all");
   // (domain, family) -> earliest run it appeared in, across all reports on disk.
@@ -66,14 +72,14 @@ export function DomainsView({ domains }: { domains: DomainReport[] }) {
 
   useEffect(() => {
     api
-      .getFirstSeen()
+      .getFirstSeen(source)
       .then((entries) =>
         setFirstSeen(new Map(entries.map((r) => [key(r.domain, r.family), r.first_seen]))),
       )
       .catch(() => {
         // first-seen is a nice-to-have; ignore failures
       });
-  }, []);
+  }, [source]);
 
   const rows = useMemo(() => {
     return toRows(domains)

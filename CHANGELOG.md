@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Demo runs are isolated from real data**: demo audits now write to
+  `reports/demo/` and never appear under "Your data". Overview has a **Your data
+  / Demo data** toggle; the run-list, run, diff, CSV, and first-seen endpoints
+  take a `source` query param (`real` default, `demo`).
 - **Run-audit modal**: Start audit now opens a modal to choose the data source
   (Your data / Demo data), toggle **Check subdomains**, set **max pages per
   domain**, and see an **estimated completion time** (from past audits'

@@ -210,11 +210,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getRuns: () => request<RunMeta[]>("/api/runs"),
-  getFirstSeen: () => request<FirstSeen[]>("/api/first-seen"),
-  getRun: (id: string) => request<RunReport>(`/api/runs/${encodeURIComponent(id)}`),
-  getRunDiff: (id: string) => request<DiffResult>(`/api/runs/${encodeURIComponent(id)}/diff`),
-  exportCsvUrl: (id: string) => `/api/runs/${encodeURIComponent(id)}/export.csv`,
+  getRuns: (source: "real" | "demo" = "real") => request<RunMeta[]>(`/api/runs?source=${source}`),
+  getFirstSeen: (source: "real" | "demo" = "real") =>
+    request<FirstSeen[]>(`/api/first-seen?source=${source}`),
+  getRun: (id: string, source: "real" | "demo" = "real") =>
+    request<RunReport>(`/api/runs/${encodeURIComponent(id)}?source=${source}`),
+  getRunDiff: (id: string, source: "real" | "demo" = "real") =>
+    request<DiffResult>(`/api/runs/${encodeURIComponent(id)}/diff?source=${source}`),
+  exportCsvUrl: (id: string, source: "real" | "demo" = "real") =>
+    `/api/runs/${encodeURIComponent(id)}/export.csv?source=${source}`,
   startScan: (mode: "demo" | "real", discoverSubdomains = false, maxPages?: number) =>
     request<{ job_id: string }>("/api/scan", {
       method: "POST",
