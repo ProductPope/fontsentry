@@ -30,6 +30,7 @@ from fontsentry.models import (
     RunSummary,
     TargetsConfig,
 )
+from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
 from fontsentry.report.json_report import first_seen_map, load_run
 from fontsentry.scan import scan_and_write
@@ -144,6 +145,18 @@ def create_app(
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return load_run(path)
+
+    @app.get("/api/runs/{run_id}/export.csv")
+    async def export_run_csv(run_id: str) -> Response:
+        path = _safe_run_path(reports_dir, run_id)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="run not found")
+        filename = run_id.removesuffix(".report.json") + ".csv"
+        return Response(
+            content=build_csv(load_run(path)),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @app.get("/api/runs/{run_id}/diff")
     async def get_run_diff(run_id: str) -> DiffResult:

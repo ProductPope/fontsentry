@@ -209,6 +209,7 @@ export const api = {
   getFirstSeen: () => request<FirstSeen[]>("/api/first-seen"),
   getRun: (id: string) => request<RunReport>(`/api/runs/${encodeURIComponent(id)}`),
   getRunDiff: (id: string) => request<DiffResult>(`/api/runs/${encodeURIComponent(id)}/diff`),
+  exportCsvUrl: (id: string) => `/api/runs/${encodeURIComponent(id)}/export.csv`,
   startScan: (mode: "demo" | "real", discoverSubdomains = false) =>
     request<{ job_id: string }>("/api/scan", {
       method: "POST",

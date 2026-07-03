@@ -109,6 +109,18 @@ def test_run_diff(tmp_path: Path) -> None:
         assert oldest["new_findings"] == [] and oldest["resolved_findings"] == []
 
 
+def test_export_csv(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        run_id = _run_demo_scan(client)
+        resp = client.get(f"/api/runs/{run_id}/export.csv")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/csv")
+        assert "attachment" in resp.headers.get("content-disposition", "")
+        body = resp.text
+        assert body.splitlines()[0].startswith("family,owner,band,score")
+        assert "Atlas Grotesk Private" in body
+
+
 def test_run_not_found(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/runs/missing.report.json").status_code == 404
