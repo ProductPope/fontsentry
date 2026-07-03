@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
@@ -116,6 +116,40 @@ export default function App() {
     },
     [navigate],
   );
+
+  // On load, re-attach to a scan already running on the server (started from the
+  // CLI, another tab, or a prior session) so its progress shows here too.
+  const adopted = useRef(false);
+  useEffect(() => {
+    if (adopted.current) return;
+    let cancelled = false;
+    api
+      .getActiveJobs()
+      .then((active) => {
+        const job = active[0];
+        if (cancelled || adopted.current || !job) return;
+        adopted.current = true;
+        setScanning(true);
+        setScanJob(job);
+        notify("Reattached to a running audit…", "info");
+        pollJob(job.id, setScanJob)
+          .then((runId) => {
+            notify("Audit complete", "success");
+            onScanComplete(runId, job.mode);
+          })
+          .catch((e: unknown) => notify(e instanceof Error ? e.message : "Audit failed", "error"))
+          .finally(() => {
+            setScanning(false);
+            setScanJob(null);
+          });
+      })
+      .catch(() => {
+        // no active-jobs endpoint / network hiccup — nothing to adopt
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notify, onScanComplete]);
 
   const runAudit = useCallback(
     async (mode: "real" | "demo", discoverSubdomains = false, maxPages?: number) => {

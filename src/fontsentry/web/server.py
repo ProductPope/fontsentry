@@ -288,7 +288,7 @@ def create_app(
     async def start_scan(request: ScanRequest) -> ScanStarted:
         if request.mode not in {"demo", "real"}:
             raise HTTPException(status_code=400, detail="mode must be 'demo' or 'real'")
-        job = jobs.create()
+        job = jobs.create(request.mode)
         # Fire-and-forget; status is polled via /api/jobs/{id}.
         task = asyncio.create_task(
             _run_scan_job(
@@ -305,6 +305,12 @@ def create_app(
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
         return ScanStarted(job_id=job.id)
+
+    @app.get("/api/jobs")
+    async def list_active_jobs() -> list[Job]:
+        # Running scans only — lets a freshly-loaded UI re-attach to a scan it
+        # didn't start (kicked off from the CLI, another tab, or a prior session).
+        return jobs.active()
 
     @app.get("/api/jobs/{job_id}")
     async def get_job(job_id: str) -> Job:
