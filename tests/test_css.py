@@ -66,6 +66,23 @@ def test_parse_font_families_drops_var_references() -> None:
     assert not any(f.lower().startswith("var(") for f in families)
 
 
+def test_escaped_spaces_in_family_are_unescaped() -> None:
+    # An unquoted family with backslash-escaped spaces must normalize to the same
+    # name as its quoted form — otherwise the same font shows up twice.
+    text = (
+        ".a { font-family: Font Awesome\\ 5 Free, sans-serif; }"
+        " .b { font-family: 'Font Awesome 5 Free'; }"
+    )
+    families = css.parse_font_families(text)
+    assert "Font Awesome 5 Free" in families
+    assert not any("\\" in f for f in families)
+
+
+def test_font_face_family_unescaped() -> None:
+    text = "@font-face { font-family: Font Awesome\\ 5 Free; src: url(fa.woff2); }"
+    assert css.parse_font_faces(text)[0].family == "Font Awesome 5 Free"
+
+
 def test_format_helpers() -> None:
     assert css.format_from_hint("woff2") is FontFormat.WOFF2
     assert css.format_from_hint("'truetype'") is FontFormat.TTF

@@ -7,6 +7,7 @@ here operates on CSS text already in hand, which keeps it pure and testable.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any
@@ -62,6 +63,30 @@ def _unquote(value: str) -> str:
     if len(value) >= 2 and value[0] in "'\"" and value[-1] == value[0]:
         return value[1:-1]
     return value
+
+
+# A CSS escape: a backslash followed by 1-6 hex digits (+ optional trailing
+# whitespace) for a codepoint, or a backslash followed by any other character
+# for that character literally. Unquoted family names use `\ ` for spaces, so
+# `Font Awesome\ 5 Free` must normalize to the same name as the quoted form.
+_CSS_ESCAPE = re.compile(r"\\(?:([0-9a-fA-F]{1,6})[ \t\n]?|(.))", re.DOTALL)
+
+
+def _unescape_css(value: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        hex_digits, literal = match.group(1), match.group(2)
+        if hex_digits is not None:
+            code = int(hex_digits, 16)
+            return chr(code) if 0 < code <= 0x10FFFF else "�"
+        return literal
+
+    return _CSS_ESCAPE.sub(repl, value)
+
+
+def _family_name(raw: str) -> str:
+    """Normalize a serialized font-family token into a comparable name:
+    strip quotes, then unescape CSS backslash escapes (e.g. escaped spaces)."""
+    return _unescape_css(_unquote(raw)).strip()
 
 
 def _declarations(content: list[Any]) -> list[Any]:
@@ -135,7 +160,7 @@ def parse_font_faces(css_text: str, base_url: str | None = None) -> list[FontFac
         for decl in _declarations(node.content):
             name = decl.lower_name
             if name == "font-family":
-                family = _unquote(_serialize(decl.value))
+                family = _family_name(_serialize(decl.value))
             elif name == "src":
                 sources = _parse_src(decl.value, base_url)
 
@@ -164,7 +189,7 @@ def parse_font_families(css_text: str) -> set[str]:
 def _split_families(value: str) -> set[str]:
     out: set[str] = set()
     for part in value.split(","):
-        name = _unquote(part)
+        name = _family_name(part)
         # Drop shorthand noise (sizes, weights), generic keywords, and CSS
         # custom-property references (e.g. `var(--bs-body-font-family)`), which
         # are variable lookups, not real family names.
