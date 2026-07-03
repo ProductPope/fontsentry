@@ -18,15 +18,18 @@ export function Modal({ title, onClose, children }: ModalProps) {
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const node = ref.current;
-    const focusables = node ? Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)) : [];
-    focusables[0]?.focus();
+    node?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
 
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         onClose();
         return;
       }
-      if (e.key === "Tab" && focusables.length > 0) {
+      // Recompute focusables at Tab time (not once at mount) so controls that
+      // render after open — e.g. a proof "Remove" link — stay inside the trap.
+      if (e.key === "Tab" && node) {
+        const focusables = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE));
+        if (focusables.length === 0) return;
         const first = focusables[0]!;
         const last = focusables[focusables.length - 1]!;
         if (e.shiftKey && document.activeElement === first) {
