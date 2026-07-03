@@ -115,6 +115,13 @@ When you add a user-facing feature, also update the relevant doc (README CLI
 options, `docs/rules.md`, `config/*.example.yaml` comments) and add a CHANGELOG
 entry. Extend `test_docs.py` when a new kind of doc↔code contract is worth pinning.
 
+The web UI has an **accessibility lint** (`cd web && npm run lint`,
+`eslint-plugin-jsx-a11y` via `web/eslint.config.js`) that fails on WCAG
+regressions. Run it before merging UI changes and wire it into the `web` CI job
+(an `npm run lint` step before build). Keep it green; use a scoped
+`eslint-disable-next-line` with a reason only for genuine false positives (e.g.
+backdrop click-to-close).
+
 ## Commits
 
 Conventional Commits. Small, logical commits. One coherent change per commit.

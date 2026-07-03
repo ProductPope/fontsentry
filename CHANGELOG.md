@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   text clears the 4.5:1 AA threshold.
 
 ### Added
+- **Accessibility lint** (`npm run lint`, `eslint-plugin-jsx-a11y` via
+  `web/eslint.config.js`): fails on WCAG regressions in the React UI. Wire it into
+  the `web` CI job (an `npm run lint` step) to enforce it on every PR.
 - **Documentation-freshness guard** (`tests/test_docs.py`): CI now fails if a rule
   predicate, a default rule id, or a `CrawlSettings` field is undocumented, or if
   the CHANGELOG loses its `[Unreleased]` section — keeping the repo docs in lockstep

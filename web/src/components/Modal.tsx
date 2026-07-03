@@ -50,10 +50,15 @@ export function Modal({ title, onClose, children }: ModalProps) {
   }, [onClose]);
 
   return (
+    // Backdrop click-to-close is a mouse convenience; keyboard users close with
+    // Escape (handled above), so the a11y rules for interactive elements don't apply.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
+      {/* stopPropagation keeps a click inside the dialog from closing it — not a real interaction. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
         ref={ref}
         role="dialog"
