@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CSV export** of a run's findings — `GET /api/runs/{id}/export.csv` and an
+  **Export CSV** button on Overview. One row per font (family, owner, band,
+  score, status, applied, domain/page counts, domains, embeddings, formats,
+  rules, example URLs, suppression reason).
 - **Opt-in public-subdomain discovery** via Certificate Transparency: tick
   **Find subdomains** when starting a real audit to seed the crawl with public
   subdomains from crt.sh. Off by default and real-mode only — it queries an

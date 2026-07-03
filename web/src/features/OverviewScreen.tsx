@@ -127,20 +127,29 @@ export function OverviewScreen({
 
   return (
     <div className="space-y-5">
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Run</span>
-        <Select
-          value={selectedId}
-          onChange={(e) => onSelect(e.target.value)}
-          className="font-mono text-xs"
+      <div className="flex items-end gap-2">
+        <label className="block flex-1 text-sm">
+          <span className="mb-1 block font-medium">Run</span>
+          <Select
+            value={selectedId}
+            onChange={(e) => onSelect(e.target.value)}
+            className="font-mono text-xs"
+          >
+            {runs.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.id}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <a
+          href={api.exportCsvUrl(selectedId)}
+          download
+          className="rounded-tk border border-stroke bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-canvas"
         >
-          {runs.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.id}
-            </option>
-          ))}
-        </Select>
-      </label>
+          Export CSV
+        </a>
+      </div>
 
       {stats && (
         <>

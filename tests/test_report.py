@@ -15,6 +15,7 @@ from fontsentry.models import (
     RiskBand,
 )
 from fontsentry.report import json_report
+from fontsentry.report.csv_report import build_csv
 from fontsentry.report.html_report import render_html
 
 GENERATED = datetime(2026, 6, 30, 12, 0, 0)
@@ -92,6 +93,21 @@ def test_first_seen_map_earliest_wins(tmp_path: Path) -> None:
     m = json_report.first_seen_map(tmp_path)
     assert m[("example.com", "Atlas")] == datetime(2026, 1, 1, 0, 0, 0)
     assert m[("example.com", "Beacon")] == datetime(2026, 2, 1, 0, 0, 0)
+
+
+def test_build_csv_has_header_and_rows() -> None:
+    report = json_report.build_report(
+        [
+            _finding("A", score=80, band=RiskBand.HIGH),
+            _finding("B", score=10, band=RiskBand.LOW, status=FindingStatus.RESOLVED),
+        ],
+        GENERATED,
+    )
+    csv_text = build_csv(report)
+    lines = csv_text.splitlines()
+    assert lines[0].startswith("family,owner,band,score,status,applied")
+    assert any(row.startswith("A,") for row in lines[1:])
+    assert "high" in csv_text and "resolved" in csv_text
 
 
 def test_render_html_contains_findings_and_disclaimer() -> None:
