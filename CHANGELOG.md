@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **SSRF guard for the crawler**: font/CSS/redirect/CT URLs that resolve to
+  loopback/private/link-local/reserved addresses are refused (redirects are now
+  followed manually and checked per hop). On by default; set
+  `crawl.block_private_hosts: false` to audit internal/staging sites.
+- **Response-size cap**: fetched bodies are streamed and aborted past
+  `crawl.max_response_bytes` (default 25 MB), bounding decompressed size too — a
+  decompression bomb or huge asset can no longer OOM a scan. The real-scan HTTP
+  client now also has finite timeouts and a connection limit.
+- **Concurrent page detection**: the detect pass fans out (bounded by the
+  existing per-run concurrency + per-host throttle), so `crawl.concurrency`
+  finally speeds up large scans instead of being a no-op.
+
 ### Fixed
 - **Subdomains are covered by their parent domain's license**: a license for
   `example.com` now covers `www.example.com` (dot-bounded), and `max_domains`

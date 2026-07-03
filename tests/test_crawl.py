@@ -5,7 +5,10 @@ All offline via httpx.MockTransport — no live network.
 
 from __future__ import annotations
 
+import asyncio
+import ipaddress
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -38,7 +41,13 @@ def _html(body: str) -> httpx.Response:
 
 
 def _settings(**overrides: object) -> CrawlSettings:
-    base: dict[str, object] = {"per_host_rate_limit": 1000.0, "respect_robots": False}
+    # block_private_hosts off by default here so offline MockTransport hosts
+    # aren't sent through real DNS resolution; SSRF-guard tests opt back in.
+    base: dict[str, object] = {
+        "per_host_rate_limit": 1000.0,
+        "respect_robots": False,
+        "block_private_hosts": False,
+    }
     base.update(overrides)
     return CrawlSettings(**base)
 
@@ -111,6 +120,63 @@ async def test_robots_disallow_returns_none() -> None:
         fetcher = Fetcher(client, settings, robots=robots)
         assert await fetcher.fetch("https://example.com/private") is None
         assert await fetcher.fetch("https://example.com/public") is not None
+
+
+def _echo_resolver(host: str, *args: Any, **kwargs: Any) -> list[Any]:
+    # IP literals resolve to themselves; hostnames resolve to a public IP.
+    try:
+        ipaddress.ip_address(host)
+        ip = host
+    except ValueError:
+        ip = "93.184.216.34"
+    return [(2, 1, 6, "", (ip, 0))]
+
+
+async def test_ssrf_guard_blocks_private_target() -> None:
+    async with _client({}) as client:
+        fetcher = Fetcher(client, _settings(block_private_hosts=True), host_resolver=_echo_resolver)
+        assert await fetcher.fetch("http://127.0.0.1/") is None
+
+
+async def test_ssrf_guard_blocks_redirect_to_private_host() -> None:
+    routes = {
+        "https://example.com/": httpx.Response(
+            302, headers={"location": "http://169.254.169.254/latest/meta-data/"}
+        )
+    }
+    async with _client(routes) as client:
+        fetcher = Fetcher(client, _settings(block_private_hosts=True), host_resolver=_echo_resolver)
+        # Initial (public) host is fine; the redirect hop to link-local is refused.
+        assert await fetcher.fetch("https://example.com/") is None
+
+
+async def test_response_over_size_cap_is_dropped() -> None:
+    routes = {
+        "https://example.com/big": httpx.Response(
+            200, content=b"A" * 500, headers={"content-type": "text/html"}
+        )
+    }
+    async with _client(routes) as client:
+        fetcher = Fetcher(client, _settings(max_response_bytes=100))
+        assert await fetcher.fetch("https://example.com/big") is None
+
+
+async def test_fetcher_semaphore_allows_concurrency() -> None:
+    inflight = 0
+    peak = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal inflight, peak
+        inflight += 1
+        peak = max(peak, inflight)
+        await asyncio.sleep(0.02)
+        inflight -= 1
+        return httpx.Response(200, content=b"<p>x</p>", headers={"content-type": "text/html"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        fetcher = Fetcher(client, _settings(concurrency=5))
+        await asyncio.gather(*(fetcher.fetch(f"https://example.com/p{i}") for i in range(5)))
+    assert peak >= 2  # requests overlapped rather than running strictly serially
 
 
 async def test_conditional_304_uses_cache(tmp_path: Path) -> None:

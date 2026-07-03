@@ -273,6 +273,19 @@ class CrawlSettings(BaseModel):
     discover_subdomains: bool = Field(
         default=True, description="Passive subdomain discovery (sitemap, links, seeds) only."
     )
+    max_response_bytes: int = Field(
+        default=25 * 1024 * 1024,
+        gt=0,
+        description="Hard cap on any fetched body (also bounds decompressed size).",
+    )
+    max_redirects: int = Field(default=5, ge=0, description="Max redirect hops per request.")
+    block_private_hosts: bool = Field(
+        default=True,
+        description=(
+            "Refuse to fetch hosts that resolve to loopback/private/link-local IPs "
+            "(SSRF guard). Turn OFF only to audit internal/staging sites on a private network."
+        ),
+    )
 
 
 class CacheSettings(BaseModel):

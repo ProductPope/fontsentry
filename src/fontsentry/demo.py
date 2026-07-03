@@ -58,6 +58,7 @@ def demo_settings() -> Settings:
             per_host_rate_limit=1000.0,
             max_depth=1,
             max_pages_per_domain=10,
+            block_private_hosts=False,  # offline demo hosts don't resolve; no SSRF risk
         ),
         cache=CacheSettings(enabled=False),
     )

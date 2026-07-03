@@ -450,7 +450,10 @@ async def _run_scan_job(
             rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
             registry = config.load_registry(config.resolve_config_path(registry_dir, "licenses"))
             targets = config.load_targets(config.resolve_config_path(config_dir, "targets")).targets
-            client = httpx.AsyncClient()
+            client = httpx.AsyncClient(
+                timeout=httpx.Timeout(settings.crawl.request_timeout, connect=10.0),
+                limits=httpx.Limits(max_connections=settings.crawl.concurrency * 2),
+            )
 
         _report, json_path, _html = await scan_and_write(
             targets,
