@@ -174,6 +174,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)]">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[60] focus:rounded-tk focus:bg-surface focus:px-3 focus:py-2 focus:shadow-tk"
+      >
+        Skip to content
+      </a>
       <Sidebar
         route={route}
         onNavigate={navigate}
@@ -212,7 +218,7 @@ export default function App() {
 
         {scanJob && scanJob.status === "running" && <ScanProgress job={scanJob} />}
 
-        <main className="mx-auto max-w-5xl px-6 py-6">
+        <main id="main" tabIndex={-1} className="mx-auto max-w-5xl px-6 py-6">
           {route === "overview" && (
             <OverviewScreen
               runs={runs}

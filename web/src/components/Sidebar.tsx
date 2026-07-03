@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { cn } from "../lib/cn";
 import type { Route } from "../lib/useHashRoute";
 import { ThemeToggle } from "./ThemeToggle";
@@ -21,6 +22,20 @@ export function Sidebar({
   open: boolean;
   onClose: () => void;
 }) {
+  const asideRef = useRef<HTMLElement>(null);
+
+  // Mobile drawer only (`open` is never set on desktop): on open, move focus into
+  // the drawer and let Escape close it (WCAG 2.1.1 / 2.4.3).
+  useEffect(() => {
+    if (!open) return;
+    asideRef.current?.querySelector<HTMLElement>("button, [href]")?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   return (
     <>
       {/* Off-canvas backdrop (mobile only, when open). */}
@@ -32,6 +47,7 @@ export function Sidebar({
         />
       )}
       <aside
+        ref={asideRef}
         id="app-sidebar"
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-stroke bg-surface",
