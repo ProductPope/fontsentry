@@ -11,6 +11,11 @@ crawl:
   user_agent: "FontSentry/0.1 (+https://github.com/fontsentry/fontsentry)"
   respect_robots: true         # obey robots.txt
   discover_subdomains: true    # passive only: sitemap.xml, observed links, config seeds
+  max_response_bytes: 26214400 # 25 MB hard cap per fetched body (also bounds decompressed size)
+  max_redirects: 5             # max redirect hops per request (each hop is re-checked)
+  block_private_hosts: true    # SSRF guard: refuse hosts resolving to loopback/private/
+                               # link-local IPs. Set false ONLY to audit an internal/staging
+                               # site on a private network.
 
 cache:
   enabled: true
