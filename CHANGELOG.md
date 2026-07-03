@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Per-scan page cap**: `POST /api/scan` accepts `max_pages_per_domain` to
+  override the per-host page limit for a single audit.
+- **Scan-time estimate**: `GET /api/scan/estimate?hosts=&max_pages=` returns an
+  ETA from recent runs' throughput (each run now records `duration_seconds`;
+  report schema **v6**). Returns `null` until there's a timed run to learn from.
 - **CSV export** of a run's findings — `GET /api/runs/{id}/export.csv` and an
   **Export CSV** button on Overview. One row per font (family, owner, band,
   score, status, applied, domain/page counts, domains, embeddings, formats,
@@ -22,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (additive; pre-v5 reports still load).
 
 ### Changed
+- Opt-in CT subdomain discovery now crawls each discovered subdomain as its
+  **own host** — its own page budget and its own domain report — instead of
+  folding them into the apex domain's budget.
 - Fonts served via `@font-face` but **not applied to any text** (declared but
   never referenced by a `font-family` usage) are now flagged as such and scored
   lower (halved), so an unused hosted font no longer overstates its risk. The

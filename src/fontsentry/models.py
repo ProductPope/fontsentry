@@ -198,8 +198,9 @@ class RunReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int = 5
+    schema_version: int = 6
     generated_at: datetime
+    duration_seconds: float = 0.0  # wall-clock scan time; powers ETA estimates
     summary: RunSummary
     findings: list[Finding] = Field(default_factory=list)
     domains: list[DomainReport] = Field(default_factory=list)

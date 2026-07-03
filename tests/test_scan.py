@@ -71,6 +71,10 @@ async def test_atlas_is_high_risk_cross_domain(findings: dict[str, Finding]) -> 
     )
 
 
+async def test_report_records_duration(report: RunReport) -> None:
+    assert report.duration_seconds >= 0
+
+
 async def test_findings_carry_example_pages(findings: dict[str, Finding]) -> None:
     atlas = findings["Atlas Grotesk Private"]
     assert atlas.example_urls
