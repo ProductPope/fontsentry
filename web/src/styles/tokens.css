@@ -16,7 +16,7 @@
   --p-border2: #d3d3ca;
   --p-text: #191916;
   --p-text2: #5c5c53;
-  --p-text3: #8d8d82;
+  --p-text3: #6f6f66; /* WCAG 1.4.3: >= 4.5:1 on canvas/surface/surface2 for small text */
   --p-accent: #345788;
   --p-accent-fg: #ffffff;
   --p-accent-soft: #e7edf6;
@@ -41,7 +41,7 @@
   --p-d-border2: #353c44;
   --p-d-text: #e8eaec;
   --p-d-text2: #9aa1a9;
-  --p-d-text3: #697079;
+  --p-d-text3: #7e858e; /* WCAG 1.4.3: >= 4.5:1 on dark surfaces for small text */
   --p-d-accent: #6f9ceb;
   --p-d-accent-fg: #0d0f12;
   --p-d-accent-soft: #182333;
