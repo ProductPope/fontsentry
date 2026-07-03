@@ -105,6 +105,16 @@ generated reports, caches, `.env`. Enforced by `.gitignore` — keep it tight.
   live network. Playwright tests are marked `slow` and excluded from default CI.
 - Mirror the package layout under `tests/`.
 
+## Docs stay current (enforced)
+
+`tests/test_docs.py` is a CI-enforced freshness guard: it fails if a rule
+predicate, a default rule id, or a `CrawlSettings` field is undocumented, or if
+`CHANGELOG.md` lost its `[Unreleased]` section. So **update docs in the same PR
+as the code** — a new predicate/setting/rule without a doc entry turns CI red.
+When you add a user-facing feature, also update the relevant doc (README CLI
+options, `docs/rules.md`, `config/*.example.yaml` comments) and add a CHANGELOG
+entry. Extend `test_docs.py` when a new kind of doc↔code contract is worth pinning.
+
 ## Commits
 
 Conventional Commits. Small, logical commits. One coherent change per commit.
