@@ -46,7 +46,6 @@ The `demo/` directory contains a self-contained, offline dataset (static pages,
 crafted fonts, a matching registry). No internet or private data required:
 
 ```bash
-# (wired up in a later phase)
 uv run fontsentry scan --demo
 ```
 
@@ -100,6 +99,17 @@ fontsentry diff              compare two runs
 fontsentry registry validate check the registry file and proof paths
 fontsentry rules validate    sanity-check the rule file
 ```
+
+`scan` options: `--demo` (offline dataset), `--discover-subdomains` (opt-in
+public-subdomain discovery via Certificate Transparency, real mode only),
+`--max-pages N` (override the per-host page cap), `--csv` (also write a findings
+CSV), `--output DIR`.
+
+Each finding is scored on two independent axes: **license risk** (Low/Medium/High)
+and **delivery/privacy** — a font served from a third party (e.g. the Google Fonts
+API) is flagged for GDPR/RODO even when its license is free. The crawler refuses
+to fetch private/loopback addresses by default (`block_private_hosts`); disable it
+only to audit an internal site.
 
 ## Documentation
 

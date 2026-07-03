@@ -59,7 +59,8 @@ Each is documented with an inline comment in that file.
 ## Adding a rule
 
 1. Add an entry to `rules.yaml` with `id`, `description`, `weight`, `confidence`,
-   and a `when` block referencing an existing condition `type`.
+   an optional `hard: true` (a definite violation — its score is not halved for a
+   served-but-unapplied font), and a `when` block referencing a condition `type`.
 2. If you need a new *kind* of check, add a predicate to
    `src/fontsentry/risk/rules.py` and register it in `PREDICATES`.
 3. Add a unit test in `tests/test_risk_engine.py` (offline, fixture-based).
