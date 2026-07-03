@@ -108,6 +108,11 @@ export interface FirstSeen {
   first_seen: string; // ISO datetime
 }
 
+export interface ScanEstimate {
+  eta_seconds: number | null;
+  based_on_runs: number;
+}
+
 export interface ScheduleInfo {
   name: string;
   next_run: string | null;
@@ -210,11 +215,17 @@ export const api = {
   getRun: (id: string) => request<RunReport>(`/api/runs/${encodeURIComponent(id)}`),
   getRunDiff: (id: string) => request<DiffResult>(`/api/runs/${encodeURIComponent(id)}/diff`),
   exportCsvUrl: (id: string) => `/api/runs/${encodeURIComponent(id)}/export.csv`,
-  startScan: (mode: "demo" | "real", discoverSubdomains = false) =>
+  startScan: (mode: "demo" | "real", discoverSubdomains = false, maxPages?: number) =>
     request<{ job_id: string }>("/api/scan", {
       method: "POST",
-      body: JSON.stringify({ mode, discover_subdomains: discoverSubdomains }),
+      body: JSON.stringify({
+        mode,
+        discover_subdomains: discoverSubdomains,
+        max_pages_per_domain: maxPages,
+      }),
     }),
+  scanEstimate: (hosts: number, maxPages: number) =>
+    request<ScanEstimate>(`/api/scan/estimate?hosts=${hosts}&max_pages=${maxPages}`),
   getJob: (id: string) => request<Job>(`/api/jobs/${encodeURIComponent(id)}`),
   getSchedules: () => request<ScheduleInfo[]>("/api/schedules"),
   createSchedule: (spec: ScheduleSpec) =>

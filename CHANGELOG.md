@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Run-audit modal**: Start audit now opens a modal to choose the data source
+  (Your data / Demo data), toggle **Check subdomains**, set **max pages per
+  domain**, and see an **estimated completion time** (from past audits'
+  throughput, recomputed as the settings change).
 - **Per-scan page cap**: `POST /api/scan` accepts `max_pages_per_domain` to
   override the per-host page limit for a single audit.
 - **Scan-time estimate**: `GET /api/scan/estimate?hosts=&max_pages=` returns an

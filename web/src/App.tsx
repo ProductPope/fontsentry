@@ -7,6 +7,7 @@ import { OverviewScreen } from "./features/OverviewScreen";
 import type { View } from "./features/OverviewScreen";
 import { RegistrySetup } from "./features/RegistrySetup";
 import { RulesScreen } from "./features/RulesScreen";
+import { RunAuditModal } from "./features/RunAuditModal";
 import { ScanControls } from "./features/ScanControls";
 import { ScanProgress } from "./features/ScanProgress";
 import { TargetsSetup } from "./features/TargetsSetup";
@@ -46,6 +47,7 @@ export default function App() {
   const [scanning, setScanning] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [navOpen, setNavOpen] = useState(false); // mobile drawer
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
 
   const notify = useCallback((message: string, kind: ToastKind) => {
     setToast({ message, kind });
@@ -104,11 +106,11 @@ export default function App() {
   );
 
   const runAudit = useCallback(
-    async (mode: "real" | "demo", discoverSubdomains = false) => {
+    async (mode: "real" | "demo", discoverSubdomains = false, maxPages?: number) => {
       setScanning(true);
       notify(`Audit started on ${mode === "real" ? "your data" : "demo data"}…`, "info");
       try {
-        const { job_id } = await api.startScan(mode, discoverSubdomains);
+        const { job_id } = await api.startScan(mode, discoverSubdomains, maxPages);
         const runId = await pollJob(job_id, setScanJob);
         notify("Audit complete", "success");
         await onScanComplete(runId);
@@ -155,7 +157,7 @@ export default function App() {
               <h1 className="text-lg font-bold">{TITLES[route]}</h1>
             </div>
             <div className="flex items-center gap-2">
-              <ScanControls onStart={runAudit} running={scanning} />
+              <ScanControls onOpen={() => setAuditModalOpen(true)} running={scanning} />
             </div>
           </div>
         </header>
@@ -186,7 +188,7 @@ export default function App() {
           {route === "targets" && (
             <TargetsSetup
               notify={notify}
-              onRunAudit={() => runAudit("real")}
+              onRunAudit={() => setAuditModalOpen(true)}
               running={scanning}
             />
           )}
@@ -194,6 +196,13 @@ export default function App() {
         </main>
       </div>
 
+      {auditModalOpen && (
+        <RunAuditModal
+          onClose={() => setAuditModalOpen(false)}
+          onStart={runAudit}
+          running={scanning}
+        />
+      )}
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
     </div>
   );
