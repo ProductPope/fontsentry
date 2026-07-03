@@ -72,7 +72,15 @@ def _build_domain_reports(
 ) -> list[DomainReport]:
     """Pivot the scan into a per-domain view: hosts, subdomains, and fonts used."""
 
-    finding_by_family = {f.family.strip().lower(): f for f in findings}
+    # Findings are keyed by (family, owner); the per-domain view pivots on family
+    # alone, so if one family split across owners, surface its worst band here.
+    _band_rank = {RiskBand.LOW: 0, RiskBand.MEDIUM: 1, RiskBand.HIGH: 2}
+    finding_by_family: dict[str, Finding] = {}
+    for f in findings:
+        key = f.family.strip().lower()
+        current = finding_by_family.get(key)
+        if current is None or _band_rank[f.band] > _band_rank[current.band]:
+            finding_by_family[key] = f
     reports: list[DomainReport] = []
 
     for target in targets:

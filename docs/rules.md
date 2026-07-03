@@ -9,12 +9,16 @@ rule, and how to add your own.
 
 ## Scoring model
 
-1. Per-page detections are aggregated into one identity per font family across all
-   scanned domains.
+1. Per-page detections are aggregated into one identity per **(family, owner)**
+   across all scanned domains (a different owner for the same family name is a
+   different font, so a benign owner can't mask a commercial one).
 2. Every rule whose condition matches contributes `weight × confidence` points.
 3. The raw sum is normalized: `score = min(100, 100 × raw / scoring.max_raw)`.
 4. The score maps to a band via `scoring.bands` (`medium` and `high` thresholds;
    below `medium` is `low`).
+5. A font served via `@font-face` but not applied to any text has its score
+   **halved** — unless a rule marked `hard: true` fired (e.g. expired/over-limit
+   license, paid tier), which is a real violation regardless of rendering.
 
 ```yaml
 scoring:

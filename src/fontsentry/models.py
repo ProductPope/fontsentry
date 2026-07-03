@@ -374,6 +374,13 @@ class Rule(BaseModel):
     description: str = ""
     weight: float = Field(ge=0, description="Points contributed when the rule fires.")
     confidence: float = Field(ge=0, le=1, description="Scales the weight (0..1).")
+    hard: bool = Field(
+        default=False,
+        description=(
+            "A hard violation (e.g. expired/over-limit license, paid tier): its score "
+            "is NOT halved when the font is served-but-not-applied."
+        ),
+    )
     when: RuleCondition
 
 

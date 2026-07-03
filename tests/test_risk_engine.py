@@ -343,17 +343,27 @@ def test_findings_sorted_by_score_then_family() -> None:
     assert order == ["alpha", "Beta", "Zeta"]
 
 
-def test_aggregate_owner_metadata_precedence_and_url_cap() -> None:
+def test_aggregate_page_count_and_url_cap() -> None:
     pages = [f"https://example.com/p{i}" for i in range(7)]
-    fonts = [
-        _font(family="Acme Sans", owner=None, page=pages[0]),  # first has no owner
-        *[_font(family="Acme Sans", owner="Acme Type", page=p) for p in pages[1:]],
-    ]
+    fonts = [_font(family="Acme Sans", owner="Acme Type", page=p) for p in pages]
     agg = aggregate(fonts)[0]
-    assert agg.owner == "Acme Type"  # first non-None wins
+    assert agg.owner == "Acme Type"
     assert agg.page_count == 7
     assert agg.occurrences == 7
     assert len(agg.example_urls) == 5 and agg.example_urls == sorted(agg.example_urls)
+
+
+def test_aggregate_splits_same_family_by_owner() -> None:
+    # A benign/free owner on one page must not merge with a commercial owner on
+    # another for the same family string (FN-2: prevents owner masking).
+    fonts = [
+        _font(family="Helvetica", owner="Public Glyphs Foundation"),
+        _font(family="Helvetica", owner="Meridian Letterworks"),
+    ]
+    assert {a.owner for a in aggregate(fonts)} == {
+        "Public Glyphs Foundation",
+        "Meridian Letterworks",
+    }
 
 
 def test_aggregate_folds_case_and_whitespace() -> None:
@@ -415,6 +425,63 @@ def test_classify_privacy_table() -> None:
     assert _classify_privacy({E.SYSTEM}) is P.NOT_APPLICABLE
     assert _classify_privacy({E.SYSTEM, E.SELF_HOSTED}) is P.SELF_HOSTED
     assert _classify_privacy(set()) is P.NOT_APPLICABLE
+
+
+def test_hard_signal_is_not_halved_when_unapplied(rules: RulesConfig) -> None:
+    # An expired license is a hard violation: serving-but-not-applying it must not
+    # halve the score below the applied case (FN-3).
+    registry = Registry(
+        entries=[
+            RegistryEntry(
+                owner="Acme Type",
+                family="Commercial Sans",
+                license_type="Web",
+                allowed_domains=["example.com"],
+                valid_until=date(2020, 1, 1),
+            )
+        ]
+    )
+    applied = evaluate([_font()], rules, registry, NOW)[0]
+    unused = evaluate([_font(applied=False)], rules, registry, NOW)[0]
+    assert "expired-license" in {t.id for t in applied.triggered_rules}
+    assert unused.score == applied.score  # hard signal -> no halving
+
+
+def test_expired_entry_does_not_silence_commercial_rule(rules: RulesConfig) -> None:
+    # An expired/non-covering entry is not valid coverage, so the commercial
+    # signal still fires (FN-4) rather than being silenced by entry existence.
+    registry = Registry(
+        entries=[
+            RegistryEntry(
+                owner="Acme Type",
+                family="Commercial Sans",
+                license_type="Web",
+                allowed_domains=["example.com"],
+                valid_until=date(2020, 1, 1),
+            )
+        ]
+    )
+    fired = {t.id for t in evaluate([_font()], rules, registry, NOW)[0].triggered_rules}
+    assert "commercial-no-registry" in fired
+    assert "expired-license" in fired
+
+
+def test_valid_entry_still_suppresses_commercial(rules: RulesConfig) -> None:
+    # Sanity: a *valid* entry (covered) still silences the commercial rule.
+    registry = Registry(
+        entries=[
+            RegistryEntry(
+                owner="Acme Type",
+                family="Commercial Sans",
+                license_type="Web",
+                allowed_domains=["example.com"],
+                valid_until=date(2030, 1, 1),
+            )
+        ]
+    )
+    finding = evaluate([_font()], rules, registry, NOW)[0]
+    assert finding.status is FindingStatus.RESOLVED
+    assert "commercial-no-registry" not in {t.id for t in finding.triggered_rules}
 
 
 def test_validate_rules_clean(rules: RulesConfig) -> None:
