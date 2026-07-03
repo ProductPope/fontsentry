@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Privacy (GDPR/RODO) axis, independent of the license band**: every finding is
+  now classified by delivery — `self_hosted`, `third_party_api`, `mixed`, or
+  `not_applicable` (`Finding.privacy`; report schema **v7**; new CSV `privacy`
+  column). Third-party delivery (e.g. the Google Fonts API) sends visitor IPs
+  off-site — a GDPR concern even for a freely-licensed font. The Fonts table
+  shows a **Delivery** badge and, per row, a self-hosting recommendation; Overview
+  shows a privacy advisory banner when any font is third-party-served.
+- **"Ignore free licenses" by default**: the Fonts table defaults to a **Needs
+  action** filter (open license concerns + privacy flags) and hides open-licensed
+  / low-risk fonts, with **Privacy (GDPR)** and **All** filters alongside.
 - **Open icon fonts no longer false-positive; paid tiers flagged**: a new
   `open_families` param on `commercial_unregistered` recognizes openly-licensed
   families that ship without a license string (e.g. Font Awesome Free/Brands are

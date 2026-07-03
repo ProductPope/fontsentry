@@ -11,6 +11,7 @@ import { FindingsTable } from "./FindingsTable";
 import { GettingStarted } from "./GettingStarted";
 import { api } from "../lib/api";
 import type { Band, DiffResult, RunMeta, RunReport } from "../lib/api";
+import { isPrivacyFlagged } from "../lib/privacy";
 
 export type View = "fonts" | "domains";
 
@@ -121,7 +122,8 @@ export function OverviewScreen({
     const domains = report.domains.length;
     const live = report.domains.filter((d) => d.is_live).length;
     const clean = report.domains.filter((d) => d.fonts.every((f) => f.status !== "open")).length;
-    return { byBand, suppressed, domains, live, unreachable: domains - live, clean };
+    const privacyFlagged = report.findings.filter(isPrivacyFlagged).length;
+    return { byBand, suppressed, domains, live, unreachable: domains - live, clean, privacyFlagged };
   }, [report]);
 
   // Trend of active (open) findings across every run, oldest → newest.
@@ -195,6 +197,19 @@ export function OverviewScreen({
 
       {stats && (
         <>
+          {stats.privacyFlagged > 0 && (
+            <div className="rounded-card border-l-4 border-band-medium bg-band-medium-bg/40 px-4 py-3 text-sm">
+              <span className="font-semibold text-band-medium">⚠ Privacy (GDPR/RODO): </span>
+              {stats.privacyFlagged} font{stats.privacyFlagged === 1 ? "" : "s"} load from third
+              parties (e.g. the Google Fonts API), sending visitor IPs off-site. Self-host them to
+              stay compliant — open the <strong>Privacy (GDPR)</strong> filter under Fonts for the
+              list and the fix.
+            </div>
+          )}
+
+          <div className="text-xs font-semibold uppercase tracking-wide text-faint">
+            License risk
+          </div>
           <section aria-label="Risk posture" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Posture
               label="High"
