@@ -43,6 +43,9 @@ export default function App() {
   const [report, setReport] = useState<RunReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<View>("fonts");
+  // Which data set the Overview shows: real ("Your data") vs isolated demo runs.
+  const [viewSource, setViewSource] = useState<"real" | "demo">("real");
+  const [refreshKey, setRefreshKey] = useState(0);
   const [scanJob, setScanJob] = useState<Job | null>(null);
   const [scanning, setScanning] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -59,17 +62,25 @@ export default function App() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const refreshRuns = useCallback(async () => {
-    const list = await api.getRuns();
-    setRuns(list);
-    setSelectedId((prev) => prev || list[0]?.id || "");
-  }, []);
-
+  // Load the run list for the active source. Keep the current selection if it
+  // still exists, otherwise fall back to the newest run. refreshKey lets a
+  // just-finished scan force a reload even when the source didn't change.
   useEffect(() => {
-    refreshRuns().catch((e: unknown) =>
-      notify(e instanceof Error ? e.message : "Could not load runs", "error"),
-    );
-  }, [refreshRuns, notify]);
+    let cancelled = false;
+    api
+      .getRuns(viewSource)
+      .then((list) => {
+        if (cancelled) return;
+        setRuns(list);
+        setSelectedId((prev) => (list.some((r) => r.id === prev) ? prev : list[0]?.id || ""));
+      })
+      .catch((e: unknown) =>
+        notify(e instanceof Error ? e.message : "Could not load runs", "error"),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [viewSource, refreshKey, notify]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -78,22 +89,23 @@ export default function App() {
     }
     setLoading(true);
     api
-      .getRun(selectedId)
+      .getRun(selectedId, viewSource)
       .then(setReport)
       .catch((e: unknown) =>
         notify(e instanceof Error ? e.message : "Could not load run", "error"),
       )
       .finally(() => setLoading(false));
-  }, [selectedId, notify]);
+  }, [selectedId, viewSource, notify]);
 
   const onScanComplete = useCallback(
-    async (runId: string) => {
-      await refreshRuns();
+    (runId: string, mode: "real" | "demo") => {
+      setViewSource(mode);
       setSelectedId(runId);
+      setRefreshKey((k) => k + 1);
       setView("fonts");
       navigate("overview");
     },
-    [refreshRuns, navigate],
+    [navigate],
   );
 
   const onOpenRun = useCallback(
@@ -113,7 +125,7 @@ export default function App() {
         const { job_id } = await api.startScan(mode, discoverSubdomains, maxPages);
         const runId = await pollJob(job_id, setScanJob);
         notify("Audit complete", "success");
-        await onScanComplete(runId);
+        onScanComplete(runId, mode);
       } catch (e) {
         notify(e instanceof Error ? e.message : "Audit failed", "error");
       } finally {
@@ -174,6 +186,8 @@ export default function App() {
               loading={loading}
               view={view}
               onView={setView}
+              source={viewSource}
+              onSource={setViewSource}
             />
           )}
           {route === "audits" && (

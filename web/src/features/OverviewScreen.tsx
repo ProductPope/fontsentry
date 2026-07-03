@@ -45,7 +45,14 @@ interface OverviewScreenProps {
   loading: boolean;
   view: View;
   onView: (view: View) => void;
+  source: "real" | "demo";
+  onSource: (source: "real" | "demo") => void;
 }
+
+const SOURCES: { id: "real" | "demo"; label: string }[] = [
+  { id: "real", label: "Your data" },
+  { id: "demo", label: "Demo data" },
+];
 
 export function OverviewScreen({
   runs,
@@ -55,6 +62,8 @@ export function OverviewScreen({
   loading,
   view,
   onView,
+  source,
+  onSource,
 }: OverviewScreenProps) {
   // Previous run (chronologically before the selected one) for "vs last run"
   // deltas. runs are newest-first, so the previous run is the next index.
@@ -71,7 +80,7 @@ export function OverviewScreen({
     }
     let cancelled = false;
     api
-      .getRun(prevId)
+      .getRun(prevId, source)
       .then((rep) => {
         if (cancelled) return;
         setPrev({
@@ -83,7 +92,7 @@ export function OverviewScreen({
     return () => {
       cancelled = true;
     };
-  }, [runs, selectedId]);
+  }, [runs, selectedId, source]);
 
   // Per-finding changes vs the previous run (only when one exists).
   const [diff, setDiff] = useState<DiffResult | null>(null);
@@ -95,7 +104,7 @@ export function OverviewScreen({
     }
     let cancelled = false;
     api
-      .getRunDiff(selectedId)
+      .getRunDiff(selectedId, source)
       .then((d) => {
         if (!cancelled) setDiff(d);
       })
@@ -103,7 +112,7 @@ export function OverviewScreen({
     return () => {
       cancelled = true;
     };
-  }, [runs, selectedId]);
+  }, [runs, selectedId, source]);
 
   const stats = useMemo(() => {
     if (report === null) return null;
@@ -118,8 +127,40 @@ export function OverviewScreen({
   // Trend of active (open) findings across every run, oldest → newest.
   const trend = useMemo(() => [...runs].reverse().map((r) => r.summary.open_findings), [runs]);
 
+  const sourceToggle = (
+    <div className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
+      {SOURCES.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => onSource(s.id)}
+          aria-pressed={source === s.id}
+          className={cn(
+            "rounded-chip px-3 py-1 text-sm font-medium transition-colors",
+            source === s.id ? "bg-surface text-ink shadow-tk" : "text-muted hover:text-ink",
+          )}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+
   if (runs.length === 0) {
-    return <GettingStarted />;
+    return (
+      <div className="space-y-5">
+        <div className="flex justify-end">{sourceToggle}</div>
+        {source === "demo" ? (
+          <Card>
+            <p className="text-sm text-muted">
+              No demo audits yet. Run an audit on demo data to see results here.
+            </p>
+          </Card>
+        ) : (
+          <GettingStarted />
+        )}
+      </div>
+    );
   }
 
   const currentOpen = stats ? stats.byBand.high + stats.byBand.medium + stats.byBand.low : 0;
@@ -127,6 +168,7 @@ export function OverviewScreen({
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">{sourceToggle}</div>
       <div className="flex items-end gap-2">
         <label className="block flex-1 text-sm">
           <span className="mb-1 block font-medium">Run</span>
@@ -143,7 +185,7 @@ export function OverviewScreen({
           </Select>
         </label>
         <a
-          href={api.exportCsvUrl(selectedId)}
+          href={api.exportCsvUrl(selectedId, source)}
           download
           className="rounded-tk border border-stroke bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-canvas"
         >
@@ -254,7 +296,9 @@ export function OverviewScreen({
       {loading && <Spinner label="Loading report…" />}
 
       {report && view === "fonts" && <FindingsTable findings={report.findings} />}
-      {report && view === "domains" && <DomainsView domains={report.domains} />}
+      {report && view === "domains" && (
+        <DomainsView domains={report.domains} source={source} />
+      )}
 
       <Faq />
     </div>
