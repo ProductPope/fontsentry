@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fontsentry import config, demo
 from fontsentry.models import (
@@ -75,9 +75,16 @@ class FirstSeen(BaseModel):
 
 class ScanRequest(BaseModel):
     mode: str = "demo"  # "demo" | "real"
-    # Opt-in: also seed discovery with public subdomains from Certificate
-    # Transparency logs (queries an external service; real mode only).
+    # Opt-in: also find public subdomains via Certificate Transparency logs and
+    # crawl each as its own host (queries an external service; real mode only).
     discover_subdomains: bool = False
+    # Per-scan override of the per-host page cap.
+    max_pages_per_domain: int | None = Field(default=None, ge=1)
+
+
+class ScanEstimate(BaseModel):
+    eta_seconds: float | None  # None when there's no timed history to estimate from
+    based_on_runs: int
 
 
 class ScanStarted(BaseModel):
@@ -130,6 +137,24 @@ def create_app(
                 RunMeta(id=path.name, generated_at=report.generated_at, summary=report.summary)
             )
         return metas
+
+    @app.get("/api/scan/estimate")
+    async def scan_estimate(hosts: int, max_pages: int) -> ScanEstimate:
+        # Estimate from recent runs' throughput (pages / wall-clock second).
+        rates: list[float] = []
+        for path in sorted(reports_dir.glob("*.report.json"), reverse=True)[:5]:
+            try:
+                rep = load_run(path)
+            except (OSError, ValueError):
+                continue
+            pages = sum(d.pages_scanned for d in rep.domains)
+            if rep.duration_seconds > 0 and pages > 0:
+                rates.append(pages / rep.duration_seconds)
+        if not rates:
+            return ScanEstimate(eta_seconds=None, based_on_runs=0)
+        rate = sum(rates) / len(rates)
+        planned = max(0, hosts) * max(1, max_pages)
+        return ScanEstimate(eta_seconds=round(planned / rate, 0), based_on_runs=len(rates))
 
     @app.get("/api/first-seen")
     async def get_first_seen() -> list[FirstSeen]:
@@ -264,6 +289,7 @@ def create_app(
                 config_dir,
                 registry_dir,
                 request.discover_subdomains,
+                request.max_pages_per_domain,
             )
         )
         _background_tasks.add(task)
@@ -335,6 +361,7 @@ async def _run_scan_job(
     config_dir: Path,
     registry_dir: Path,
     discover_subdomains: bool = False,
+    max_pages_per_domain: int | None = None,
 ) -> None:
     now = datetime.now(UTC).replace(microsecond=0)
     # CT lookup queries an external service, so only for real scans (the demo
@@ -367,6 +394,7 @@ async def _run_scan_job(
             reports_dir=reports_dir,
             progress=on_progress,
             discover_ct=discover_ct,
+            max_pages_per_domain=max_pages_per_domain,
         )
         jobs.mark_done(job_id, json_path.name)
     except Exception as exc:

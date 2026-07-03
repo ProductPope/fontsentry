@@ -109,6 +109,40 @@ def test_run_diff(tmp_path: Path) -> None:
         assert oldest["new_findings"] == [] and oldest["resolved_findings"] == []
 
 
+def test_scan_estimate_no_history(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        d = client.get("/api/scan/estimate", params={"hosts": 3, "max_pages": 10}).json()
+        assert d["eta_seconds"] is None
+        assert d["based_on_runs"] == 0
+
+
+def test_scan_estimate_from_history(tmp_path: Path) -> None:
+    from datetime import datetime
+
+    from fontsentry.models import DomainReport
+    from fontsentry.report import json_report
+
+    rep = json_report.build_report(
+        [], datetime(2026, 1, 1, 0, 0, 0), domains=[DomainReport(domain="a.com", pages_scanned=20)]
+    )
+    rep.duration_seconds = 10.0  # 20 pages / 10s = 2 pages/sec
+    json_report.write_run(rep, tmp_path)
+
+    with _client(tmp_path) as client:
+        d = client.get("/api/scan/estimate", params={"hosts": 3, "max_pages": 10}).json()
+        assert d["based_on_runs"] == 1
+        assert d["eta_seconds"] == 15.0  # 3*10 planned pages / 2 pages_per_sec
+
+
+def test_scan_accepts_max_pages(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        started = client.post("/api/scan", json={"mode": "demo", "max_pages_per_domain": 3})
+        assert started.status_code == 200
+        # invalid (0) rejected by the model
+        bad = client.post("/api/scan", json={"mode": "demo", "max_pages_per_domain": 0})
+        assert bad.status_code == 422
+
+
 def test_export_csv(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         run_id = _run_demo_scan(client)
