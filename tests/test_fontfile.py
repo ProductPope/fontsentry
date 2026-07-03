@@ -55,3 +55,18 @@ def test_glyph_count_reflects_subset_size() -> None:
 def test_invalid_bytes_raise() -> None:
     with pytest.raises(FontReadError):
         read_font_metadata(b"this is not a font")
+
+
+def test_corrupt_table_raises_not_crashes() -> None:
+    # A font whose sfnt directory points a table past EOF constructs fine under
+    # lazy loading but fails when the table is decompiled. That must surface as
+    # FontReadError, not an uncaught AssertionError/struct.error that aborts the scan.
+    data = bytearray(build_test_font())
+    num_tables = int.from_bytes(data[4:6], "big")
+    for i in range(num_tables):
+        rec = 12 + i * 16  # 12-byte header, 16-byte table records
+        if bytes(data[rec : rec + 4]) == b"name":
+            data[rec + 8 : rec + 12] = (len(data) + 1_000_000).to_bytes(4, "big")  # bad offset
+            break
+    with pytest.raises(FontReadError):
+        read_font_metadata(bytes(data))

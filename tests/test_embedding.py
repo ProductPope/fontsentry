@@ -20,6 +20,10 @@ from fontsentry.models import EmbeddingMethod
         ("/fonts/local.woff2", None, EmbeddingMethod.SELF_HOSTED),
         ("https://example.com/fonts/local.woff2", "example.com", EmbeddingMethod.SELF_HOSTED),
         ("https://www.example.com/f.woff2", "example.com", EmbeddingMethod.SELF_HOSTED),
+        ("https://cdn.example.com/f.woff2", "example.com", EmbeddingMethod.SELF_HOSTED),
+        # Look-alike hosts must NOT be treated as same-site (no dot boundary).
+        ("https://notexample.com/f.woff2", "example.com", EmbeddingMethod.OTHER_CDN),
+        ("https://evilexample.com/f.woff2", "example.com", EmbeddingMethod.OTHER_CDN),
         ("https://cdn.example-cdn.net/f.woff2", "example.com", EmbeddingMethod.OTHER_CDN),
         ("https://d123.cloudfront.net/f.woff2", "example.com", EmbeddingMethod.OTHER_CDN),
         ("https://random-host.test/f.woff2", "example.com", EmbeddingMethod.OTHER_CDN),

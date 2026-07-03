@@ -48,9 +48,12 @@ def _host(url: str) -> str:
 
 
 def _same_site(host: str, page_host: str) -> bool:
+    # Exact host or a dot-bounded subdomain only. A bare suffix test would wrongly
+    # treat notexample.com / evilexample.com as same-site with example.com, which
+    # would clear the third-party (privacy) signal for an attacker-controlled host.
     host = host.lower()
     page_host = page_host.lower().removeprefix("www.")
-    return host == page_host or host.endswith("." + page_host) or host.endswith(page_host)
+    return host == page_host or host.endswith("." + page_host)
 
 
 def classify_embedding(font_url: str | None, page_host: str | None = None) -> EmbeddingMethod:

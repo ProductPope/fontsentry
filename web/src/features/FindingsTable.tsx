@@ -6,6 +6,7 @@ import { cn } from "../lib/cn";
 import { api } from "../lib/api";
 import type { Band, Finding, Status } from "../lib/api";
 import { delivery, isPrivacyFlagged, needsAction, privacyAdvice } from "../lib/privacy";
+import { safeHref } from "../lib/url";
 
 type Focus = "action" | "privacy" | "all";
 
@@ -185,18 +186,24 @@ function FindingDetail({
               <div className="mt-1 text-xs text-muted">
                 Seen on {finding.page_count} page{finding.page_count === 1 ? "" : "s"}, e.g.:
                 <ul className="mt-0.5 space-y-0.5">
-                  {finding.example_urls.map((u) => (
-                    <li key={u}>
-                      <a
-                        href={u}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-mono break-all text-accent underline"
-                      >
+                  {finding.example_urls.map((u) =>
+                    safeHref(u) ? (
+                      <li key={u}>
+                        <a
+                          href={safeHref(u) ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono break-all text-accent underline"
+                        >
+                          {u}
+                        </a>
+                      </li>
+                    ) : (
+                      <li key={u} className="font-mono break-all">
                         {u}
-                      </a>
-                    </li>
-                  ))}
+                      </li>
+                    ),
+                  )}
                 </ul>
               </div>
             )}

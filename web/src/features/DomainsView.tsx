@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { RiskBadge, StatusText } from "../components/Badge";
 import { Select } from "../components/Select";
 import { api } from "../lib/api";
+import { safeHref } from "../lib/url";
 import type { Band, DomainReport, Status } from "../lib/api";
 
 // Comp table-header cell: small uppercase, wide tracking.
@@ -162,9 +163,11 @@ export function DomainsView({
                 <td className="px-4 py-2 font-mono text-xs">{r.embeddings.join(", ") || "—"}</td>
                 <td className="px-4 py-2 font-mono text-xs">{r.formats.join(", ") || "—"}</td>
                 <td className="max-w-[16rem] truncate px-4 py-2 font-mono text-xs text-muted">
-                  {r.assetUrls.length > 0 ? (
+                  {r.assetUrls.length === 0 ? (
+                    "—"
+                  ) : safeHref(r.assetUrls[0]) ? (
                     <a
-                      href={r.assetUrls[0]}
+                      href={safeHref(r.assetUrls[0]) ?? undefined}
                       target="_blank"
                       rel="noreferrer"
                       title={r.assetUrls.join("\n")}
@@ -173,7 +176,7 @@ export function DomainsView({
                       {assetLabel(r.assetUrls)}
                     </a>
                   ) : (
-                    "—"
+                    <span title={r.assetUrls.join("\n")}>{assetLabel(r.assetUrls)}</span>
                   )}
                 </td>
                 <td className="px-4 py-2">
