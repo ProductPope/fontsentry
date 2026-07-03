@@ -30,6 +30,7 @@ from fontsentry.models import (
     RunSummary,
     TargetsConfig,
 )
+from fontsentry.registry.catalog import CATALOG
 from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
 from fontsentry.report.json_report import first_seen_map, load_run
@@ -71,6 +72,12 @@ class FirstSeen(BaseModel):
     domain: str
     family: str
     first_seen: datetime
+
+
+class KnownFont(BaseModel):
+    family: str
+    owner: str | None = None
+    source: str  # "detected" (seen in an audit) | "catalog" (bundled suggestion)
 
 
 class ScanRequest(BaseModel):
@@ -172,6 +179,27 @@ def create_app(
             FirstSeen(domain=domain, family=family, first_seen=ts)
             for (domain, family), ts in first_seen_map(_reports_for(reports_dir, source)).items()
         ]
+
+    @app.get("/api/known-fonts")
+    async def known_fonts() -> list[KnownFont]:
+        # Suggestions for the registry form: fonts actually detected in the most
+        # recent real audit (with any owner from metadata), plus a bundled catalog
+        # of common families so there are suggestions before the first audit.
+        # Keyed case-insensitively by family; detected entries win over catalog.
+        by_key: dict[str, KnownFont] = {}
+        reports = sorted(_reports_for(reports_dir, "real").glob("*.report.json"), reverse=True)
+        if reports:
+            for finding in load_run(reports[0]).findings:
+                key = finding.family.strip().lower()
+                if key and key not in by_key:
+                    by_key[key] = KnownFont(
+                        family=finding.family, owner=finding.owner, source="detected"
+                    )
+        for family, owner in CATALOG:
+            key = family.strip().lower()
+            if key not in by_key:
+                by_key[key] = KnownFont(family=family, owner=owner, source="catalog")
+        return sorted(by_key.values(), key=lambda k: k.family.lower())
 
     @app.get("/api/runs/{run_id}")
     async def get_run(run_id: str, source: str = "real") -> RunReport:
