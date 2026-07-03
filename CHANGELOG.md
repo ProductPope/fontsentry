@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Documentation-freshness guard** (`tests/test_docs.py`): CI now fails if a rule
+  predicate, a default rule id, or a `CrawlSettings` field is undocumented, or if
+  the CHANGELOG loses its `[Unreleased]` section — keeping the repo docs in lockstep
+  with the code.
+
 ### Changed
 - **Test suite deepened to benchmark grade** (168 → 255 tests): direct coverage
   for `detect/page`, per-predicate rule edge cases, registry suppression
