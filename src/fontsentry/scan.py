@@ -7,6 +7,7 @@ scans and the offline demo (which passes a filesystem-backed transport).
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -190,15 +191,21 @@ async def run_scan(
         pages_by_domain[target.domain] = await discover_pages(fetcher, target, crawl)
         progress("discover", i + 1, len(hosts), f"Discovered {target.domain}")
 
-    # Pass 2 — identify fonts on every discovered page.
+    # Pass 2 — identify fonts on every discovered page. Fan out across pages
+    # (the Fetcher's semaphore caps in-flight requests and per-host throttling
+    # preserves politeness); progress is reported in completion order.
     pages = [(t.domain, page) for t in hosts for page in pages_by_domain[t.domain]]
     detected: list[DetectedFont] = []
     progress("detect", 0, len(pages), "Identifying fonts")
-    for j, (domain, page) in enumerate(pages):
-        page_detections = await detect_page(fetcher, page)
+
+    async def _detect_one(domain: str, page: str) -> tuple[str, list[DetectedFont]]:
+        return domain, await detect_page(fetcher, page)
+
+    for done, coro in enumerate(asyncio.as_completed([_detect_one(d, p) for d, p in pages]), 1):
+        domain, page_detections = await coro
         detections_by_domain[domain].extend(page_detections)
         detected.extend(page_detections)
-        progress("detect", j + 1, len(pages), f"Identifying fonts on {domain}")
+        progress("detect", done, len(pages), f"Identifying fonts on {domain}")
 
     # Pass 3 — aggregate across domains, suppress via registry, and score.
     progress("score", 0, 1, "Scoring and suppression")
