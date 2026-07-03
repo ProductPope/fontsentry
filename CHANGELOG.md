@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Accessibility: findings table (WCAG 1.4.1 / 4.1.2)** — the Delivery badge now
+  carries a screen-reader text label (not colour + `⚠` glyph alone); the sortable
+  Score header exposes `aria-sort`; expandable rows link to their detail via
+  `aria-controls` and hide the `▸/▾` glyphs from the accessible name.
 - **Accessibility: text contrast (WCAG 1.4.3)** — darkened the `faint` metadata
   text token in both themes and the HTML report's low/medium risk badges so small
   text clears the 4.5:1 AA threshold.

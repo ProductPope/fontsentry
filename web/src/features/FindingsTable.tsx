@@ -25,7 +25,13 @@ function DeliveryBadge({ finding }: { finding: Finding }) {
         d.flagged ? "bg-band-medium-bg text-band-medium" : "text-faint",
       )}
     >
-      {d.flagged ? "⚠ " : ""}
+      {/* Don't rely on colour/glyph alone (WCAG 1.4.1): carry the meaning in text. */}
+      {d.flagged && <span className="sr-only">Third-party delivery, privacy concern: </span>}
+      {d.flagged && (
+        <span role="img" aria-label="warning">
+          ⚠{" "}
+        </span>
+      )}
       {d.label}
     </span>
   );
@@ -406,12 +412,13 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
               <th scope="col" className={TH}>
                 Domains
               </th>
-              <th scope="col" className={TH}>
+              <th scope="col" className={TH} aria-sort={desc ? "descending" : "ascending"}>
                 <button
                   onClick={() => setDesc((d) => !d)}
                   aria-label={`Sort by score ${desc ? "ascending" : "descending"}`}
                 >
-                  Score {desc ? "▼" : "▲"}
+                  Score{" "}
+                  <span aria-hidden="true">{desc ? "▼" : "▲"}</span>
                 </button>
               </th>
               <th scope="col" className={TH}>
@@ -501,7 +508,7 @@ function GroupRows({
       <tr className="border-t border-stroke bg-surface2/40">
         <td className="px-4 py-2">
           <button onClick={onToggle} aria-expanded={isOpen} className="text-left font-semibold">
-            {isOpen ? "▾ " : "▸ "}
+            <span aria-hidden="true">{isOpen ? "▾ " : "▸ "}</span>
             {group.label}
             <span className="ml-2 text-xs font-normal text-faint">
               {group.findings.length} variants
@@ -553,6 +560,7 @@ function FindingRows({
   rules: RuleInfo[] | null;
   indent?: boolean;
 }) {
+  const detailId = `finding-detail-${findingKey(finding)}`;
   return (
     <>
       <tr className="border-t border-stroke">
@@ -560,9 +568,10 @@ function FindingRows({
           <button
             onClick={onToggle}
             aria-expanded={isOpen}
+            aria-controls={detailId}
             className={cn("text-left", indent ? "font-normal text-muted" : "font-medium")}
           >
-            {isOpen ? "▾ " : "▸ "}
+            <span aria-hidden="true">{isOpen ? "▾ " : "▸ "}</span>
             {finding.family}
           </button>
         </td>
@@ -580,7 +589,7 @@ function FindingRows({
         </td>
       </tr>
       {isOpen && (
-        <tr>
+        <tr id={detailId}>
           <td colSpan={7} className="p-0">
             <FindingDetail finding={finding} thresholds={thresholds} rules={rules} />
           </td>
