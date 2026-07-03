@@ -20,6 +20,19 @@ def test_scan_demo_writes_reports(tmp_path: Path) -> None:
     assert len(htmls) == 1
 
 
+def test_scan_demo_csv_and_max_pages(tmp_path: Path) -> None:
+    # CLI parity with the API: --csv writes a findings CSV; --max-pages is accepted.
+    result = runner.invoke(
+        app, ["scan", "--demo", "--output", str(tmp_path), "--csv", "--max-pages", "3"]
+    )
+    assert result.exit_code == 0, result.output
+    csvs = list(tmp_path.glob("*.csv"))
+    assert len(csvs) == 1
+    assert (
+        csvs[0].read_text(encoding="utf-8").splitlines()[0].startswith("family,family_group,owner")
+    )
+
+
 def test_report_rerenders_html(tmp_path: Path) -> None:
     runner.invoke(app, ["scan", "--demo", "--output", str(tmp_path)])
     run_json = next(tmp_path.glob("*.report.json"))

@@ -19,6 +19,7 @@ from rich.table import Table
 from fontsentry import config, demo, scan
 from fontsentry.models import DiffResult, Registry, RunReport
 from fontsentry.registry.registry import validate_registry
+from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
 from fontsentry.report.html_report import write_html
 from fontsentry.report.json_report import latest_runs, load_run
@@ -74,6 +75,15 @@ def scan_cmd(
     registry_dir: Path = typer.Option(Path("registry"), "--registry-dir", help="Registry dir."),
     output: Path | None = typer.Option(None, "--output", help="Reports output directory."),
     demo_mode: bool = typer.Option(False, "--demo", help="Run the offline demo dataset."),
+    discover_subdomains: bool = typer.Option(
+        False,
+        "--discover-subdomains",
+        help="Also find public subdomains via Certificate Transparency (real mode only).",
+    ),
+    max_pages: int | None = typer.Option(
+        None, "--max-pages", min=1, help="Override the per-host page cap for this scan."
+    ),
+    csv_out: bool = typer.Option(False, "--csv", help="Also write a CSV of the findings."),
 ) -> None:
     """Crawl, detect, score, and write JSON + HTML reports."""
 
@@ -97,7 +107,15 @@ def scan_cmd(
     async def _run() -> tuple[RunReport, Path, Path]:
         try:
             return await scan.scan_and_write(
-                targets, settings, rules, registry, client=client, now=now, reports_dir=reports_dir
+                targets,
+                settings,
+                rules,
+                registry,
+                client=client,
+                now=now,
+                reports_dir=reports_dir,
+                discover_ct=discover_subdomains and not demo_mode,
+                max_pages_per_domain=max_pages,
             )
         finally:
             await client.aclose()
@@ -105,6 +123,10 @@ def scan_cmd(
     report, json_path, html_path = asyncio.run(_run())
     _print_summary(report)
     console.print(f"\nJSON: [cyan]{json_path}[/]\nHTML: [cyan]{html_path}[/]")
+    if csv_out:
+        csv_path = json_path.with_name(json_path.name.removesuffix(".report.json") + ".csv")
+        csv_path.write_text(build_csv(report), encoding="utf-8")
+        console.print(f"CSV:  [cyan]{csv_path}[/]")
 
 
 @app.command()

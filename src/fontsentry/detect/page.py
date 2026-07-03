@@ -20,6 +20,7 @@ from fontsentry.detect.embedding import classify_embedding
 from fontsentry.detect.fontfile import FontReadError, read_font_metadata
 from fontsentry.detect.html import parse_html
 from fontsentry.models import DetectedFont, EmbeddingMethod, FontFormat
+from fontsentry.textutil import decode_text
 
 # Preference order when an @font-face lists several sources.
 _FORMAT_RANK = {
@@ -45,14 +46,14 @@ async def _collect_css(fetcher: Fetcher, page_url: str) -> list[tuple[str, str]]
     if result is None or not result.ok or "html" not in result.content_type.lower():
         return []
 
-    html = result.content.decode("utf-8", errors="replace")
+    html = decode_text(result.content, result.content_type)
     assets = parse_html(html, base_url=page_url)
 
     blocks: list[tuple[str, str]] = [(css, page_url) for css in assets.inline_styles]
     for link in assets.stylesheet_links:
         css = await fetcher.fetch(link)
         if css is not None and css.ok:
-            blocks.append((css.content.decode("utf-8", errors="replace"), link))
+            blocks.append((decode_text(css.content, css.content_type), link))
     return blocks
 
 

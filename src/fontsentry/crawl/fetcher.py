@@ -144,7 +144,9 @@ class Fetcher:
             except httpx.HTTPError:
                 return None
 
-            if status == 200 and content and self._cache is not None:
+            # Only cache a direct (non-redirected) 200 — caching a redirected
+            # body under the original url would serve the wrong content later.
+            if hop == 0 and status == 200 and content and self._cache is not None:
                 self._cache.store(
                     url,
                     status=200,
