@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Font-variant grouping**: weight/style variants of one family (`metropolis`,
+  `metropolis-bold`, `OpenSans-Regular`, …) now fold into a base family
+  (`Finding.family_group`; report schema **v8**; new CSV `family_group` column).
+  The Fonts table groups them under one expandable row (worst band + variant
+  count), with a **Group variants** toggle. Width (Condensed/Narrow) stays
+  distinct.
+- **Registry autocomplete**: the add-license form suggests font families from
+  the fonts detected in your latest audit plus a bundled catalog of common
+  open-source families (available before the first audit), and auto-fills the
+  owner when you pick a known family — fewer typos. New `GET /api/known-fonts`.
 - **UI re-attaches to a running audit**: on load the app checks `GET /api/jobs`
   for an in-flight scan (started from the CLI, another tab, or a prior session)
   and shows its live progress — the progress bar is no longer limited to scans

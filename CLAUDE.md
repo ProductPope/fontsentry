@@ -45,6 +45,10 @@ after the whole crawl completes, before scoring.
 - Pydantic v2 for every config and domain model. Validate at the edges.
 - Brand-neutral: no real company names, logos, foundries, or internal references
   anywhere in code, docs, default config, or demo data. Use invented names.
+  **One deliberate exception:** `registry/catalog.py` carries real, public
+  open-source font family names (Roboto, Open Sans, …) — it's a functional
+  autocomplete catalog for the registry form, not demo/marketing data. Don't
+  "brand-neutralize" it.
 
 ## Run it
 

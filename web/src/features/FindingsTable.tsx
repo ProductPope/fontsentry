@@ -39,6 +39,25 @@ const BAND_TEXT: Record<Band, string> = {
   low: "text-band-low",
 };
 
+const BAND_ORDER: Record<Band, number> = { low: 0, medium: 1, high: 2 };
+
+interface Group {
+  key: string;
+  label: string;
+  findings: Finding[];
+}
+
+function groupKeyOf(f: Finding): string {
+  return (f.family_group || f.family).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function worstBand(findings: Finding[]): Band {
+  return findings.reduce<Band>(
+    (worst, f) => (BAND_ORDER[f.band] > BAND_ORDER[worst] ? f.band : worst),
+    "low",
+  );
+}
+
 type Thresholds = { medium: number; high: number } | null;
 type RuleInfo = { id: string; description: string };
 
@@ -250,7 +269,9 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
   const [focus, setFocus] = useState<Focus>("action");
   const [status, setStatus] = useState<Status | "all">("all");
   const [desc, setDesc] = useState(true);
+  const [grouped, setGrouped] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Band thresholds + the full rule list power the score gauge and the
   // "didn't apply" breakdown. Best-effort — the panel degrades without them.
@@ -285,6 +306,26 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
   }, [findings, search, focus, status, desc]);
 
   const hiddenCount = findings.length - rows.length;
+
+  const groups = useMemo(() => {
+    const map = new Map<string, Group>();
+    for (const f of rows) {
+      const key = groupKeyOf(f);
+      const g = map.get(key);
+      if (g) g.findings.push(f);
+      else map.set(key, { key, label: f.family_group || f.family, findings: [f] });
+    }
+    const scoreOf = (g: Group) => Math.max(...g.findings.map((f) => f.score));
+    return [...map.values()].sort((a, b) => (desc ? scoreOf(b) - scoreOf(a) : scoreOf(a) - scoreOf(b)));
+  }, [rows, desc]);
+
+  const toggleGroup = (key: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <section aria-label="Findings" className="space-y-3">
@@ -322,6 +363,14 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
               <option value="open">open</option>
               <option value="resolved">resolved</option>
             </Select>
+          </label>
+          <label className="flex items-center gap-1.5 pb-2 text-sm">
+            <input
+              type="checkbox"
+              checked={grouped}
+              onChange={(e) => setGrouped(e.target.checked)}
+            />
+            <span className="font-medium">Group variants</span>
           </label>
         </div>
       </div>
@@ -367,20 +416,40 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((f) => {
-              const key = findingKey(f);
-              const isOpen = expanded === key;
-              return (
-                <FindingRows
-                  key={key}
-                  finding={f}
-                  isOpen={isOpen}
-                  onToggle={() => setExpanded(isOpen ? null : key)}
-                  thresholds={thresholds}
-                  rules={rules}
-                />
-              );
-            })}
+            {(grouped ? groups : rows.map((f) => ({ key: findingKey(f), label: f.family, findings: [f] }))).map(
+              (g) => {
+                // A single-variant group renders as a plain row — only families
+                // that actually split into weights/styles get a group header.
+                if (g.findings.length === 1) {
+                  const f = g.findings[0]!;
+                  const key = findingKey(f);
+                  const isOpen = expanded === key;
+                  return (
+                    <FindingRows
+                      key={key}
+                      finding={f}
+                      isOpen={isOpen}
+                      onToggle={() => setExpanded(isOpen ? null : key)}
+                      thresholds={thresholds}
+                      rules={rules}
+                    />
+                  );
+                }
+                const groupOpen = expandedGroups.has(g.key);
+                return (
+                  <GroupRows
+                    key={g.key}
+                    group={g}
+                    isOpen={groupOpen}
+                    onToggle={() => toggleGroup(g.key)}
+                    expanded={expanded}
+                    onToggleFinding={(k) => setExpanded(expanded === k ? null : k)}
+                    thresholds={thresholds}
+                    rules={rules}
+                  />
+                );
+              },
+            )}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-muted">
@@ -395,24 +464,97 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
   );
 }
 
+function GroupRows({
+  group,
+  isOpen,
+  onToggle,
+  expanded,
+  onToggleFinding,
+  thresholds,
+  rules,
+}: {
+  group: Group;
+  isOpen: boolean;
+  onToggle: () => void;
+  expanded: string | null;
+  onToggleFinding: (key: string) => void;
+  thresholds: Thresholds;
+  rules: RuleInfo[] | null;
+}) {
+  const band = worstBand(group.findings);
+  const maxScore = Math.max(...group.findings.map((f) => f.score));
+  const domains = new Set(group.findings.flatMap((f) => f.domains)).size;
+  const owners = new Set(group.findings.map((f) => f.owner ?? ""));
+  const owner = owners.size === 1 ? [...owners][0] || "—" : "—";
+  // Representative delivery: prefer a privacy-flagged variant so the group row
+  // still warns when any weight is served third-party.
+  const rep = group.findings.find(isPrivacyFlagged) ?? group.findings[0]!;
+  return (
+    <>
+      <tr className="border-t border-stroke bg-surface2/40">
+        <td className="px-4 py-2">
+          <button onClick={onToggle} aria-expanded={isOpen} className="text-left font-semibold">
+            {isOpen ? "▾ " : "▸ "}
+            {group.label}
+            <span className="ml-2 text-xs font-normal text-faint">
+              {group.findings.length} variants
+            </span>
+          </button>
+        </td>
+        <td className="px-4 py-2">{owner}</td>
+        <td className="px-4 py-2">
+          <DeliveryBadge finding={rep} />
+        </td>
+        <td className="px-4 py-2 font-mono tabular-nums">{domains}</td>
+        <td className="px-4 py-2 font-mono font-semibold tabular-nums">{maxScore}</td>
+        <td className="px-4 py-2">
+          <RiskBadge band={band} />
+        </td>
+        <td className="px-4 py-2" />
+      </tr>
+      {isOpen &&
+        group.findings.map((f) => {
+          const key = findingKey(f);
+          return (
+            <FindingRows
+              key={key}
+              finding={f}
+              isOpen={expanded === key}
+              onToggle={() => onToggleFinding(key)}
+              thresholds={thresholds}
+              rules={rules}
+              indent
+            />
+          );
+        })}
+    </>
+  );
+}
+
 function FindingRows({
   finding,
   isOpen,
   onToggle,
   thresholds,
   rules,
+  indent = false,
 }: {
   finding: Finding;
   isOpen: boolean;
   onToggle: () => void;
   thresholds: Thresholds;
   rules: RuleInfo[] | null;
+  indent?: boolean;
 }) {
   return (
     <>
       <tr className="border-t border-stroke">
-        <td className="px-4 py-2">
-          <button onClick={onToggle} aria-expanded={isOpen} className="text-left font-medium">
+        <td className={cn("px-4 py-2", indent && "pl-9")}>
+          <button
+            onClick={onToggle}
+            aria-expanded={isOpen}
+            className={cn("text-left", indent ? "font-normal text-muted" : "font-medium")}
+          >
             {isOpen ? "▾ " : "▸ "}
             {finding.family}
           </button>

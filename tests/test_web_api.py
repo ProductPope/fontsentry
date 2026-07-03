@@ -124,6 +124,32 @@ def test_run_diff(tmp_path: Path) -> None:
         assert oldest["new_findings"] == [] and oldest["resolved_findings"] == []
 
 
+def test_known_fonts_returns_catalog_without_runs(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        fonts = client.get("/api/known-fonts").json()
+        families = {f["family"] for f in fonts}
+        assert "Roboto" in families  # bundled catalog is available pre-audit
+        assert all(f["source"] == "catalog" for f in fonts)
+
+
+def test_known_fonts_merges_detected_over_catalog(tmp_path: Path) -> None:
+    from datetime import datetime
+
+    from fontsentry.models import Finding, RiskBand
+    from fontsentry.report import json_report
+
+    rep = json_report.build_report(
+        [Finding(family="Roboto", owner="Acme Type", score=50, band=RiskBand.MEDIUM)],
+        datetime(2026, 1, 1, 0, 0, 0),
+    )
+    json_report.write_run(rep, tmp_path)  # a real run in the root
+
+    with _client(tmp_path) as client:
+        fonts = {f["family"]: f for f in client.get("/api/known-fonts").json()}
+        assert fonts["Roboto"]["source"] == "detected"
+        assert fonts["Roboto"]["owner"] == "Acme Type"
+
+
 def test_scan_estimate_no_history(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         d = client.get("/api/scan/estimate", params={"hosts": 3, "max_pages": 10}).json()
@@ -166,7 +192,7 @@ def test_export_csv(tmp_path: Path) -> None:
         assert resp.headers["content-type"].startswith("text/csv")
         assert "attachment" in resp.headers.get("content-disposition", "")
         body = resp.text
-        assert body.splitlines()[0].startswith("family,owner,band,score")
+        assert body.splitlines()[0].startswith("family,family_group,owner,band,score")
         assert "Atlas Grotesk Private" in body
 
 

@@ -7,7 +7,7 @@ import { Modal } from "../components/Modal";
 import { TextInput } from "../components/TextInput";
 import type { ToastKind } from "../components/Toast";
 import { api } from "../lib/api";
-import type { RegistryEntry } from "../lib/api";
+import type { KnownFont, RegistryEntry } from "../lib/api";
 import { cn } from "../lib/cn";
 
 const LICENSE_TYPES = [
@@ -76,6 +76,7 @@ function expiryBadge(valid_until: string | null): { label: string; tone: string 
 export function RegistrySetup({ notify }: { notify: (message: string, kind: ToastKind) => void }) {
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<RegistryEntry[]>([]);
+  const [knownFonts, setKnownFonts] = useState<KnownFont[]>([]);
   const [busy, setBusy] = useState(false);
   // null = closed; number = editing that index; -1 = adding new.
   const [editing, setEditing] = useState<number | null>(null);
@@ -89,6 +90,14 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
       )
       .finally(() => setLoading(false));
   }, [notify]);
+
+  useEffect(() => {
+    // Suggestions for the add/edit form; a nice-to-have, so ignore failures.
+    api
+      .getKnownFonts()
+      .then(setKnownFonts)
+      .catch(() => {});
+  }, []);
 
   // Single source of persistence: replace the whole registry file, then reflect
   // the server's canonical result. Every add/edit/delete goes through here so
@@ -222,6 +231,7 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
         <LicenseModal
           initial={editing >= 0 ? entries[editing]! : null}
           busy={busy}
+          knownFonts={knownFonts}
           onCancel={() => setEditing(null)}
           onSave={commit}
           notify={notify}
@@ -269,12 +279,14 @@ function toForm(entry: RegistryEntry | null): FormState {
 function LicenseModal({
   initial,
   busy,
+  knownFonts,
   onCancel,
   onSave,
   notify,
 }: {
   initial: RegistryEntry | null;
   busy: boolean;
+  knownFonts: KnownFont[];
   onCancel: () => void;
   onSave: (entry: RegistryEntry) => void;
   notify: (message: string, kind: ToastKind) => void;
@@ -282,6 +294,19 @@ function LicenseModal({
   const [f, setF] = useState<FormState>(() => toForm(initial));
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const owners = [...new Set(knownFonts.map((k) => k.owner).filter((o): o is string => !!o))].sort();
+
+  // Picking a known family fills the owner from its metadata when owner is empty
+  // — so the two fields stay consistent and typos don't slip in.
+  function onFamily(family: string) {
+    const match = knownFonts.find((k) => k.family.toLowerCase() === family.trim().toLowerCase());
+    setF((prev) => ({
+      ...prev,
+      family,
+      owner: prev.owner.trim() ? prev.owner : (match?.owner ?? ""),
+    }));
+  }
 
   async function onProof(file: File) {
     setUploading(true);
@@ -321,12 +346,31 @@ function LicenseModal({
           <option key={t} value={t} />
         ))}
       </datalist>
+      <datalist id="known-families">
+        {knownFonts.map((k) => (
+          <option key={k.family} value={k.family} />
+        ))}
+      </datalist>
+      <datalist id="known-owners">
+        {owners.map((o) => (
+          <option key={o} value={o} />
+        ))}
+      </datalist>
       <div className="space-y-3">
-        <Field label="Owner (foundry / vendor / service)">
-          <TextInput value={f.owner} onChange={(e) => setF({ ...f, owner: e.target.value })} />
-        </Field>
         <Field label="Font family">
-          <TextInput value={f.family} onChange={(e) => setF({ ...f, family: e.target.value })} />
+          <TextInput
+            list="known-families"
+            placeholder="start typing — pick a detected or well-known font"
+            value={f.family}
+            onChange={(e) => onFamily(e.target.value)}
+          />
+        </Field>
+        <Field label="Owner (foundry / vendor / service)">
+          <TextInput
+            list="known-owners"
+            value={f.owner}
+            onChange={(e) => setF({ ...f, owner: e.target.value })}
+          />
         </Field>
         <Field label="License type">
           <TextInput
