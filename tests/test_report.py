@@ -105,7 +105,7 @@ def test_build_csv_has_header_and_rows() -> None:
     )
     csv_text = build_csv(report)
     lines = csv_text.splitlines()
-    assert lines[0].startswith("family,owner,band,score,status,privacy,applied")
+    assert lines[0].startswith("family,family_group,owner,band,score,status,privacy,applied")
     assert any(row.startswith("A,") for row in lines[1:])
     assert "high" in csv_text and "resolved" in csv_text
 

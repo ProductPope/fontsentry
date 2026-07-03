@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from urllib.parse import urlparse
 
+from fontsentry.families import base_family
 from fontsentry.models import (
     AggregatedFont,
     DetectedFont,
@@ -102,6 +103,7 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
         result.append(
             AggregatedFont(
                 family=acc.family,
+                family_group=base_family(acc.family),
                 owner=acc.owner,
                 domains=sorted(acc.domains),
                 formats=sorted(acc.formats, key=lambda f: f.value),
@@ -185,6 +187,7 @@ def evaluate(
         findings.append(
             Finding(
                 family=agg.family,
+                family_group=agg.family_group,
                 owner=agg.owner,
                 domains=agg.domains,
                 formats=agg.formats,

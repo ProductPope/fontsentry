@@ -102,6 +102,7 @@ class AggregatedFont(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     family: str
+    family_group: str = ""  # base family with weight/style variants folded away
     owner: str | None = None
     domains: list[str] = Field(default_factory=list)
     formats: list[FontFormat] = Field(default_factory=list)
@@ -136,6 +137,7 @@ class Finding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     family: str
+    family_group: str = ""  # base family with weight/style variants folded away
     owner: str | None = None
     domains: list[str] = Field(default_factory=list)
     formats: list[FontFormat] = Field(default_factory=list)
@@ -212,7 +214,7 @@ class RunReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int = 7
+    schema_version: int = 8
     generated_at: datetime
     duration_seconds: float = 0.0  # wall-clock scan time; powers ETA estimates
     summary: RunSummary

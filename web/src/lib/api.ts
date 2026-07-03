@@ -25,6 +25,7 @@ export interface TriggeredRule {
 
 export interface Finding {
   family: string;
+  family_group: string;
   owner: string | null;
   domains: string[];
   formats: string[];
@@ -108,6 +109,12 @@ export interface FirstSeen {
   domain: string;
   family: string;
   first_seen: string; // ISO datetime
+}
+
+export interface KnownFont {
+  family: string;
+  owner: string | null;
+  source: "detected" | "catalog";
 }
 
 export interface ScanEstimate {
@@ -216,6 +223,7 @@ export const api = {
   getRuns: (source: "real" | "demo" = "real") => request<RunMeta[]>(`/api/runs?source=${source}`),
   getFirstSeen: (source: "real" | "demo" = "real") =>
     request<FirstSeen[]>(`/api/first-seen?source=${source}`),
+  getKnownFonts: () => request<KnownFont[]>("/api/known-fonts"),
   getRun: (id: string, source: "real" | "demo" = "real") =>
     request<RunReport>(`/api/runs/${encodeURIComponent(id)}?source=${source}`),
   getRunDiff: (id: string, source: "real" | "demo" = "real") =>

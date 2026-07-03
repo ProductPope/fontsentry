@@ -13,6 +13,7 @@ from fontsentry.models import RunReport
 
 _HEADER = [
     "family",
+    "family_group",
     "owner",
     "band",
     "score",
@@ -40,6 +41,7 @@ def build_csv(report: RunReport) -> str:
         writer.writerow(
             [
                 f.family,
+                f.family_group or f.family,
                 f.owner or "",
                 f.band.value,
                 f.score,
