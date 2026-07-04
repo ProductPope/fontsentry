@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Detection-accuracy validation** (`tests/test_detection_accuracy.py`): measures
+  embedded-font detection as precision/recall against the demo corpus's known
+  ground truth (100%/100% — no false families, none missed), documented in
+  `docs/methodology.md` with a path to external validation on hand-verified pages.
 - **Performance characterisation** in `docs/methodology.md` (CPU ceiling,
   politeness-bound throughput, bounded memory) plus a real-DNS verification of the
   SSRF guard — concrete answers to "how does it scale / is it safe?".
