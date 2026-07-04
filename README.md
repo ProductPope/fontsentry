@@ -115,6 +115,7 @@ only to audit an internal site.
 
 - [Risk rules reference](docs/rules.md) — scoring model and how to add a rule
 - [Methodology](docs/methodology.md) — how this was built (vibecoding benchmark)
+- [Hardening roadmap](docs/roadmap.md) — phased plan to benchmark grade
 - [ADR 0001 — stack choice](docs/adr/0001-stack-choice.md)
 - [ADR 0002 — risk-scoring model](docs/adr/0002-risk-scoring-model.md) (superseded)
 - [ADR 0003 — deterministic verdicts](docs/adr/0003-deterministic-verdicts.md)
