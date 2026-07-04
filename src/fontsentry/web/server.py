@@ -11,16 +11,13 @@ import asyncio
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-import httpx
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
 
 from fontsentry import config, demo
 from fontsentry.models import (
@@ -28,15 +25,15 @@ from fontsentry.models import (
     Registry,
     RulesConfig,
     RunReport,
-    RunSummary,
     TargetsConfig,
 )
 from fontsentry.registry.catalog import CATALOG
 from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
 from fontsentry.report.json_report import first_seen_map, load_run
-from fontsentry.scan import scan_and_write
 from fontsentry.web.jobs import Job, JobManager
+from fontsentry.web.paths import _reports_for, _safe_run_path, _web_dist
+from fontsentry.web.scan_job import _run_scan_job
 from fontsentry.web.scheduler import (
     ScheduleInfo,
     SchedulerError,
@@ -45,6 +42,14 @@ from fontsentry.web.scheduler import (
     delete_schedule,
     is_windows,
     list_schedules,
+)
+from fontsentry.web.schemas import (
+    FirstSeen,
+    KnownFont,
+    RunMeta,
+    ScanEstimate,
+    ScanRequest,
+    ScanStarted,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,55 +68,6 @@ _LOCAL_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
-
-
-class RunMeta(BaseModel):
-    id: str
-    generated_at: datetime
-    summary: RunSummary
-
-
-class FirstSeen(BaseModel):
-    domain: str
-    family: str
-    first_seen: datetime
-
-
-class KnownFont(BaseModel):
-    family: str
-    owner: str | None = None
-    source: str  # "detected" (seen in an audit) | "catalog" (bundled suggestion)
-
-
-class ScanRequest(BaseModel):
-    mode: str = "demo"  # "demo" | "real"
-    # Opt-in: also find public subdomains via Certificate Transparency logs and
-    # crawl each as its own host (queries an external service; real mode only).
-    discover_subdomains: bool = False
-    # Per-scan override of the per-host page cap.
-    max_pages_per_domain: int | None = Field(default=None, ge=1)
-
-
-class ScanEstimate(BaseModel):
-    eta_seconds: float | None  # None when there's no timed history to estimate from
-    based_on_runs: int
-
-
-class ScanStarted(BaseModel):
-    job_id: str
-
-
-def _web_dist() -> Path:
-    return demo.repo_root() / "web" / "dist"
-
-
-def _reports_for(reports_dir: Path, source: str) -> Path:
-    """Reports live per data source: real runs in the root, demo runs in demo/.
-
-    Keeps demo audits out of "your data" — they're a separate, isolated set.
-    """
-
-    return reports_dir / "demo" if source == "demo" else reports_dir
 
 
 def create_app(
@@ -410,76 +366,3 @@ def create_app(
             )
 
     return app
-
-
-def _safe_run_path(reports_dir: Path, run_id: str) -> Path:
-    """Resolve a run id to a report file inside reports_dir. Resolve-and-contain
-    (not string checks): the resolved path must sit directly in reports_dir and be
-    a .report.json — this also blocks absolute/encoded/drive-relative escapes."""
-
-    if not run_id.endswith(".report.json"):
-        raise HTTPException(status_code=400, detail="invalid run id")
-    base = reports_dir.resolve()
-    path = (base / run_id).resolve()
-    if path.parent != base:
-        raise HTTPException(status_code=400, detail="invalid run id")
-    return path
-
-
-async def _run_scan_job(
-    jobs: JobManager,
-    job_id: str,
-    mode: str,
-    reports_dir: Path,
-    config_dir: Path,
-    registry_dir: Path,
-    discover_subdomains: bool = False,
-    max_pages_per_domain: int | None = None,
-) -> None:
-    now = datetime.now(UTC).replace(microsecond=0)
-    # CT lookup queries an external service, so only for real scans (the demo
-    # runs offline against a filesystem transport).
-    discover_ct = discover_subdomains and mode == "real"
-
-    def on_progress(phase: str, current: int, total: int, message: str) -> None:
-        jobs.update_progress(job_id, phase, current, total, message)
-
-    # Config loading is inside the try so a bad rules.yaml / targets.yaml marks the
-    # job as error instead of leaving it stuck "running" forever (and leaking the
-    # HTTP client). client stays None until created, so finally can guard it.
-    client: httpx.AsyncClient | None = None
-    try:
-        if mode == "demo":
-            settings = demo.demo_settings()
-            rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
-            registry = config.load_registry(demo.demo_registry_path())
-            targets = demo.demo_targets()
-            client = demo.demo_client()
-        else:
-            settings = config.load_settings(config.resolve_config_path(config_dir, "settings"))
-            rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
-            registry = config.load_registry(config.resolve_config_path(registry_dir, "licenses"))
-            targets = config.load_targets(config.resolve_config_path(config_dir, "targets")).targets
-            client = httpx.AsyncClient(
-                timeout=httpx.Timeout(settings.crawl.request_timeout, connect=10.0),
-                limits=httpx.Limits(max_connections=settings.crawl.concurrency * 2),
-            )
-
-        _report, json_path, _html = await scan_and_write(
-            targets,
-            settings,
-            rules,
-            registry,
-            client=client,
-            now=now,
-            reports_dir=_reports_for(reports_dir, mode),
-            progress=on_progress,
-            discover_ct=discover_ct,
-            max_pages_per_domain=max_pages_per_domain,
-        )
-        jobs.mark_done(job_id, json_path.name)
-    except Exception as exc:
-        jobs.mark_error(job_id, str(exc))
-    finally:
-        if client is not None:
-            await client.aclose()
