@@ -465,7 +465,7 @@ def test_proof_get_traversal_rejected(tmp_path: Path) -> None:
 
 
 def test_safe_run_path_resolve_and_contain(tmp_path: Path) -> None:
-    from fontsentry.web.server import _safe_run_path
+    from fontsentry.web.paths import _safe_run_path
 
     # A legitimate report id resolves inside reports_dir.
     ok = _safe_run_path(tmp_path, "fontsentry-x.report.json")

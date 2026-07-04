@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Refactor: slim `web/server.py`** (485 → 368 LOC) by moving non-glue code out of
+  the HTTP layer: response models → `web/schemas.py`, the scan-job orchestration →
+  `web/scan_job.py`, path helpers → `web/paths.py`. Behaviour-preserving (the API
+  tests pass unchanged); `server.py` is now a thin FastAPI layer.
 - **Refactor: split the FindingsTable god-component** (603 → 357 LOC). Pure logic
   moved to `lib/findings.ts` (unit-tested, 100%); the detail panel to
   `features/finding-detail.tsx`. Behaviour-preserving — the Phase-2 behavioural
