@@ -9,6 +9,15 @@ The bar is: **every decision is deliberate, documented, and defensible, and the
 tool is honest about what it is and isn't.** A defended tradeoff is a passed
 review; the failure mode is an *unforced error* or an *undefended claim*.
 
+## Current position (2026-07-04)
+
+Phases **1–5 complete** (PRs #59–#64): hygiene, frontend test net + coverage floor,
+god-file refactors, crawler-reality/perf/threat-model, and detection accuracy
+(100%/100% precision-recall on the demo corpus). All gates green; 263 backend +
+25 frontend tests. **Next: Phase 6** — deterministic verdicts (ADR 0003), the one
+core/judgement-layer change; start it fresh, semantics first, then a focused PR,
+then the Phase-7 human-review gate.
+
 ## What is already proven vs unproven
 
 - **Detection (proven):** the crawl → detect → aggregate pipeline surfaces web
@@ -38,24 +47,24 @@ with guards (docs freshness, jsx-a11y, ruff/mypy/pytest), security hardening
 
 ## Phases (execute in order)
 
-### 1 — Hygiene & OSS completeness  · S · risk: none
+### 1 — Hygiene & OSS completeness  · S · risk: none  · ✅ DONE (PR #59)
 Fix `pyproject.toml` URLs; strengthen/remove tautological assertions; grep dead
 placeholders; add `SECURITY.md`, `.github/ISSUE_TEMPLATE/`.
 **Done:** correct package metadata; standard OSS meta-file set; no dead links.
 
-### 2 — Frontend test net + coverage floor  · M · risk: low
+### 2 — Frontend test net + coverage floor  · M · risk: low  · ✅ DONE (PR #60)
 Vitest + RTL + jsdom, `npm test` in the `web` CI gate; behavioural tests for
 FindingsTable / OverviewScreen / App (contract, not coverage-theatre); enforce a
 coverage floor (back + front) in CI.
 **Done:** UI behaviour is tested; a coverage regression fails CI. Gate to Phase 3.
 
-### 3 — Structural refactor  · M · risk: low (guarded by Phase 2)
+### 3 — Structural refactor  · M · risk: low (guarded by Phase 2)  · ✅ DONE (PR #61, #62)
 Split the god-files: `FindingsTable.tsx` (logic → `lib/`, components → files) and
 `server.py` (`APIRouter` per domain). Add an ADR if the API shape changes.
 **Done:** no file >~250 LOC without reason; module boundaries documented; Phase 2
 + pytest tests stay green (proof the refactor was behaviour-preserving).
 
-### 4 — Crawler reality, performance, threat model  · M/L · risk: medium
+### 4 — Crawler reality, performance, threat model  · M/L · risk: medium  · ✅ DONE (PR #63)
 Local fixture server exercising redirects, gzip, latin-1/Shift-JIS, sitemap-index,
 robots crawl-delay, CDN patterns — full `fetch→detect→report` e2e, deterministic
 in CI. Clean up remaining detection noise (`font:` shorthand remnants, generics).
@@ -65,14 +74,14 @@ model. One-off manual SSRF-guard check against real DNS.
 **Done:** reality e2e in CI; documented performance profile with numbers; explicit
 threat model.
 
-### 5 — Detection accuracy validation  · M · risk: low  · PRIMARY EVIDENCE
+### 5 — Detection accuracy validation  · M · risk: low  · PRIMARY EVIDENCE  · ✅ DONE (PR #64)
 Hand-verified page-level ground truth for N pages (view-source / DevTools). Measure
 detection **precision / recall**: real-and-previously-unknown found (TP), parser
 artifacts (FP), missed (FN). This turns the "we found unknown fonts" anecdote into
 a number. Independent of the judgement layer, so it runs here.
 **Done:** published precision/recall for detection in `methodology.md`.
 
-### 6 — Deterministic verdicts (ADR 0003)  · L · risk: medium (core change)
+### 6 — Deterministic verdicts (ADR 0003)  · L · risk: medium (core change)  · ⬅ NEXT
 The one judgement-layer change. Replace the weighted engine with the decision
 table: privacy verdict + licence verdict (`COVERED` / `VIOLATION` / `OPEN` /
 `UNKNOWN` / `SYSTEM`) with explicit reasons; soft signals become evidence notes.
