@@ -71,6 +71,21 @@ async def test_detect_page_applied_flag_and_read_error() -> None:
     assert by["Demo"].metadata is None  # garbage bytes -> FontReadError swallowed
 
 
+async def test_detect_page_decodes_non_utf8_charset() -> None:
+    # A latin-1 page with a non-ASCII @font-face family must decode correctly
+    # (Content-Type charset honoured), not turn into mojibake that breaks matching.
+    css = '@font-face{font-family:"Ténör Sans";src:url(/f.woff2)}.a{font-family:"Ténör Sans"}'
+    html = f"<style>{css}</style>"
+    stub = _StubFetcher(
+        {
+            PAGE: _result(PAGE, html.encode("latin-1"), "text/html; charset=latin-1"),
+            "https://example.com/f.woff2": _result("x", b"garbage", "font/woff2"),
+        }
+    )
+    families = {d.family for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    assert "Ténör Sans" in families
+
+
 async def test_detect_page_non_html_returns_empty() -> None:
     stub = _StubFetcher({PAGE: _result(PAGE, b"{}", "application/json")})
     assert await detect_page(stub, PAGE) == []  # type: ignore[arg-type]
