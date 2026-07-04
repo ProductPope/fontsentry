@@ -273,7 +273,7 @@ class CrawlSettings(BaseModel):
     )
     request_timeout: float = Field(default=15.0, gt=0, description="Per-request timeout, seconds.")
     user_agent: str = Field(
-        default="FontSentry/0.1 (+https://github.com/fontsentry/fontsentry)",
+        default="FontSentry/0.1 (+https://github.com/ProductPope/fontsentry)",
         min_length=1,
     )
     respect_robots: bool = True

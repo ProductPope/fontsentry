@@ -40,8 +40,8 @@ web = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9"]
 fontsentry = "fontsentry.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/fontsentry/fontsentry"
-Repository = "https://github.com/fontsentry/fontsentry"
+Homepage = "https://github.com/ProductPope/fontsentry"
+Repository = "https://github.com/ProductPope/fontsentry"
 
 [dependency-groups]
 dev = [

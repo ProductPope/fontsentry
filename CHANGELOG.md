@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `SECURITY.md` (private reporting + threat model) and GitHub issue templates.
+
 ### Fixed
+- **Correct package/crawler URLs**: the placeholder `github.com/fontsentry/fontsentry`
+  (package metadata + crawler User-Agent) now points at the real repository.
 - **Accessibility: navigation & structure** — a "Skip to content" link bypasses the
   sidebar (2.4.1); content sections carry headings so the outline has no gaps
   (1.3.1/2.4.6); the mobile navigation drawer moves focus in on open and closes on
@@ -274,5 +279,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   baseline. "Start audit" runs scans; "Schedule recurring audit" creates Windows
   Task Scheduler entries that run even when the UI is closed.
 
-[Unreleased]: https://github.com/fontsentry/fontsentry/compare/v0.2.0...main
-[0.2.0]: https://github.com/fontsentry/fontsentry/releases/tag/v0.2.0
+[Unreleased]: https://github.com/ProductPope/fontsentry/compare/v0.2.0...main
+[0.2.0]: https://github.com/ProductPope/fontsentry/releases/tag/v0.2.0

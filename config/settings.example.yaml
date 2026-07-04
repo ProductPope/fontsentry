@@ -8,7 +8,7 @@ crawl:
   concurrency: 8               # max concurrent in-flight requests (global)
   per_host_rate_limit: 2.0     # max requests per second, per host (politeness)
   request_timeout: 15.0        # per-request timeout in seconds
-  user_agent: "FontSentry/0.1 (+https://github.com/fontsentry/fontsentry)"
+  user_agent: "FontSentry/0.1 (+https://github.com/ProductPope/fontsentry)"
   respect_robots: true         # obey robots.txt
   discover_subdomains: true    # passive only: sitemap.xml, observed links, config seeds
   max_response_bytes: 26214400 # 25 MB hard cap per fetched body (also bounds decompressed size)
