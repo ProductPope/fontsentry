@@ -43,6 +43,25 @@ the whole crawl before scoring so cross-domain rules can be evaluated. Concerns 
 strictly separated and the CLI holds no business logic. See the ADRs in
 [`docs/adr/`](adr/) for the stack and scoring-model decisions.
 
+## Detection accuracy
+
+Detection (which web fonts a site serves) is the tool's proven, load-bearing
+value — audits have surfaced fonts owners didn't know were deployed. It is
+validated as **precision / recall** against a controlled ground truth:
+
+- **Demo corpus** (synthetic fixtures with known fonts, `tests/test_detection_accuracy.py`):
+  the five embedded `@font-face` fonts are detected with **100% precision and
+  100% recall** — no false families (the `font:`-shorthand / `var()` / generic
+  noise is filtered) and none missed; fallback families are correctly classified
+  as *system*, not embedded. This runs offline and is reproducible via
+  `uv run pytest tests/test_detection_accuracy.py`.
+- **External validation** (recommended before publishing hard numbers): hand-verify
+  the fonts on a handful of real pages (view-source / DevTools) and extend the
+  ground-truth set. Report precision/recall on that set; state where it errs.
+
+This is separate from the *verdict* layer — detection accuracy answers "did we
+find the fonts?", not "is the licence/privacy call right?" (see ADR 0003).
+
 ## Performance characteristics
 
 The crawler is **politeness-bound, not CPU-bound.** Numbers to set expectations
