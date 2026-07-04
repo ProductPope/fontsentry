@@ -1,7 +1,9 @@
-"""The risk engine: aggregate detected fonts, then score them rule by rule.
+"""The verdict engine: aggregate detected fonts, then classify each deterministically.
 
-Aggregation runs over the *whole* crawl before scoring, so cross-domain rules
-(e.g. max_domains) see every domain a font appears on.
+Aggregation runs over the *whole* crawl before classification, so cross-domain
+facts (e.g. max_domains) see every domain a font appears on. Each font gets two
+verdicts — license and privacy — from a fixed decision table (ADR 0003). No
+weights, no thresholds; every verdict maps to an explicit if/then with a reason.
 """
 
 from __future__ import annotations
@@ -19,19 +21,31 @@ from fontsentry.models import (
     FindingStatus,
     FontFormat,
     FontMetadata,
+    LicenseVerdict,
     PrivacyClass,
     Registry,
-    RegistryEntry,
-    RiskBand,
     RulesConfig,
-    TriggeredRule,
 )
-from fontsentry.registry.registry import evaluate_suppression
-from fontsentry.risk.rules import PREDICATES, PredicateContext, known_predicate_types
+from fontsentry.registry.registry import Suppression, evaluate_suppression
+from fontsentry.risk import rules as clf
 
 
 class EngineError(Exception):
-    """Raised when a rule references an unknown predicate type."""
+    """Raised when the classification config is invalid."""
+
+
+# Sort order: most-attention-worthy first.
+_VERDICT_RANK = {
+    LicenseVerdict.VIOLATION: 0,
+    LicenseVerdict.NEEDS_CHECK: 1,
+    LicenseVerdict.OK: 2,
+}
+_PRIVACY_RANK = {
+    PrivacyClass.THIRD_PARTY_API: 0,
+    PrivacyClass.MIXED: 0,
+    PrivacyClass.SELF_HOSTED: 1,
+    PrivacyClass.NOT_APPLICABLE: 1,
+}
 
 
 @dataclass
@@ -124,81 +138,96 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
     return result
 
 
-def band_for(score: int, rules: RulesConfig) -> RiskBand:
-    bands = rules.scoring.bands
-    if score >= bands.high:
-        return RiskBand.HIGH
-    if score >= bands.medium:
-        return RiskBand.MEDIUM
-    return RiskBand.LOW
-
-
 def validate_rules(rules: RulesConfig) -> list[str]:
-    """Return a list of human-readable problems with the rule set (empty if valid)."""
+    """Return human-readable problems with the classification config (empty if valid)."""
 
-    known = known_predicate_types()
     errors: list[str] = []
-    for rule in rules.rules:
-        if rule.when.type not in known:
-            errors.append(
-                f"rule {rule.id!r}: unknown condition type {rule.when.type!r} "
-                f"(known: {', '.join(sorted(known))})"
-            )
+    valid_embeddings = {e.value for e in EmbeddingMethod}
+    valid_formats = {f.value for f in FontFormat}
+    for cdn in rules.paid_cdns:
+        if cdn not in valid_embeddings:
+            errors.append(f"paid_cdns: unknown embedding method {cdn!r}")
+    for fmt in rules.desktop_formats:
+        if fmt not in valid_formats:
+            errors.append(f"desktop_formats: unknown font format {fmt!r}")
     return errors
 
 
-def _score_font(
-    agg: AggregatedFont,
-    rules: RulesConfig,
-    entry: RegistryEntry | None,
-    covered: bool,
-    now: date,
-) -> tuple[list[TriggeredRule], int, RiskBand]:
-    raw = 0.0
-    triggered: list[TriggeredRule] = []
-    for rule in rules.rules:
-        predicate = PREDICATES.get(rule.when.type)
-        if predicate is None:
-            raise EngineError(f"rule {rule.id!r}: unknown condition type {rule.when.type!r}")
-        ctx = PredicateContext(
-            agg=agg, entry=entry, covered=covered, now=now, params=rule.when.params
-        )
-        if predicate(ctx):
-            points = rule.weight * rule.confidence
-            raw += points
-            triggered.append(
-                TriggeredRule(
-                    id=rule.id,
-                    description=rule.description,
-                    weight=rule.weight,
-                    confidence=rule.confidence,
-                    points=round(points, 2),
-                )
-            )
+def _evidence_notes(agg: AggregatedFont, rules: RulesConfig) -> list[str]:
+    notes: list[str] = []
+    if clf.desktop_format_on_web(agg, rules.desktop_formats):
+        notes.append("a desktop font format is served on the web")
+    if clf.paid_cdn_delivery(agg, rules.paid_cdns):
+        notes.append("served from a paid font CDN with no license on record")
+    if clf.missing_license_string(agg):
+        notes.append("the font file carries no license or copyright string")
+    if clf.subset_signal(agg, rules.subset_max_glyphs):
+        notes.append("the font looks subsetted (fewer glyphs than a full set)")
+    if not agg.applied:
+        notes.append("served but not applied to any text")
+    return notes
 
-    score = min(100, round(100 * raw / rules.scoring.max_raw))
-    return triggered, score, band_for(score, rules)
+
+def classify_license(
+    agg: AggregatedFont, suppression: Suppression, rules: RulesConfig
+) -> tuple[LicenseVerdict, str, list[str]]:
+    """Deterministic license verdict + reason + evidence notes (first match wins)."""
+
+    # 1. System/fallback fonts pose no license question.
+    if not any(e is not EmbeddingMethod.SYSTEM for e in agg.embeddings):
+        return LicenseVerdict.OK, "system or fallback font — no license needed", []
+
+    # 2. A matching registry entry decides: covered -> OK; declared but lapsed or
+    #    out of scope / over the domain limit -> VIOLATION. (Declaration precedes
+    #    the open-evidence check: a font you declared and let lapse is a violation.)
+    if suppression.entry is not None:
+        if suppression.status is FindingStatus.RESOLVED:
+            reason = f"covered by your license ({suppression.entry.license_type})"
+            return LicenseVerdict.OK, reason, []
+        reason = suppression.reason or "the declared license does not cover this use"
+        return LicenseVerdict.VIOLATION, reason, []
+
+    # 3. No registry cover: provably open -> OK.
+    if clf.looks_open_licensed(agg, rules.open_license_patterns):
+        return LicenseVerdict.OK, "openly licensed (license string in the font file)", []
+    if clf.owner_is_free(agg, rules.free_owners):
+        return LicenseVerdict.OK, "from a known free foundry", []
+    if clf.family_is_open(agg, rules.open_families):
+        return LicenseVerdict.OK, "openly licensed (known open family)", []
+
+    # 4. No cover and not open: definite violations.
+    if clf.family_is_paid_tier(agg, rules.paid_tier_families):
+        return LicenseVerdict.VIOLATION, "a paid tier is served with no license on record", []
+    if clf.self_host_prohibited(
+        agg, rules.self_host_prohibited.owners, rules.self_host_prohibited.families
+    ):
+        return LicenseVerdict.VIOLATION, "self-hosting is not permitted for this font", []
+
+    # 5. The honest default.
+    return (
+        LicenseVerdict.NEEDS_CHECK,
+        "no license on record and not provably open",
+        _evidence_notes(agg, rules),
+    )
+
+
+def _severity(finding: Finding) -> tuple[int, int, str]:
+    return (
+        _VERDICT_RANK[finding.license_verdict],
+        _PRIVACY_RANK.get(finding.privacy, 1),
+        finding.family.lower(),
+    )
 
 
 def evaluate(
     fonts: list[DetectedFont], rules: RulesConfig, registry: Registry, now: date
 ) -> list[Finding]:
-    """Aggregate, suppress, and score every detected font into findings."""
+    """Aggregate, then classify every detected font into a deterministic finding."""
 
-    hard_rule_ids = {rule.id for rule in rules.rules if rule.hard}
     findings: list[Finding] = []
     for agg in aggregate(fonts):
         suppression = evaluate_suppression(agg, registry, now)
-        covered = suppression.status is FindingStatus.RESOLVED
-        triggered, score, band = _score_font(agg, rules, suppression.entry, covered, now)
-        # A font served via @font-face but not applied to any text is a weaker
-        # signal (hosted, but nothing renders in it): halve the score — UNLESS a
-        # hard violation fired (expired/over-limit license, paid tier), which is a
-        # real concern regardless of whether the font is rendered.
-        hard_fired = hard_rule_ids & {t.id for t in triggered}
-        if not agg.applied and not hard_fired:
-            score = round(score * 0.5)
-            band = band_for(score, rules)
+        verdict, reason, notes = classify_license(agg, suppression, rules)
         findings.append(
             Finding(
                 family=agg.family,
@@ -208,18 +237,16 @@ def evaluate(
                 formats=agg.formats,
                 embeddings=agg.embeddings,
                 metadata=agg.metadata,
-                score=score,
-                band=band,
-                status=suppression.status,
-                triggered_rules=triggered,
+                license_verdict=verdict,
+                license_reason=reason,
+                evidence_notes=notes,
+                privacy=agg.privacy,
                 registry_match=suppression.entry is not None,
-                suppression_reason=suppression.reason,
                 example_urls=agg.example_urls,
                 page_count=agg.page_count,
                 applied=agg.applied,
-                privacy=agg.privacy,
             )
         )
 
-    findings.sort(key=lambda f: (-f.score, f.family.lower()))
+    findings.sort(key=_severity)
     return findings

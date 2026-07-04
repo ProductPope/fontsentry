@@ -68,7 +68,7 @@ def test_scan_then_list_and_fetch(tmp_path: Path) -> None:
         report = client.get(f"/api/runs/{run_id}", params={"source": "demo"}).json()
         families = {f["family"] for f in report["findings"]}
         assert "Atlas Grotesk Private" in families
-        assert report["summary"]["open_findings"] >= 1
+        assert report["summary"]["needs_action"] >= 1
 
 
 def test_demo_runs_isolated_from_real(tmp_path: Path) -> None:
@@ -99,15 +99,15 @@ def test_first_seen_after_scan(tmp_path: Path) -> None:
 def test_run_diff(tmp_path: Path) -> None:
     from datetime import datetime
 
-    from fontsentry.models import Finding, RiskBand
+    from fontsentry.models import Finding, LicenseVerdict
     from fontsentry.report import json_report
 
     older = json_report.build_report(
-        [Finding(family="Atlas", owner="X", score=80, band=RiskBand.HIGH)],
+        [Finding(family="Atlas", owner="X", license_verdict=LicenseVerdict.VIOLATION)],
         datetime(2026, 1, 1, 0, 0, 0),
     )
     newer = json_report.build_report(
-        [Finding(family="Beacon", owner="Y", score=70, band=RiskBand.HIGH)],
+        [Finding(family="Beacon", owner="Y", license_verdict=LicenseVerdict.VIOLATION)],
         datetime(2026, 2, 1, 0, 0, 0),
     )
     json_report.write_run(older, tmp_path)
@@ -136,11 +136,11 @@ def test_known_fonts_returns_catalog_without_runs(tmp_path: Path) -> None:
 def test_known_fonts_merges_detected_over_catalog(tmp_path: Path) -> None:
     from datetime import datetime
 
-    from fontsentry.models import Finding, RiskBand
+    from fontsentry.models import Finding, LicenseVerdict
     from fontsentry.report import json_report
 
     rep = json_report.build_report(
-        [Finding(family="Roboto", owner="Acme Type", score=50, band=RiskBand.MEDIUM)],
+        [Finding(family="Roboto", owner="Acme Type", license_verdict=LicenseVerdict.NEEDS_CHECK)],
         datetime(2026, 1, 1, 0, 0, 0),
     )
     json_report.write_run(rep, tmp_path)  # a real run in the root
@@ -193,7 +193,7 @@ def test_export_csv(tmp_path: Path) -> None:
         assert resp.headers["content-type"].startswith("text/csv")
         assert "attachment" in resp.headers.get("content-disposition", "")
         body = resp.text
-        assert body.splitlines()[0].startswith("family,family_group,owner,band,score")
+        assert body.splitlines()[0].startswith("family,family_group,owner,license_verdict")
         assert "Atlas Grotesk Private" in body
 
 
@@ -378,16 +378,10 @@ def test_registry_invalid_rejected(tmp_path: Path) -> None:
 
 
 _RULES_PAYLOAD = {
-    "scoring": {"max_raw": 90, "bands": {"medium": 30, "high": 60}},
-    "rules": [
-        {
-            "id": "desktop-format-on-web",
-            "description": "Desktop font on the web.",
-            "weight": 30,
-            "confidence": 0.85,
-            "when": {"type": "format_on_web", "params": {"formats": ["ttf", "otf"]}},
-        }
-    ],
+    "open_license_patterns": ["OFL", "Apache"],
+    "free_owners": ["Public Glyphs Foundation"],
+    "desktop_formats": ["ttf", "otf"],
+    "subset_max_glyphs": 200,
 }
 
 
@@ -397,10 +391,8 @@ def test_rules_get_falls_back_to_example(tmp_path: Path) -> None:
         resp = client.get("/api/config/rules")
         assert resp.status_code == 200
         body = resp.json()
-        assert body["scoring"]["max_raw"] > 0
-        assert body["scoring"]["bands"]["high"] >= body["scoring"]["bands"]["medium"]
-        assert len(body["rules"]) >= 1
-        assert all("weight" in r and "confidence" in r for r in body["rules"])
+        assert "OFL" in body["open_license_patterns"]
+        assert "ttf" in body["desktop_formats"]
 
 
 def test_rules_roundtrip(tmp_path: Path) -> None:
@@ -412,23 +404,12 @@ def test_rules_roundtrip(tmp_path: Path) -> None:
         # Persisted to the real (gitignored) file, then read back.
         assert (config_dir / "rules.yaml").exists()
         got = client.get("/api/config/rules").json()
-        assert got["scoring"]["bands"]["medium"] == 30
-        assert got["rules"][0]["id"] == "desktop-format-on-web"
-        assert got["rules"][0]["weight"] == 30
+        assert got["subset_max_glyphs"] == 200
+        assert got["free_owners"] == ["Public Glyphs Foundation"]
 
 
-def test_rules_invalid_confidence_rejected(tmp_path: Path) -> None:
-    bad = {
-        "scoring": {"max_raw": 90, "bands": {"medium": 30, "high": 60}},
-        "rules": [
-            {
-                "id": "r1",
-                "weight": 10,
-                "confidence": 1.5,  # out of range (0..1)
-                "when": {"type": "format_on_web", "params": {}},
-            }
-        ],
-    }
+def test_rules_invalid_type_rejected(tmp_path: Path) -> None:
+    bad = {"subset_max_glyphs": -5}  # ge=0 violated
     with _client(tmp_path, config_dir=tmp_path / "config") as client:
         assert client.put("/api/config/rules", json=bad).status_code == 422
 

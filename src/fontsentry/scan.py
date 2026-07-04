@@ -29,11 +29,11 @@ from fontsentry.models import (
     DomainReport,
     EmbeddingMethod,
     Finding,
-    FindingStatus,
     FontFormat,
     HostAsset,
+    LicenseVerdict,
+    PrivacyClass,
     Registry,
-    RiskBand,
     RulesConfig,
     RunReport,
     Settings,
@@ -73,14 +73,20 @@ def _build_domain_reports(
     """Pivot the scan into a per-domain view: hosts, subdomains, and fonts used."""
 
     # Findings are keyed by (family, owner); the per-domain view pivots on family
-    # alone, so if one family split across owners, surface its worst band here.
-    _band_rank = {RiskBand.LOW: 0, RiskBand.MEDIUM: 1, RiskBand.HIGH: 2}
+    # alone, so if one family split across owners, surface its worst verdict here.
+    _verdict_rank = {
+        LicenseVerdict.OK: 0,
+        LicenseVerdict.NEEDS_CHECK: 1,
+        LicenseVerdict.VIOLATION: 2,
+    }
     finding_by_family: dict[str, Finding] = {}
     for f in findings:
         key = f.family.strip().lower()
+        rank = _verdict_rank[f.license_verdict]
         current = finding_by_family.get(key)
-        if current is None or _band_rank[f.band] > _band_rank[current.band]:
-            finding_by_family[key] = f
+        if current is not None and rank <= _verdict_rank[current.license_verdict]:
+            continue
+        finding_by_family[key] = f
     reports: list[DomainReport] = []
 
     for target in targets:
@@ -105,12 +111,14 @@ def _build_domain_reports(
         fonts: list[DomainFont] = []
         for family, used in sorted(usage.items(), key=lambda kv: kv[0].lower()):
             finding = finding_by_family.get(family.strip().lower())
+            verdict = finding.license_verdict if finding else LicenseVerdict.NEEDS_CHECK
             fonts.append(
                 DomainFont(
                     family=family,
                     owner=finding.owner if finding else None,
-                    band=finding.band if finding else RiskBand.LOW,
-                    status=finding.status if finding else FindingStatus.OPEN,
+                    license_verdict=verdict,
+                    license_reason=finding.license_reason if finding else "",
+                    privacy=finding.privacy if finding else PrivacyClass.NOT_APPLICABLE,
                     embeddings=sorted(used.embeddings, key=lambda e: e.value),
                     formats=sorted(used.formats, key=lambda f: f.value),
                     hosts=sorted(used.hosts),

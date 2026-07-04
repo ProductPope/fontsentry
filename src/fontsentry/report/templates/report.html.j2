@@ -11,9 +11,9 @@
     --tk-ink: #1c1c1a;
     --tk-muted: #6b6b66;
     --tk-border: #e2e2dd;
-    --tk-low: #277a42;
-    --tk-medium: #8a5b00;
-    --tk-high: #c0392b;
+    --tk-ok: #277a42;
+    --tk-needs_check: #8a5b00;
+    --tk-violation: #c0392b;
     --tk-resolved: #6b6b66;
     --tk-space: 1rem;
     --tk-radius: 8px;
@@ -54,14 +54,11 @@
   th { background: #efeeea; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; }
   tr:last-child td { border-bottom: none; }
   .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #fff; }
-  .band-low { background: var(--tk-low); }
-  .band-medium { background: var(--tk-medium); }
-  .band-high { background: var(--tk-high); }
-  .status-resolved { color: var(--tk-resolved); }
-  .status-open { color: var(--tk-high); font-weight: 600; }
-  .rules { color: var(--tk-muted); font-size: 0.85rem; }
+  .verdict-ok { background: var(--tk-ok); }
+  .verdict-needs_check { background: var(--tk-needs_check); }
+  .verdict-violation { background: var(--tk-violation); }
+  .reason { color: var(--tk-muted); font-size: 0.85rem; }
   .domains { color: var(--tk-muted); font-size: 0.85rem; }
-  .score { font-variant-numeric: tabular-nums; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -71,17 +68,16 @@
     schema v{{ report.schema_version }}</p>
 
   <p class="disclaimer">
-    <strong>Heuristic estimate, not legal advice.</strong> A high score means the
-    font is worth a human checking its license — not that any infringement has
-    occurred. Confirm with the owner or your legal team.
+    <strong>A deterministic aid, not legal advice.</strong> A verdict of Violation or
+    Need check means a font is worth a human review — not a legal determination.
+    Confirm with the owner or your legal team.
   </p>
 
   <section class="cards" aria-label="Summary">
-    <div class="card"><div class="n">{{ report.summary.total_findings }}</div><div class="l">Findings</div></div>
-    <div class="card"><div class="n">{{ report.summary.open_findings }}</div><div class="l">Open</div></div>
-    <div class="card"><div class="n">{{ report.summary.resolved_findings }}</div><div class="l">Resolved</div></div>
-    {% for band, count in report.summary.by_band.items() %}
-    <div class="card"><div class="n">{{ count }}</div><div class="l">{{ band.value }}</div></div>
+    <div class="card"><div class="n">{{ report.summary.total_findings }}</div><div class="l">Fonts</div></div>
+    <div class="card"><div class="n">{{ report.summary.needs_action }}</div><div class="l">Need action</div></div>
+    {% for verdict, count in report.summary.by_verdict.items() %}
+    <div class="card"><div class="n">{{ count }}</div><div class="l">{{ verdict.value.replace("_", " ") }}</div></div>
     {% endfor %}
   </section>
 
@@ -94,10 +90,8 @@
         <th scope="col">Embedding</th>
         <th scope="col">Format</th>
         <th scope="col">Domains</th>
-        <th scope="col">Score</th>
-        <th scope="col">Band</th>
-        <th scope="col">Status</th>
-        <th scope="col">Triggered rules</th>
+        <th scope="col">License</th>
+        <th scope="col">Privacy</th>
       </tr>
     </thead>
     <tbody>
@@ -111,16 +105,14 @@
           {{ f.domain_count }}
           <div class="domains">{{ f.domains | join(", ") }}</div>
         </td>
-        <td class="score">{{ f.score }}</td>
-        <td><span class="badge band-{{ f.band.value }}">{{ f.band.value }}</span></td>
-        <td class="status-{{ f.status.value }}">{{ f.status.value }}</td>
-        <td class="rules">
-          {% if f.triggered_rules %}
-            {{ f.triggered_rules | map(attribute="id") | join(", ") }}
-          {% elif f.suppression_reason %}
-            {{ f.suppression_reason }}
-          {% else %}—{% endif %}
+        <td>
+          <span class="badge verdict-{{ f.license_verdict.value }}">{{ f.license_verdict.value.replace("_", " ") }}</span>
+          <div class="reason">
+            {{ f.license_reason }}
+            {% if f.evidence_notes %}<br>({{ f.evidence_notes | join("; ") }}){% endif %}
+          </div>
         </td>
+        <td>{{ f.privacy.value.replace("_", " ") }}</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -11,30 +11,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fontsentry import config
-from fontsentry.models import CrawlSettings
-from fontsentry.risk.rules import known_predicate_types
+from fontsentry.models import CrawlSettings, RulesConfig
 
 
 def _read(repo_root: Path, rel: str) -> str:
     return (repo_root / rel).read_text(encoding="utf-8")
 
 
-def test_every_rule_predicate_is_documented(repo_root: Path) -> None:
+def test_every_classification_key_is_documented(repo_root: Path) -> None:
     rules_doc = _read(repo_root, "docs/rules.md")
-    undocumented = sorted(p for p in known_predicate_types() if p not in rules_doc)
+    undocumented = sorted(f for f in RulesConfig.model_fields if f not in rules_doc)
     assert not undocumented, (
-        f"condition predicates missing from docs/rules.md: {undocumented}. "
-        "Add them to the condition-types table."
-    )
-
-
-def test_every_default_rule_id_is_documented(repo_root: Path) -> None:
-    rules = config.load_rules(repo_root / "config" / "rules.example.yaml")
-    rules_doc = _read(repo_root, "docs/rules.md")
-    undocumented = sorted(r.id for r in rules.rules if r.id not in rules_doc)
-    assert not undocumented, (
-        f"rule ids in rules.example.yaml missing from docs/rules.md: {undocumented}."
+        f"classification config keys missing from docs/rules.md: {undocumented}. "
+        "Document them in the classification reference."
     )
 
 

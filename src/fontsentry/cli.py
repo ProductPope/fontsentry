@@ -47,14 +47,11 @@ def main() -> None:
 
 def _print_summary(report: RunReport) -> None:
     s = report.summary
-    console.print(
-        f"[bold]{s.total_findings}[/] findings · "
-        f"[red]{s.open_findings} open[/] · {s.resolved_findings} resolved"
-    )
+    console.print(f"[bold]{s.total_findings}[/] fonts · [red]{s.needs_action} need action[/]")
     table = Table(show_header=True, header_style="bold")
-    for col in ("Font", "Owner", "Embedding", "Format", "Domains", "Score", "Band", "Status"):
+    for col in ("Font", "Owner", "Embedding", "Format", "Domains", "License", "Privacy"):
         table.add_column(col)
-    band_color = {"low": "green", "medium": "yellow", "high": "red"}
+    verdict_color = {"ok": "green", "needs_check": "yellow", "violation": "red"}
     for f in report.findings:
         table.add_row(
             f.family,
@@ -62,9 +59,8 @@ def _print_summary(report: RunReport) -> None:
             ", ".join(e.value for e in f.embeddings) or "—",
             ", ".join(fmt.value for fmt in f.formats) or "—",
             str(f.domain_count),
-            str(f.score),
-            f"[{band_color[f.band.value]}]{f.band.value}[/]",
-            f.status.value,
+            f"[{verdict_color[f.license_verdict.value]}]{f.license_verdict.value}[/]",
+            f.privacy.value,
         )
     console.print(table)
 
@@ -147,12 +143,12 @@ def _print_diff(result: DiffResult) -> None:
         console.print("[green]No changes since the previous run.[/]")
         return
     for f in result.new_findings:
-        console.print(f"[red]NEW[/]      {f.family} ({f.owner or '—'}) score={f.score}")
+        console.print(f"[red]NEW[/]      {f.family} ({f.owner or '—'}) {f.license_verdict.value}")
     for f in result.resolved_findings:
         console.print(f"[green]RESOLVED[/] {f.family} ({f.owner or '—'})")
     for d in result.changed:
         console.print(
-            f"[yellow]CHANGED[/]  {d.family} score {d.old_score}->{d.new_score} "
+            f"[yellow]CHANGED[/]  {d.family} {d.old_verdict.value}->{d.new_verdict.value} "
             f"domains {len(d.old_domains)}->{len(d.new_domains)}"
         )
 
@@ -230,7 +226,7 @@ def serve(
 def rules_validate(
     rules_file: Path = typer.Option(Path("config/rules.yaml"), "--file", help="Rules YAML file."),
 ) -> None:
-    """Sanity-check the rule file (schema + known condition types)."""
+    """Sanity-check the classification config (schema + known enum values)."""
 
     rules = config.load_rules(rules_file)
     errors = validate_rules(rules)
@@ -238,7 +234,7 @@ def rules_validate(
         for e in errors:
             err_console.print(f"[red]✗[/] {e}")
         raise typer.Exit(1)
-    console.print(f"[green]✓[/] rules OK ({len(rules.rules)} rules)")
+    console.print("[green]✓[/] classification config OK")
 
 
 if __name__ == "__main__":

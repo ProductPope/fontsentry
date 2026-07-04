@@ -15,8 +15,8 @@ from pathlib import Path
 from fontsentry.models import (
     DomainReport,
     Finding,
-    FindingStatus,
-    RiskBand,
+    LicenseVerdict,
+    PrivacyClass,
     RunReport,
     RunSummary,
 )
@@ -27,13 +27,13 @@ _TIMESTAMP_FORMAT = "%Y%m%dT%H%M%SZ"
 
 
 def build_summary(findings: list[Finding]) -> RunSummary:
-    band_counts: Counter[RiskBand] = Counter(f.band for f in findings)
-    open_count = sum(1 for f in findings if f.status is FindingStatus.OPEN)
+    verdict_counts: Counter[LicenseVerdict] = Counter(f.license_verdict for f in findings)
+    privacy_counts: Counter[PrivacyClass] = Counter(f.privacy for f in findings)
     return RunSummary(
         total_findings=len(findings),
-        open_findings=open_count,
-        resolved_findings=len(findings) - open_count,
-        by_band={band: band_counts.get(band, 0) for band in RiskBand},
+        needs_action=sum(1 for f in findings if f.needs_action),
+        by_verdict={v: verdict_counts.get(v, 0) for v in LicenseVerdict},
+        by_privacy={p: privacy_counts.get(p, 0) for p in PrivacyClass},
     )
 
 
