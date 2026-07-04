@@ -72,6 +72,12 @@ async def test_atlas_is_high_risk_cross_domain(findings: dict[str, Finding]) -> 
 
 
 async def test_report_records_duration(report: RunReport) -> None:
+    # `>= 0` alone is always true; assert the real contract: a finite float, not
+    # None/NaN/inf. (Value can round to 0.0 for a fast demo scan, so no threshold.)
+    import math
+
+    assert isinstance(report.duration_seconds, float)
+    assert math.isfinite(report.duration_seconds)
     assert report.duration_seconds >= 0
 
 
