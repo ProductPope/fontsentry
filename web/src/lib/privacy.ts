@@ -36,14 +36,6 @@ export function isPrivacyFlagged(f: Finding): boolean {
   return f.privacy === "third_party_api" || f.privacy === "mixed";
 }
 
-// Worth the operator's attention: an open license concern (medium+ and not
-// already covered by the registry) OR a privacy concern. Open/free low-risk
-// fonts fall out of this — that's the default "ignore free licenses" view.
-export function needsAction(f: Finding): boolean {
-  const licenseConcern = f.status === "open" && f.band !== "low";
-  return licenseConcern || isPrivacyFlagged(f);
-}
-
 // Plain-language GDPR/RODO recommendation, or null when delivery is clean.
 export function privacyAdvice(f: Finding): string | null {
   if (!isPrivacyFlagged(f)) return null;

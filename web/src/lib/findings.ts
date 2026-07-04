@@ -1,8 +1,9 @@
 // Pure logic for the findings view — extracted from FindingsTable so it can be
 // unit-tested without rendering. No React here.
-import type { Band, Finding } from "./api";
+import type { Finding, LicenseVerdict } from "./api";
 
-const BAND_ORDER: Record<Band, number> = { low: 0, medium: 1, high: 2 };
+// Most-attention-worthy first.
+const VERDICT_ORDER: Record<LicenseVerdict, number> = { violation: 2, needs_check: 1, ok: 0 };
 
 export interface Group {
   key: string;
@@ -20,11 +21,18 @@ export function findingKey(f: Finding): string {
   return `${f.family}::${f.owner ?? ""}`;
 }
 
-/** The most severe band across a set of findings. */
-export function worstBand(findings: Finding[]): Band {
-  return findings.reduce<Band>(
-    (worst, f) => (BAND_ORDER[f.band] > BAND_ORDER[worst] ? f.band : worst),
-    "low",
+/** The most severe license verdict across a set of findings. */
+export function worstVerdict(findings: Finding[]): LicenseVerdict {
+  return findings.reduce<LicenseVerdict>(
+    (worst, f) => (VERDICT_ORDER[f.license_verdict] > VERDICT_ORDER[worst] ? f.license_verdict : worst),
+    "ok",
+  );
+}
+
+/** A finding a human should look at: a license concern or a privacy leak. */
+export function needsAction(f: Finding): boolean {
+  return (
+    f.license_verdict !== "ok" || f.privacy === "third_party_api" || f.privacy === "mixed"
   );
 }
 
@@ -35,19 +43,23 @@ export function isSystemOnly(f: Finding): boolean {
 
 /** Plain-language next step for a non-technical operator. */
 export function actionText(f: Finding): string {
-  if (f.status === "resolved") {
-    return "No action needed — a matching license in your Registry already covers this.";
+  if (f.license_verdict === "violation") {
+    return `${f.license_reason}. Confirm the license, or record it under Registry if you own one.`;
+  }
+  if (f.license_verdict === "ok") {
+    return "No action needed for licensing — this font is covered or provably open.";
   }
   if (isSystemOnly(f)) {
     return "This is a system / fallback font (not embedded on the page). Usually nothing to do.";
   }
   return (
-    "If you own a license that permits this use, add it under Registry — the same owner and " +
-    "font family, plus the domains it covers. On the next scan this clears automatically."
+    "No license on record and not provably open. If you own a license that permits this use, " +
+    "add it under Registry — the same owner and font family, plus the domains it covers. On the " +
+    "next scan this clears automatically."
   );
 }
 
-/** Fold findings into groups by base family, ordered by each group's top score. */
+/** Fold findings into groups by base family, ordered by each group's worst verdict. */
 export function groupFindings(rows: Finding[], desc: boolean): Group[] {
   const map = new Map<string, Group>();
   for (const f of rows) {
@@ -56,6 +68,6 @@ export function groupFindings(rows: Finding[], desc: boolean): Group[] {
     if (g) g.findings.push(f);
     else map.set(key, { key, label: f.family_group || f.family, findings: [f] });
   }
-  const scoreOf = (g: Group) => Math.max(...g.findings.map((f) => f.score));
-  return [...map.values()].sort((a, b) => (desc ? scoreOf(b) - scoreOf(a) : scoreOf(a) - scoreOf(b)));
+  const rankOf = (g: Group) => VERDICT_ORDER[worstVerdict(g.findings)];
+  return [...map.values()].sort((a, b) => (desc ? rankOf(b) - rankOf(a) : rankOf(a) - rankOf(b)));
 }

@@ -4,13 +4,18 @@ import { Card } from "../components/Card";
 import { TextInput } from "../components/TextInput";
 import type { ToastKind } from "../components/Toast";
 import { api } from "../lib/api";
-import type { Rule, RulesConfig } from "../lib/api";
+import type { RulesConfig } from "../lib/api";
 
-const TH = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]";
+const toLines = (xs: string[]) => xs.join("\n");
+const fromLines = (s: string) =>
+  s
+    .split("\n")
+    .map((x) => x.trim())
+    .filter(Boolean);
 
-// Editable subset: weights, confidences, and the band thresholds. A rule's
-// condition (predicate type + params) is code-backed vocabulary and stays
-// read-only here — tune those in rules.yaml directly.
+// Editable classification data (ADR 0003): the deterministic engine reads these
+// lists — no weights or thresholds. Structured lists (open_families,
+// paid_tier_families) stay read-only here; edit those in rules.yaml.
 export function RulesScreen({ notify }: { notify: (message: string, kind: ToastKind) => void }) {
   const [config, setConfig] = useState<RulesConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,27 +31,8 @@ export function RulesScreen({ notify }: { notify: (message: string, kind: ToastK
       .finally(() => setLoading(false));
   }, [notify]);
 
-  function updateScoring(patch: { max_raw?: number; medium?: number; high?: number }) {
-    setConfig((c) =>
-      c === null
-        ? c
-        : {
-            ...c,
-            scoring: {
-              max_raw: patch.max_raw ?? c.scoring.max_raw,
-              bands: {
-                medium: patch.medium ?? c.scoring.bands.medium,
-                high: patch.high ?? c.scoring.bands.high,
-              },
-            },
-          },
-    );
-  }
-
-  function updateRule(index: number, patch: Partial<Pick<Rule, "weight" | "confidence">>) {
-    setConfig((c) =>
-      c === null ? c : { ...c, rules: c.rules.map((r, i) => (i === index ? { ...r, ...patch } : r)) },
-    );
+  function patch(update: Partial<RulesConfig>) {
+    setConfig((c) => (c === null ? c : { ...c, ...update }));
   }
 
   async function save() {
@@ -55,7 +41,7 @@ export function RulesScreen({ notify }: { notify: (message: string, kind: ToastK
     try {
       const saved = await api.saveRules(config);
       setConfig(saved);
-      notify("Saved scoring rules", "success");
+      notify("Saved classification config", "success");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Could not save rules", "error");
     } finally {
@@ -66,11 +52,11 @@ export function RulesScreen({ notify }: { notify: (message: string, kind: ToastK
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-base font-semibold">Rules</h2>
+        <h2 className="text-base font-semibold">Classification</h2>
         <p className="text-sm text-muted">
-          The scoring engine. Each rule that matches a font contributes weight × confidence to its
-          raw score; the raw score is normalized against Max raw and mapped to a band by the
-          thresholds below. Conditions are code-backed and read-only here.
+          The deterministic verdict engine. These lists decide when a font is provably OK, a
+          definite violation, or worth a check. No weights or scores — see{" "}
+          <span className="font-mono">docs/rules.md</span> for the decision order.
         </p>
       </div>
 
@@ -78,85 +64,68 @@ export function RulesScreen({ notify }: { notify: (message: string, kind: ToastK
         <p className="text-sm text-muted">Loading…</p>
       ) : (
         <>
-          <Card className="flex flex-wrap items-end gap-4">
-            <Num
-              label="Max raw"
-              value={config.scoring.max_raw}
-              min={1}
-              onChange={(v) => updateScoring({ max_raw: v })}
+          <Card className="grid gap-5 sm:grid-cols-2">
+            <ListField
+              label="Open license patterns"
+              hint="Substrings in the font's license/copyright → OK"
+              value={config.open_license_patterns}
+              onChange={(v) => patch({ open_license_patterns: v })}
             />
-            <Num
-              label="Medium band ≥"
-              value={config.scoring.bands.medium}
-              min={0}
-              max={100}
-              onChange={(v) => updateScoring({ medium: v })}
+            <ListField
+              label="Free owners"
+              hint="Foundries whose fonts are free → OK"
+              value={config.free_owners}
+              onChange={(v) => patch({ free_owners: v })}
             />
-            <Num
-              label="High band ≥"
-              value={config.scoring.bands.high}
-              min={0}
-              max={100}
-              onChange={(v) => updateScoring({ high: v })}
+            <ListField
+              label="Self-host prohibited — owners"
+              hint="Self-hosting these owners → Violation"
+              value={config.self_host_prohibited.owners}
+              onChange={(v) =>
+                patch({ self_host_prohibited: { ...config.self_host_prohibited, owners: v } })
+              }
+            />
+            <ListField
+              label="Self-host prohibited — families"
+              hint="Self-hosting these families → Violation"
+              value={config.self_host_prohibited.families}
+              onChange={(v) =>
+                patch({ self_host_prohibited: { ...config.self_host_prohibited, families: v } })
+              }
+            />
+            <ListField
+              label="Paid CDNs (evidence)"
+              hint="Embedding methods, e.g. adobe_fonts"
+              value={config.paid_cdns}
+              onChange={(v) => patch({ paid_cdns: v })}
+            />
+            <ListField
+              label="Desktop formats (evidence)"
+              hint="Formats rarely licensed for the web, e.g. ttf, otf"
+              value={config.desktop_formats}
+              onChange={(v) => patch({ desktop_formats: v })}
             />
           </Card>
 
-          <div className="overflow-x-auto rounded-card border border-stroke">
-            <table className="w-full border-collapse bg-surface text-sm">
-              <thead>
-                <tr className="bg-surface2 text-left text-muted">
-                  <th scope="col" className={TH}>
-                    Rule
-                  </th>
-                  <th scope="col" className={TH}>
-                    Condition
-                  </th>
-                  <th scope="col" className={`${TH} w-28`}>
-                    Weight
-                  </th>
-                  <th scope="col" className={`${TH} w-32`}>
-                    Confidence
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {config.rules.map((r, i) => (
-                  <tr key={r.id} className="border-t border-stroke align-top">
-                    <td className="px-4 py-2">
-                      <div className="font-medium">{r.id}</div>
-                      {r.description && (
-                        <div className="mt-0.5 text-xs text-muted">{r.description}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs text-muted">{r.when.type}</td>
-                    <td className="px-4 py-2">
-                      <TextInput
-                        aria-label={`Weight for ${r.id}`}
-                        type="number"
-                        min={0}
-                        value={r.weight}
-                        onChange={(e) => updateRule(i, { weight: Number(e.target.value) })}
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <TextInput
-                        aria-label={`Confidence for ${r.id}`}
-                        type="number"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={r.confidence}
-                        onChange={(e) => updateRule(i, { confidence: Number(e.target.value) })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card className="flex flex-wrap items-end gap-4">
+            <label className="text-sm">
+              <span className="mb-1 block font-medium">Subset max glyphs (evidence)</span>
+              <TextInput
+                type="number"
+                min={0}
+                value={config.subset_max_glyphs}
+                onChange={(e) => patch({ subset_max_glyphs: Number(e.target.value) })}
+                className="w-32 font-mono"
+              />
+            </label>
+            <p className="text-xs text-muted">
+              Structured lists (open families, paid-tier families) are edited in{" "}
+              <span className="font-mono">rules.yaml</span>.
+            </p>
+          </Card>
 
           <Button onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save rules"}
+            {saving ? "Saving…" : "Save classification"}
           </Button>
         </>
       )}
@@ -164,30 +133,27 @@ export function RulesScreen({ notify }: { notify: (message: string, kind: ToastK
   );
 }
 
-function Num({
+function ListField({
   label,
+  hint,
   value,
-  min,
-  max,
   onChange,
 }: {
   label: string;
-  value: number;
-  min?: number;
-  max?: number;
-  onChange: (value: number) => void;
+  hint: string;
+  value: string[];
+  onChange: (value: string[]) => void;
 }) {
   return (
-    <label className="text-sm">
+    <label className="block text-sm">
       <span className="mb-1 block font-medium">{label}</span>
-      <TextInput
-        type="number"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-32 font-mono"
+      <textarea
+        value={toLines(value)}
+        onChange={(e) => onChange(fromLines(e.target.value))}
+        rows={4}
+        className="w-full rounded-tk border border-stroke bg-surface px-3 py-2 font-mono text-xs text-ink"
       />
+      <span className="mt-1 block text-xs text-faint">{hint} · one per line</span>
     </label>
   );
 }

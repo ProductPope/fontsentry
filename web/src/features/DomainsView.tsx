@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { RiskBadge, StatusText } from "../components/Badge";
+import { PrivacyText, VerdictBadge } from "../components/Badge";
 import { Select } from "../components/Select";
 import { api } from "../lib/api";
 import { safeHref } from "../lib/url";
-import type { Band, DomainReport, Status } from "../lib/api";
+import type { DomainReport, LicenseVerdict, PrivacyClass } from "../lib/api";
 
 // Comp table-header cell: small uppercase, wide tracking.
 const TH = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]";
@@ -20,8 +20,8 @@ interface HostRow {
   owner: string | null;
   embeddings: string[];
   formats: string[];
-  band: Band;
-  status: Status;
+  verdict: LicenseVerdict;
+  privacy: PrivacyClass;
   assetUrls: string[];
 }
 
@@ -47,8 +47,8 @@ function toRows(domains: DomainReport[]): HostRow[] {
           owner: f.owner,
           embeddings: f.embeddings,
           formats: f.formats,
-          band: f.band,
-          status: f.status,
+          verdict: f.license_verdict,
+          privacy: f.privacy,
           assetUrls: f.assets.find((a) => a.host === host)?.urls ?? [],
         });
       }
@@ -67,7 +67,7 @@ export function DomainsView({
   source?: "real" | "demo";
 }) {
   const [domainFilter, setDomainFilter] = useState("all");
-  const [band, setBand] = useState<Band | "all">("all");
+  const [verdict, setVerdict] = useState<LicenseVerdict | "all">("all");
   // (domain, family) -> earliest run it appeared in, across all reports on disk.
   const [firstSeen, setFirstSeen] = useState<Map<string, string>>(new Map());
 
@@ -85,8 +85,8 @@ export function DomainsView({
   const rows = useMemo(() => {
     return toRows(domains)
       .filter((r) => (domainFilter === "all" ? true : r.domain === domainFilter))
-      .filter((r) => (band === "all" ? true : r.band === band));
-  }, [domains, domainFilter, band]);
+      .filter((r) => (verdict === "all" ? true : r.verdict === verdict));
+  }, [domains, domainFilter, verdict]);
 
   if (domains.length === 0) {
     return <p className="text-muted">This run has no domain data (older report).</p>;
@@ -107,12 +107,15 @@ export function DomainsView({
           </Select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block font-medium">Band</span>
-          <Select value={band} onChange={(e) => setBand(e.target.value as Band | "all")}>
+          <span className="mb-1 block font-medium">License</span>
+          <Select
+            value={verdict}
+            onChange={(e) => setVerdict(e.target.value as LicenseVerdict | "all")}
+          >
             <option value="all">all</option>
-            <option value="high">high</option>
-            <option value="medium">medium</option>
-            <option value="low">low</option>
+            <option value="violation">violation</option>
+            <option value="needs_check">needs check</option>
+            <option value="ok">ok</option>
           </Select>
         </label>
       </div>
@@ -141,10 +144,10 @@ export function DomainsView({
                 Source
               </th>
               <th scope="col" className={TH}>
-                Band
+                License
               </th>
               <th scope="col" className={TH}>
-                Status
+                Privacy
               </th>
               <th scope="col" className={TH}>
                 First seen
@@ -180,10 +183,10 @@ export function DomainsView({
                   )}
                 </td>
                 <td className="px-4 py-2">
-                  <RiskBadge band={r.band} />
+                  <VerdictBadge verdict={r.verdict} />
                 </td>
                 <td className="px-4 py-2">
-                  <StatusText status={r.status} />
+                  <PrivacyText privacy={r.privacy} />
                 </td>
                 <td className="px-4 py-2 font-mono text-xs text-muted">
                   {firstSeen.get(key(r.domain, r.family))?.slice(0, 10) ?? "—"}

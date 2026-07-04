@@ -10,7 +10,7 @@ import { Faq } from "./Faq";
 import { FindingsTable } from "./FindingsTable";
 import { GettingStarted } from "./GettingStarted";
 import { api } from "../lib/api";
-import type { Band, DiffResult, RunMeta, RunReport } from "../lib/api";
+import type { DiffResult, LicenseVerdict, RunMeta, RunReport } from "../lib/api";
 import { isPrivacyFlagged } from "../lib/privacy";
 
 export type View = "fonts" | "domains";
@@ -20,16 +20,18 @@ const TABS = [
   { id: "domains", label: "Domains" },
 ];
 
-const BAND_TONE: Record<Band, string> = {
-  high: "text-band-high",
-  medium: "text-band-medium",
-  low: "text-band-low",
+const VERDICT_TONE: Record<LicenseVerdict, string> = {
+  violation: "text-band-high",
+  needs_check: "text-band-medium",
+  ok: "text-band-low",
 };
 
-function openByBand(report: RunReport): Record<Band, number> {
-  const byBand: Record<Band, number> = { high: 0, medium: 0, low: 0 };
-  for (const f of report.findings) if (f.status === "open") byBand[f.band] += 1;
-  return byBand;
+type VerdictCounts = Record<LicenseVerdict, number>;
+
+function countByVerdict(report: RunReport): VerdictCounts {
+  const counts: VerdictCounts = { violation: 0, needs_check: 0, ok: 0 };
+  for (const f of report.findings) counts[f.license_verdict] += 1;
+  return counts;
 }
 
 function deltaText(d: number): string {
@@ -68,9 +70,7 @@ export function OverviewScreen({
 }: OverviewScreenProps) {
   // Previous run (chronologically before the selected one) for "vs last run"
   // deltas. runs are newest-first, so the previous run is the next index.
-  const [prev, setPrev] = useState<{ byBand: Record<Band, number>; suppressed: number } | null>(
-    null,
-  );
+  const [prev, setPrev] = useState<{ byVerdict: VerdictCounts } | null>(null);
 
   useEffect(() => {
     const i = runs.findIndex((r) => r.id === selectedId);
@@ -84,10 +84,7 @@ export function OverviewScreen({
       .getRun(prevId, source)
       .then((rep) => {
         if (cancelled) return;
-        setPrev({
-          byBand: openByBand(rep),
-          suppressed: rep.findings.filter((f) => f.status === "resolved").length,
-        });
+        setPrev({ byVerdict: countByVerdict(rep) });
       })
       .catch(() => setPrev(null));
     return () => {
@@ -117,17 +114,18 @@ export function OverviewScreen({
 
   const stats = useMemo(() => {
     if (report === null) return null;
-    const byBand = openByBand(report);
-    const suppressed = report.findings.filter((f) => f.status === "resolved").length;
+    const byVerdict = countByVerdict(report);
     const domains = report.domains.length;
     const live = report.domains.filter((d) => d.is_live).length;
-    const clean = report.domains.filter((d) => d.fonts.every((f) => f.status !== "open")).length;
+    const clean = report.domains.filter((d) =>
+      d.fonts.every((f) => f.license_verdict === "ok"),
+    ).length;
     const privacyFlagged = report.findings.filter(isPrivacyFlagged).length;
-    return { byBand, suppressed, domains, live, unreachable: domains - live, clean, privacyFlagged };
+    return { byVerdict, domains, live, unreachable: domains - live, clean, privacyFlagged };
   }, [report]);
 
-  // Trend of active (open) findings across every run, oldest → newest.
-  const trend = useMemo(() => [...runs].reverse().map((r) => r.summary.open_findings), [runs]);
+  // Trend of findings needing action across every run, oldest → newest.
+  const trend = useMemo(() => [...runs].reverse().map((r) => r.summary.needs_action), [runs]);
 
   const sourceToggle = (
     <div role="group" aria-label="Data source" className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
@@ -165,8 +163,8 @@ export function OverviewScreen({
     );
   }
 
-  const currentOpen = stats ? stats.byBand.high + stats.byBand.medium + stats.byBand.low : 0;
-  const prevOpen = prev ? prev.byBand.high + prev.byBand.medium + prev.byBand.low : null;
+  const currentOpen = stats ? stats.byVerdict.violation + stats.byVerdict.needs_check : 0;
+  const prevOpen = prev ? prev.byVerdict.violation + prev.byVerdict.needs_check : null;
 
   return (
     <div className="space-y-5">
@@ -213,28 +211,27 @@ export function OverviewScreen({
           <h2 className="sr-only">Risk posture</h2>
           <section aria-label="Risk posture" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Posture
-              label="High"
-              count={stats.byBand.high}
-              tone={BAND_TONE.high}
-              delta={prev ? stats.byBand.high - prev.byBand.high : undefined}
+              label="Violation"
+              count={stats.byVerdict.violation}
+              tone={VERDICT_TONE.violation}
+              delta={prev ? stats.byVerdict.violation - prev.byVerdict.violation : undefined}
             />
             <Posture
-              label="Medium"
-              count={stats.byBand.medium}
-              tone={BAND_TONE.medium}
-              delta={prev ? stats.byBand.medium - prev.byBand.medium : undefined}
+              label="Need check"
+              count={stats.byVerdict.needs_check}
+              tone={VERDICT_TONE.needs_check}
+              delta={prev ? stats.byVerdict.needs_check - prev.byVerdict.needs_check : undefined}
             />
             <Posture
-              label="Low"
-              count={stats.byBand.low}
-              tone={BAND_TONE.low}
-              delta={prev ? stats.byBand.low - prev.byBand.low : undefined}
+              label="OK"
+              count={stats.byVerdict.ok}
+              tone={VERDICT_TONE.ok}
+              delta={prev ? stats.byVerdict.ok - prev.byVerdict.ok : undefined}
             />
             <Posture
-              label="Suppressed"
-              count={stats.suppressed}
-              tone="text-muted"
-              delta={prev ? stats.suppressed - prev.suppressed : undefined}
+              label="Privacy"
+              count={stats.privacyFlagged}
+              tone="text-band-medium"
             />
           </section>
 
@@ -297,7 +294,7 @@ export function OverviewScreen({
                 <ChangeRow
                   tone="text-band-medium"
                   label="Changed"
-                  items={diff.changed.map((c) => `${c.family} (${c.old_score}→${c.new_score})`)}
+                  items={diff.changed.map((c) => `${c.family} (${c.old_verdict}→${c.new_verdict})`)}
                 />
               )}
             </div>

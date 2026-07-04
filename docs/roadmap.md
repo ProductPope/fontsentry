@@ -81,7 +81,7 @@ artifacts (FP), missed (FN). This turns the "we found unknown fonts" anecdote in
 a number. Independent of the judgement layer, so it runs here.
 **Done:** published precision/recall for detection in `methodology.md`.
 
-### 6 — Deterministic verdicts (ADR 0003)  · L · risk: medium (core change)  · ⬅ NEXT
+### 6 — Deterministic verdicts (ADR 0003)  · L · risk: medium (core change)  · ✅ DONE
 The one judgement-layer change. Replace the weighted engine with the decision
 table: privacy verdict + licence verdict (`COVERED` / `VIOLATION` / `OPEN` /
 `UNKNOWN` / `SYSTEM`) with explicit reasons; soft signals become evidence notes.
