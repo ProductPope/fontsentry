@@ -59,5 +59,8 @@ jobs:
       - name: Accessibility lint (jsx-a11y)
         run: npm run lint
 
+      - name: Unit tests + coverage floor
+        run: npm run test:coverage
+
       - name: Build (tsc + vite)
         run: npm run build

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Frontend test suite (Vitest + React Testing Library)**: behavioural tests for
+  the findings table (variant grouping, "needs action" filter, sort/expand, a11y
+  labels) and unit tests for the `web/src/lib` logic, with a CI-enforced coverage
+  floor on the pure-logic modules. `npm test` / `npm run test:coverage`.
 - `SECURITY.md` (private reporting + threat model) and GitHub issue templates.
 
 ### Fixed

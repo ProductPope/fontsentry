@@ -104,6 +104,11 @@ generated reports, caches, `.env`. Enforced by `.gitignore` — keep it tight.
 - Tests are 100% offline. Use local fixtures and `httpx.MockTransport`; never the
   live network. Playwright tests are marked `slow` and excluded from default CI.
 - Mirror the package layout under `tests/`.
+- **Frontend:** Vitest + React Testing Library, co-located `*.test.ts(x)` under
+  `web/src`. `npm test` runs them; `npm run test:coverage` enforces a coverage
+  **floor** on the pure-logic modules in `web/src/lib` (a ratchet — widen
+  `coverage.include` in `vite.config.ts` as more modules get unit tests).
+  Components are tested behaviourally (RTL), where line % is a weak metric.
 
 ## Docs stay current (enforced)
 
