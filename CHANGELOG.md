@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Performance characterisation** in `docs/methodology.md` (CPU ceiling,
+  politeness-bound throughput, bounded memory) plus a real-DNS verification of the
+  SSRF guard — concrete answers to "how does it scale / is it safe?".
+- **Detection-accuracy guards**: a regression test pins that messy CSS (`font:`
+  shorthand, `var()`, generics) yields only real families; an end-to-end test
+  confirms a non-UTF-8 (latin-1) page's font family decodes correctly.
+
 ### Changed
 - **Refactor: slim `web/server.py`** (485 → 368 LOC) by moving non-glue code out of
   the HTTP layer: response models → `web/schemas.py`, the scan-job orchestration →

@@ -98,6 +98,24 @@ def test_font_shorthand_system_keyword_yields_no_family() -> None:
     assert css.parse_font_families("button { font: menu; }") == set()
 
 
+def test_realistic_messy_css_yields_only_real_families() -> None:
+    # Precision guard: the `font:` shorthand, var() refs, and generic keywords must
+    # not leak into the family set — only the four real families should survive.
+    text = (
+        'h1 { font: bold 12px/1.5 "Helvetica Neue", sans-serif; }'
+        " p  { font-family: var(--bs-body-font-family), 'Real Font', serif; }"
+        " a  { font: .875rem/1.5 Consolas; }"
+        ' i  { font: normal normal normal 14px/1 "Material-Design-Iconic-Font"; }'
+        " b  { font: menu; }"
+    )
+    assert css.parse_font_families(text) == {
+        "Helvetica Neue",
+        "Real Font",
+        "Consolas",
+        "Material-Design-Iconic-Font",
+    }
+
+
 def test_format_helpers() -> None:
     assert css.format_from_hint("woff2") is FontFormat.WOFF2
     assert css.format_from_hint("'truetype'") is FontFormat.TTF

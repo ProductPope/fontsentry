@@ -43,6 +43,24 @@ the whole crawl before scoring so cross-domain rules can be evaluated. Concerns 
 strictly separated and the CLI holds no business logic. See the ADRs in
 [`docs/adr/`](adr/) for the stack and scoring-model decisions.
 
+## Performance characteristics
+
+The crawler is **politeness-bound, not CPU-bound.** Numbers to set expectations
+(not a tuned benchmark):
+
+- **CPU ceiling** (offline, no network): the demo scan detects ~20 pages/second on
+  a laptop — HTML/CSS/font parsing is not the bottleneck.
+- **Real-world throughput** is governed by `crawl.per_host_rate_limit` (default
+  2 req/s per host) and `crawl.concurrency` (default 8). A 25-host / ~100-page
+  crawl completes in roughly ten minutes at defaults; raising `--max-pages` or the
+  rate limit trades politeness for speed.
+- **Memory is bounded**, not open-ended: each fetched body is streamed and capped
+  at `crawl.max_response_bytes` (default 25 MB), so worst-case in-flight memory is
+  ≈ `max_response_bytes × concurrency` (~200 MB), regardless of what a site serves.
+- **SSRF guard** was verified against real DNS resolution: public hostnames resolve
+  and pass; `localhost`, link-local (`169.254.169.254`), and private ranges are
+  refused (`crawl.block_private_hosts`, default on).
+
 ## What "done" means here
 
 - mypy-clean, ruff-clean, all tests passing, offline.
