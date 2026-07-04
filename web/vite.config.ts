@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+/// <reference types="vitest/config" />
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -14,5 +15,20 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["src/test/setup.ts"],
+    css: false,
+    coverage: {
+      provider: "v8",
+      reporter: ["text-summary"],
+      // Real floor for the pure-logic modules under test (a ratchet, not a
+      // snapshot): expand `include` as more modules get unit tests. Components
+      // are covered behaviourally (see *.test.tsx), where line % is a weak metric.
+      include: ["src/lib/privacy.ts", "src/lib/url.ts", "src/lib/cn.ts"],
+      thresholds: { lines: 90, functions: 90, branches: 85, statements: 90 },
+    },
   },
 });
