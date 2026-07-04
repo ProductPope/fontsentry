@@ -1,7 +1,10 @@
 # 2. Risk-scoring model
 
-- Status: Accepted
+- Status: Superseded by [ADR 0003](0003-deterministic-verdicts.md)
 - Date: 2026-06-30
+
+> Superseded 2026-07-04: the weighted score was unvalidated/unfalsifiable and is
+> replaced by deterministic verdicts. Retained for history.
 
 ## Context
 
