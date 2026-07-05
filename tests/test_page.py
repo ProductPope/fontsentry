@@ -55,9 +55,7 @@ async def test_detect_page_system_font() -> None:
 async def test_detect_page_unknown_delivery_for_unobserved_family() -> None:
     # A non-system family used in font-family with no @font-face (e.g. injected by
     # JavaScript) is UNKNOWN delivery — not a clean system font.
-    stub = _StubFetcher(
-        {PAGE: _page("<style>.x{font-family:'Injected Sans',sans-serif}</style>")}
-    )
+    stub = _StubFetcher({PAGE: _page("<style>.x{font-family:'Injected Sans',sans-serif}</style>")})
     dets = {d.family: d for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
     assert dets["Injected Sans"].embedding is EmbeddingMethod.UNKNOWN
 
