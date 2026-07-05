@@ -32,8 +32,8 @@ no weights, no scores. Each font gets two verdicts, each with an explicit reason
    lapsed license is a violation — the registry check precedes the open check.)*
 3. No registry cover, but provably open (open license string, free owner, or a known
    open family) → **OK**.
-4. No cover and not open: a paid tier by name, or a self-host-prohibited font
-   self-hosted → **VIOLATION**.
+4. No cover and not open: the font's OS/2 `fsType` forbids web embedding, a paid
+   tier by name, or a self-host-prohibited font self-hosted → **VIOLATION**.
 5. Otherwise → **NEEDS_CHECK** with evidence notes.
 
 ## Classification config keys

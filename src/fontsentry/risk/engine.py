@@ -196,6 +196,12 @@ def classify_license(
         return LicenseVerdict.OK, "openly licensed (known open family)", []
 
     # 4. No cover and not open: definite violations.
+    if clf.embedding_forbidden(agg):
+        return (
+            LicenseVerdict.VIOLATION,
+            "the font's embedding bits (OS/2 fsType) forbid web embedding",
+            [],
+        )
     if clf.family_is_paid_tier(agg, rules.paid_tier_families):
         return LicenseVerdict.VIOLATION, "a paid tier is served with no license on record", []
     if clf.self_host_prohibited(

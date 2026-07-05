@@ -95,6 +95,7 @@ class FontMetadata(BaseModel):
     license_url: str | None = None  # name ID 14
     unique_id: str | None = None  # name ID 3
     num_glyphs: int | None = None
+    fs_type: int | None = None  # OS/2 fsType embedding-permission bits
 
 
 class DetectedFont(BaseModel):

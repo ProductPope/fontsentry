@@ -76,6 +76,20 @@ def paid_cdn_delivery(agg: AggregatedFont, paid_cdns: list[str]) -> bool:
     return any(e in wanted for e in agg.embeddings)
 
 
+# OS/2 fsType low bits: Restricted License (0x0002) forbids embedding; Preview &
+# Print (0x0004) permits embedding for preview/print only — neither grants the
+# general web-font embedding a served @font-face relies on.
+_FS_TYPE_NO_WEB_EMBED = 0x0002 | 0x0004
+
+
+def embedding_forbidden(agg: AggregatedFont) -> bool:
+    """True when the font file's OS/2 fsType forbids web embedding."""
+    meta = agg.metadata
+    if meta is None or meta.fs_type is None:
+        return False
+    return bool(meta.fs_type & _FS_TYPE_NO_WEB_EMBED)
+
+
 def missing_license_string(agg: AggregatedFont) -> bool:
     meta = agg.metadata
     if meta is None:

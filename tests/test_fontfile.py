@@ -31,6 +31,13 @@ def test_reads_name_table_fields() -> None:
     assert meta.num_glyphs == 3
 
 
+def test_reads_os2_fstype() -> None:
+    installable, _ = read_font_metadata(build_test_font(fs_type=0))
+    assert installable.fs_type == 0
+    restricted, _ = read_font_metadata(build_test_font(fs_type=0x0002))
+    assert restricted.fs_type == 0x0002
+
+
 def test_woff_flavor_detected() -> None:
     data = build_test_font(flavor="woff")
     _meta, fmt = read_font_metadata(data)
