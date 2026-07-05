@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Source scan** (`fontsentry scan-source PATH`): audit the font files in a
+  local repo/directory offline. Reads every font file's name table and classifies
+  it with the same verdict engine as a live scan — catching self-hosted fonts a
+  crawler can't see because a single-page app injects them at runtime with
+  JavaScript. No network, no browser.
 - **Verdict-rule validation harness** (roadmap Phase 8): a `fontsentry validate`
   command plus a `validation/labels.example.yaml` template compare the tool's
   per-domain verdicts against a human-labelled ground truth — reporting agreement

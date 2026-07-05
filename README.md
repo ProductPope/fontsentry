@@ -97,6 +97,7 @@ License proof PDFs and invoices go in `registry/proofs/` and are never committed
 
 ```
 fontsentry scan              crawl + detect + score + report
+fontsentry scan-source PATH  audit font files in a local repo (offline)
 fontsentry report            re-render HTML from an existing JSON run
 fontsentry diff              compare two runs
 fontsentry registry validate check the registry file and proof paths
@@ -107,6 +108,11 @@ fontsentry rules validate    sanity-check the rule file
 public-subdomain discovery via Certificate Transparency, real mode only),
 `--max-pages N` (override the per-host page cap), `--csv` (also write a findings
 CSV), `--output DIR`.
+
+`scan-source PATH` reads every font file in a checked-out repo/directory and
+classifies each from its own name table (owner, license, OS/2 fsType) with the
+same verdict engine — offline, no crawling. Use it to catch fonts a live scan
+can't see because a single-page app injects them at runtime with JavaScript.
 
 Each finding is scored on two independent axes: **license risk** (Low/Medium/High)
 and **delivery/privacy** — a font served from a third party (e.g. the Google Fonts

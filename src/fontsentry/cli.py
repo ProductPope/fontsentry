@@ -16,13 +16,13 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from fontsentry import config, demo, scan, validation
+from fontsentry import config, demo, scan, source_scan, validation
 from fontsentry.models import DiffResult, Registry, RunReport, Target
 from fontsentry.registry.registry import validate_registry
 from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
 from fontsentry.report.html_report import write_html
-from fontsentry.report.json_report import latest_runs, load_run
+from fontsentry.report.json_report import latest_runs, load_run, write_run
 from fontsentry.risk.engine import validate_rules
 
 app = typer.Typer(
@@ -117,6 +117,43 @@ def scan_cmd(
             await client.aclose()
 
     report, json_path, html_path = asyncio.run(_run())
+    _print_summary(report)
+    console.print(f"\nJSON: [cyan]{json_path}[/]\nHTML: [cyan]{html_path}[/]")
+    if csv_out:
+        csv_path = json_path.with_name(json_path.name.removesuffix(".report.json") + ".csv")
+        csv_path.write_text(build_csv(report), encoding="utf-8")
+        console.print(f"CSV:  [cyan]{csv_path}[/]")
+
+
+@app.command("scan-source")
+def scan_source_cmd(
+    path: Path = typer.Argument(..., help="Local repo/directory to audit for font files."),
+    config_dir: Path = typer.Option(Path("config"), "--config-dir", help="Config directory."),
+    registry_dir: Path = typer.Option(Path("registry"), "--registry-dir", help="Registry dir."),
+    output: Path | None = typer.Option(None, "--output", help="Reports output directory."),
+    csv_out: bool = typer.Option(False, "--csv", help="Also write a CSV of the findings."),
+) -> None:
+    """Audit the font files in a local repo/dir (offline; catches SPA-injected fonts).
+
+    Reads every font file's name table and classifies it with the same verdict
+    engine as a live scan — finding fonts the crawler can't see because they are
+    injected at runtime by JavaScript.
+    """
+
+    if not path.is_dir():
+        err_console.print(f"[red]Not a directory:[/] {path}")
+        raise typer.Exit(1)
+
+    rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
+    registry = config.load_registry(config.resolve_config_path(registry_dir, "licenses"))
+    now = datetime.now(UTC).replace(microsecond=0)
+
+    report = source_scan.scan_source(path, rules, registry, now)
+    reports_dir = output or Path("reports")
+    json_path = write_run(report, reports_dir)
+    html_path = json_path.with_suffix(".html")
+    write_html(report, html_path)
+
     _print_summary(report)
     console.print(f"\nJSON: [cyan]{json_path}[/]\nHTML: [cyan]{html_path}[/]")
     if csv_out:

@@ -29,7 +29,10 @@ stylesheets, and font preloads. Consequences:
   in `font-family` but never defined, it is reported as **UNKNOWN delivery →
   NEEDS_CHECK**, not a clean result. Full rendering requires the optional
   Playwright fallback (the `browser` extra), **off by default** — it is heavy (a
-  headless browser) and only helps a minority of pages.
+  headless browser) and only helps a minority of pages. When you have the site's
+  source, `fontsentry scan-source PATH` sidesteps this entirely: it reads the font
+  files straight from a checked-out repo, so it finds self-hosted fonts regardless
+  of how the app loads them at runtime.
 
 - **Loader scripts name the provider, not the fonts.** For a recognized loader
   script we surface the third-party provider (a GDPR/privacy fact) but cannot
