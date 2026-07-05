@@ -17,14 +17,31 @@ the license cannot be established from the evidence.
 The crawler reads **static** HTML and CSS: `@font-face`, `@import`, `<link>`
 stylesheets, and font preloads. Consequences:
 
-- **JavaScript-injected fonts.** A font loaded only by a script (e.g. the
-  CSS Font Loading API, or a `<link>`/stylesheet appended at runtime) has no
-  static `@font-face` to read. When the family is still referenced in a
-  `font-family` declaration it is reported as **UNKNOWN delivery → NEEDS_CHECK**
-  with an evidence note; when it appears nowhere in static CSS it is **not
-  detected at all**. Full rendering requires the optional Playwright fallback
-  (the `browser` extra), which is **off by default** — it is heavy (a headless
-  browser) and only helps a minority of pages.
+- **JavaScript-injected fonts and client-rendered (SPA) pages.** A font loaded
+  only by a script (the CSS Font Loading API, a `<link>`/stylesheet appended at
+  runtime), or a page whose content is rendered entirely client-side with no SSR,
+  has no static `@font-face` to read. FontSentry does what it can statically: it
+  follows `@import`, reads preloaded font files even without a matching
+  `@font-face`, decodes inline `data:` fonts, and flags known third-party
+  **loader scripts** (Adobe Typekit, Font Awesome kit, …) as a third-party
+  privacy finding. But a font that appears nowhere in the static HTML/CSS — common
+  on pure client-rendered SPAs — is **not detected**. When a family is referenced
+  in `font-family` but never defined, it is reported as **UNKNOWN delivery →
+  NEEDS_CHECK**, not a clean result. Full rendering requires the optional
+  Playwright fallback (the `browser` extra), **off by default** — it is heavy (a
+  headless browser) and only helps a minority of pages.
+
+- **Loader scripts name the provider, not the fonts.** For a recognized loader
+  script we surface the third-party provider (a GDPR/privacy fact) but cannot
+  enumerate the individual fonts it injects at runtime without a browser.
+
+- **Own asset domains.** A font on a separate domain you control (an asset CDN like
+  `assets.mybrand.net`) is treated as third-party by default. Declare such hosts in
+  `crawl.self_hosted_hosts` so they count as first-party (no false privacy leak).
+
+- **Bot-protected sites.** A site behind a challenge (Cloudflare, WAF, aggressive
+  bot filtering) may return a challenge page or `403` to the polite crawler; its
+  fonts then go undetected. This fails safe (nothing is reported), not loud.
 
 - **OS/2 `fsType` — Preview & Print is not a violation.** We flag the
   **Restricted-License** bit (`0x0002`) — the foundry's unambiguous "no embedding"
