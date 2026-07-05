@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Verdict-rule validation harness** (roadmap Phase 8): a `fontsentry validate`
+  command plus a `validation/labels.example.yaml` template compare the tool's
+  per-domain verdicts against a human-labelled ground truth — reporting agreement
+  and, separately, false negatives (the unsafe direction: the tool said `OK` where
+  a human did not). Runs real scans; not part of CI. The comparison logic is
+  offline-unit-tested.
+
 ## [0.4.0] - 2026-07-05
 
 Verdicts release. Human-reviewed core; verdict rules frozen (see
