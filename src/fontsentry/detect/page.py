@@ -13,6 +13,7 @@ from collections.abc import Iterable
 from urllib.parse import unquote_to_bytes, urlsplit
 
 from fontsentry.crawl.fetcher import Fetcher
+from fontsentry.detect.bundle import detect_bundle_fonts
 from fontsentry.detect.css import (
     FontFaceRule,
     FontSource,
@@ -245,6 +246,12 @@ async def detect_page(
         preloads = await _detect_preloads(fetcher, assets, page_url, page_host, own, seen_urls)
         detected.extend(preloads)
         detected.extend(_detect_loaders(assets, page_url))
+        # Client-rendered (SPA) fonts leave no static @font-face; recover them from
+        # the font URLs shipped inside the page's own JS bundles.
+        bundle_fonts = await detect_bundle_fonts(
+            fetcher, assets, page_url, page_host, own, seen_urls
+        )
+        detected.extend(bundle_fonts)
 
     return detected
 

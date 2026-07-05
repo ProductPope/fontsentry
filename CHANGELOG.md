@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **JS bundle scan.** A live `scan` now reads self-hosted font URLs out of a page's
+  own same-site JavaScript bundles, recovering fonts a single-page app (Angular,
+  Vue, React, …) injects at runtime — no headless browser. Each recovered font file
+  is fetched and its name table read, so the verdict rests on the font's own
+  metadata. Third-party scripts are never fetched; fan-out is bounded.
 - **Source scan** (`fontsentry scan-source PATH`): audit the font files in a
   local repo/directory offline. Reads every font file's name table and classifies
   it with the same verdict engine as a live scan — catching self-hosted fonts a

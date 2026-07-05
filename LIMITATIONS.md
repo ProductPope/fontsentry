@@ -22,12 +22,16 @@ stylesheets, and font preloads. Consequences:
   runtime), or a page whose content is rendered entirely client-side with no SSR,
   has no static `@font-face` to read. FontSentry does what it can statically: it
   follows `@import`, reads preloaded font files even without a matching
-  `@font-face`, decodes inline `data:` fonts, and flags known third-party
-  **loader scripts** (Adobe Typekit, Font Awesome kit, …) as a third-party
-  privacy finding. But a font that appears nowhere in the static HTML/CSS — common
-  on pure client-rendered SPAs — is **not detected**. When a family is referenced
-  in `font-family` but never defined, it is reported as **UNKNOWN delivery →
-  NEEDS_CHECK**, not a clean result. Full rendering requires the optional
+  `@font-face`, decodes inline `data:` fonts, **scans the page's own JS bundles**
+  for self-hosted font URLs (recovering fonts a SPA injects at runtime, as long as
+  the URL is shipped as a string in a same-site bundle), and flags known
+  third-party **loader scripts** (Adobe Typekit, Font Awesome kit, …) as a
+  third-party privacy finding. What still slips through: a font whose URL never
+  appears in the static HTML/CSS *or* a same-site bundle — e.g. a URL assembled at
+  runtime from string fragments, or one that lives only in a lazily-loaded route
+  chunk not referenced from the shell. When a family is referenced in
+  `font-family` but never defined and never recovered, it is reported as **UNKNOWN
+  delivery → NEEDS_CHECK**, not a clean result. Full rendering requires the optional
   Playwright fallback (the `browser` extra), **off by default** — it is heavy (a
   headless browser) and only helps a minority of pages. When you have the site's
   source, `fontsentry scan-source PATH` sidesteps this entirely: it reads the font

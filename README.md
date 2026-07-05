@@ -114,6 +114,10 @@ classifies each from its own name table (owner, license, OS/2 fsType) with the
 same verdict engine — offline, no crawling. Use it to catch fonts a live scan
 can't see because a single-page app injects them at runtime with JavaScript.
 
+A live `scan` also reads self-hosted fonts out of a page's own JavaScript bundles,
+so it can catch fonts a single-page app injects at runtime (as long as the font URL
+is shipped as a string in a same-site bundle) — no headless browser needed.
+
 Each finding is scored on two independent axes: **license risk** (Low/Medium/High)
 and **delivery/privacy** — a font served from a third party (e.g. the Google Fonts
 API) is flagged for GDPR/RODO even when its license is free. The crawler refuses
