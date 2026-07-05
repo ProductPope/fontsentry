@@ -6,6 +6,7 @@ code here. Risk weighting of these providers is configured separately in rules.y
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from urllib.parse import urlparse
 
 from fontsentry.models import EmbeddingMethod
@@ -56,12 +57,18 @@ def _same_site(host: str, page_host: str) -> bool:
     return host == page_host or host.endswith("." + page_host)
 
 
-def classify_embedding(font_url: str | None, page_host: str | None = None) -> EmbeddingMethod:
+def classify_embedding(
+    font_url: str | None,
+    page_host: str | None = None,
+    own_hosts: Iterable[str] = (),
+) -> EmbeddingMethod:
     """Classify the embedding method for a font referenced by ``font_url``.
 
     A relative URL (no host) or a URL on the page's own host is ``SELF_HOSTED``.
-    Known providers map to their method; anything else on a CDN-like host is
-    ``OTHER_CDN``; remaining off-host URLs default to ``OTHER_CDN`` as well.
+    ``own_hosts`` lets the operator declare their own asset domains (e.g. a CDN on
+    a separate domain) as first-party too. Known providers map to their method;
+    anything else on a CDN-like host is ``OTHER_CDN``; remaining off-host URLs
+    default to ``OTHER_CDN`` as well.
     """
 
     if not font_url:
@@ -77,6 +84,10 @@ def classify_embedding(font_url: str | None, page_host: str | None = None) -> Em
             return method
 
     if page_host and _same_site(host, page_host):
+        return EmbeddingMethod.SELF_HOSTED
+
+    # Operator-declared own hosts (assets on a separate domain they control).
+    if any(_same_site(host, own) for own in own_hosts if own):
         return EmbeddingMethod.SELF_HOSTED
 
     if any(marker in host for marker in _GENERIC_CDN_MARKERS):

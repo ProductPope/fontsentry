@@ -47,3 +47,18 @@ def test_provider_match_wins_over_same_site() -> None:
 
 def test_none_url_is_self_hosted() -> None:
     assert classify_embedding(None) is EmbeddingMethod.SELF_HOSTED
+
+
+def test_own_hosts_are_first_party() -> None:
+    # An operator-declared asset domain on a separate host is self-hosted.
+    assert (
+        classify_embedding(
+            "https://assets.mybrand.net/f.woff2", "mybrand.com", own_hosts=["assets.mybrand.net"]
+        )
+        is EmbeddingMethod.SELF_HOSTED
+    )
+    # ...but without declaring it, a separate domain stays third-party.
+    assert (
+        classify_embedding("https://assets.mybrand.net/f.woff2", "mybrand.com")
+        is EmbeddingMethod.OTHER_CDN
+    )
