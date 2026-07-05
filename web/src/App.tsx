@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
 import { AuditsScreen } from "./features/AuditsScreen";
+import { HowItWorks } from "./features/HowItWorks";
 import { OverviewScreen } from "./features/OverviewScreen";
 import type { View } from "./features/OverviewScreen";
 import { RegistrySetup } from "./features/RegistrySetup";
@@ -22,6 +23,7 @@ const TITLES: Record<Route, string> = {
   registry: "Registry",
   targets: "Targets",
   rules: "Rules",
+  "how-it-works": "How it works",
 };
 
 const _sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -265,6 +267,7 @@ export default function App() {
             />
           )}
           {route === "rules" && <RulesScreen notify={notify} />}
+          {route === "how-it-works" && <HowItWorks />}
         </main>
       </div>
 

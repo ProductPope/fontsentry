@@ -3,7 +3,14 @@ import { useCallback, useSyncExternalStore } from "react";
 // Minimal dependency-free hash router. The app is a small local tool, so a full
 // router library would be overkill; sections live at #/overview, #/audits, etc.
 
-export const ROUTES = ["overview", "audits", "registry", "targets", "rules"] as const;
+export const ROUTES = [
+  "overview",
+  "audits",
+  "registry",
+  "targets",
+  "rules",
+  "how-it-works",
+] as const;
 export type Route = (typeof ROUTES)[number];
 
 function currentRoute(): Route {

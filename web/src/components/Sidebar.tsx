@@ -9,6 +9,7 @@ const NAV: { id: Route; label: string }[] = [
   { id: "registry", label: "Registry" },
   { id: "targets", label: "Targets" },
   { id: "rules", label: "Rules" },
+  { id: "how-it-works", label: "How it works" },
 ];
 
 export function Sidebar({

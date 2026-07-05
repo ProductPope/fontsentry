@@ -6,7 +6,6 @@ import { Spinner } from "../components/Spinner";
 import { Tabs } from "../components/Tabs";
 import { cn } from "../lib/cn";
 import { DomainsView } from "./DomainsView";
-import { Faq } from "./Faq";
 import { FindingsTable } from "./FindingsTable";
 import { GettingStarted } from "./GettingStarted";
 import { api } from "../lib/api";
@@ -312,8 +311,6 @@ export function OverviewScreen({
       {report && view === "domains" && (
         <DomainsView domains={report.domains} source={source} />
       )}
-
-      <Faq />
     </div>
   );
 }
