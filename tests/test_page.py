@@ -52,6 +52,23 @@ async def test_detect_page_system_font() -> None:
     assert dets[0].embedding is EmbeddingMethod.SYSTEM
 
 
+async def test_detect_page_follows_at_import() -> None:
+    # A font delivered via an @imported sheet must be detected (not seen only as a
+    # usage and misclassified as a system font).
+    page_html = '<style>@import url("/fonts.css");.a{font-family:Imported}</style>'
+    fonts_css = '@font-face{font-family:"Imported";src:url(/i.woff2)}'
+    stub = _StubFetcher(
+        {
+            PAGE: _page(page_html),
+            "https://example.com/fonts.css": _result("x", fonts_css.encode(), "text/css"),
+            "https://example.com/i.woff2": _result("x", b"garbage", "font/woff2"),
+        }
+    )
+    by = {d.family: d for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    assert "Imported" in by
+    assert by["Imported"].embedding is EmbeddingMethod.SELF_HOSTED
+
+
 async def test_detect_page_applied_flag_and_read_error() -> None:
     css = (
         '@font-face{font-family:"Demo";src:url(/d.woff2)}'

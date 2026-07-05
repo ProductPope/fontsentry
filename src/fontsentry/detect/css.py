@@ -169,6 +169,34 @@ def parse_font_faces(css_text: str, base_url: str | None = None) -> list[FontFac
     return rules
 
 
+def parse_imports(css_text: str, base_url: str | None = None) -> list[str]:
+    """Return the stylesheet URLs pulled in by `@import` rules (resolved absolute).
+
+    Fonts are commonly delivered through an imported sheet (e.g. Google Fonts via
+    ``@import``); without following these the fonts would be seen only as usages.
+    """
+
+    urls: list[str] = []
+    for node in tinycss2.parse_stylesheet(css_text, skip_comments=True, skip_whitespace=True):
+        if getattr(node, "type", None) != "at-rule" or node.lower_at_keyword != "import":
+            continue
+        target = ""
+        for token in node.prelude:
+            ttype = getattr(token, "type", None)
+            if ttype == "url":
+                target = token.value
+                break
+            if ttype == "string":
+                target = str(token.value)
+                break
+            if ttype == "function" and token.lower_name == "url":
+                target = _first_string(token.arguments)
+                break
+        if target:
+            urls.append(urljoin(base_url, target) if base_url else target)
+    return urls
+
+
 def parse_font_families(css_text: str) -> set[str]:
     """Collect family names referenced by `font-family` / `font` in style rules.
 

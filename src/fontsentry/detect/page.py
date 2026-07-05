@@ -15,6 +15,7 @@ from fontsentry.detect.css import (
     FontSource,
     parse_font_faces,
     parse_font_families,
+    parse_imports,
 )
 from fontsentry.detect.embedding import classify_embedding
 from fontsentry.detect.fontfile import FontReadError, read_font_metadata
@@ -39,8 +40,13 @@ def _best_source(rule: FontFaceRule) -> FontSource | None:
     return min(rule.sources, key=lambda s: _FORMAT_RANK.get(s.font_format, 9))
 
 
+# Bound how many stylesheets one page may pull in (linked + transitively imported)
+# so an @import cycle or a hostile sheet can't fan out unboundedly.
+_MAX_STYLESHEETS = 40
+
+
 async def _collect_css(fetcher: Fetcher, page_url: str) -> list[tuple[str, str]]:
-    """Return (css_text, base_url) pairs for inline and linked stylesheets."""
+    """Return (css_text, base_url) pairs for inline, linked, and @imported stylesheets."""
 
     result = await fetcher.fetch(page_url)
     if result is None or not result.ok or "html" not in result.content_type.lower():
@@ -50,10 +56,27 @@ async def _collect_css(fetcher: Fetcher, page_url: str) -> list[tuple[str, str]]
     assets = parse_html(html, base_url=page_url)
 
     blocks: list[tuple[str, str]] = [(css, page_url) for css in assets.inline_styles]
-    for link in assets.stylesheet_links:
-        css = await fetcher.fetch(link)
-        if css is not None and css.ok:
-            blocks.append((decode_text(css.content, css.content_type), link))
+
+    # BFS over stylesheets, following @import (fonts are often delivered through an
+    # imported sheet). Dedupe by URL and cap the total to avoid cycles/fan-out.
+    seen: set[str] = set()
+    queue: list[str] = list(assets.stylesheet_links)
+    # inline @imports are relative to the page.
+    for css_text in assets.inline_styles:
+        queue.extend(parse_imports(css_text, base_url=page_url))
+
+    while queue and len(seen) < _MAX_STYLESHEETS:
+        url = queue.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+        css = await fetcher.fetch(url)
+        if css is None or not css.ok:
+            continue
+        text = decode_text(css.content, css.content_type)
+        blocks.append((text, url))
+        queue.extend(parse_imports(text, base_url=url))
+
     return blocks
 
 
