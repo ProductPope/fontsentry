@@ -19,6 +19,7 @@ class HtmlAssets:
     stylesheet_links: list[str] = field(default_factory=list)
     inline_styles: list[str] = field(default_factory=list)
     preload_font_urls: list[str] = field(default_factory=list)
+    script_srcs: list[str] = field(default_factory=list)
     font_families: set[str] = field(default_factory=set)
 
 
@@ -42,6 +43,11 @@ def parse_html(html: str, base_url: str | None = None) -> HtmlAssets:
             assets.stylesheet_links.append(_resolve(href, base_url))
         elif "preload" in rel and (attrs.get("as") or "").lower() == "font":
             assets.preload_font_urls.append(_resolve(href, base_url))
+
+    for script in tree.css("script"):
+        src = script.attributes.get("src")
+        if src:
+            assets.script_srcs.append(_resolve(src, base_url))
 
     for style in tree.css("style"):
         css_text = style.text(deep=True)

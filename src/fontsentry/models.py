@@ -303,6 +303,13 @@ class CrawlSettings(BaseModel):
             "(SSRF guard). Turn OFF only to audit internal/staging sites on a private network."
         ),
     )
+    self_hosted_hosts: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Extra hosts/domains you own (e.g. an asset CDN on a separate domain). Fonts served "
+            "from these count as self-hosted (first-party), not a third-party privacy leak."
+        ),
+    )
 
 
 class CacheSettings(BaseModel):

@@ -215,7 +215,7 @@ async def run_scan(
     progress("detect", 0, len(pages), "Identifying fonts")
 
     async def _detect_one(domain: str, page: str) -> tuple[str, list[DetectedFont]]:
-        return domain, await detect_page(fetcher, page)
+        return domain, await detect_page(fetcher, page, own_hosts=crawl.self_hosted_hosts)
 
     for done, coro in enumerate(asyncio.as_completed([_detect_one(d, p) for d, p in pages]), 1):
         domain, page_detections = await coro

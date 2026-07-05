@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
+
 from fontsentry.crawl.fetcher import FetchResult
 from fontsentry.detect.css import FontFaceRule, FontSource
 from fontsentry.detect.page import _best_source, detect_page
 from fontsentry.models import EmbeddingMethod, FontFormat
+from tests.factories import build_test_font
 
 PAGE = "https://example.com/"
 
@@ -50,6 +53,64 @@ async def test_detect_page_system_font() -> None:
     assert len(dets) == 1
     assert dets[0].family == "Georgia"
     assert dets[0].embedding is EmbeddingMethod.SYSTEM
+
+
+async def test_detect_page_data_uri_reads_metadata() -> None:
+    # A base64 data: URI embeds the font inline — decode it and read its name table
+    # (fsType, family) instead of trying to fetch a non-URL.
+    font_bytes = build_test_font(family_name="Inline Face", fs_type=0x0002)
+    b64 = base64.b64encode(font_bytes).decode()
+    css = (
+        f'@font-face{{font-family:"Inline Face";src:url(data:font/ttf;base64,{b64})}}'
+        '.a{font-family:"Inline Face"}'
+    )
+    stub = _StubFetcher({PAGE: _page(f"<style>{css}</style>")})
+    dets = {d.family: d for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    face = dets["Inline Face"]
+    assert face.embedding is EmbeddingMethod.SELF_HOSTED
+    assert face.metadata is not None
+    assert face.metadata.fs_type == 0x0002
+
+
+async def test_detect_page_preload_without_fontface() -> None:
+    # A preloaded font with no static @font-face (wired up by JS) is still fetchable
+    # — read the file to name and judge it rather than miss it.
+    font_bytes = build_test_font(family_name="Preloaded Sans")
+    stub = _StubFetcher(
+        {
+            PAGE: _page('<link rel="preload" as="font" href="/p.woff2" type="font/woff2">'),
+            "https://example.com/p.woff2": _result("x", font_bytes, "font/woff2"),
+        }
+    )
+    dets = {d.family: d for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    assert "Preloaded Sans" in dets
+    assert dets["Preloaded Sans"].embedding is EmbeddingMethod.SELF_HOSTED
+
+
+async def test_detect_page_flags_font_loader_script() -> None:
+    # A third-party loader script (Adobe Typekit) delivers fonts at runtime; flag
+    # the provider as a third-party finding even though we can't enumerate the fonts.
+    stub = _StubFetcher({PAGE: _page('<script src="https://use.typekit.net/abc.js"></script>')})
+    dets = {d.family: d for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    loader = next(v for k, v in dets.items() if "Adobe" in k)
+    assert loader.embedding is EmbeddingMethod.ADOBE_FONTS
+
+
+async def test_detect_page_own_hosts_are_first_party() -> None:
+    # A font on a separate domain the operator declares as their own is self-hosted,
+    # not a third-party privacy leak.
+    home = "https://mybrand.com/"
+    css = '@font-face{font-family:"Brand";src:url(https://assets.mybrand.net/b.woff2)}.a{font-family:Brand}'
+    html = f"<style>{css}</style>".encode()
+    stub = _StubFetcher(
+        {
+            home: _result(home, html, "text/html"),
+            "https://assets.mybrand.net/b.woff2": _result("x", b"garbage", "font/woff2"),
+        }
+    )
+    fonts = await detect_page(stub, home, own_hosts=["assets.mybrand.net"])  # type: ignore[arg-type]
+    dets = {d.family: d for d in fonts}
+    assert dets["Brand"].embedding is EmbeddingMethod.SELF_HOSTED
 
 
 async def test_detect_page_local_only_face_is_system() -> None:

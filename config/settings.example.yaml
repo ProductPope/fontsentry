@@ -16,6 +16,9 @@ crawl:
   block_private_hosts: true    # SSRF guard: refuse hosts resolving to loopback/private/
                                # link-local IPs. Set false ONLY to audit an internal/staging
                                # site on a private network.
+  self_hosted_hosts: []        # extra hosts/domains you own (e.g. an asset CDN on a separate
+                               # domain). Fonts from these count as self-hosted (first-party),
+                               # not a third-party privacy leak. e.g. ["assets.mybrand.com"]
 
 cache:
   enabled: true
