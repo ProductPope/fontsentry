@@ -21,6 +21,10 @@ out/
 # Generated scheduled-task launchers
 .fontsentry-tasks/
 
+# Verdict-validation ground truth + output (only the *.example is committed)
+validation/labels.yaml
+validation/result.md
+
 # Built web UI
 web/dist/
 web/node_modules/

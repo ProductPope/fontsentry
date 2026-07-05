@@ -1,0 +1,33 @@
+# Human-labelled ground truth for verdict validation (roadmap Phase 8).
+#
+# Copy to validation/labels.yaml (gitignored) and fill it with domains YOU can
+# verify by hand (view-source / DevTools / the font's EULA). Aim for 20–30 domains
+# with a mix of outcomes. Then run:
+#
+#   fontsentry validate --labels validation/labels.yaml --out validation/result.md
+#
+# `expected` is YOUR human judgement for that font on that domain:
+#   ok           — no action: licensed/covered, provably open, or a system font
+#   needs_check   — no license on record and not provably open (worth a look)
+#   violation     — a definite lapse (expired/out-of-scope license, paid tier,
+#                   self-host-prohibited, or fsType forbids embedding)
+#
+# `owner` is optional — set it to disambiguate same-named fonts; omit to match on
+# family alone. `note` records WHY you judged it that way (kept for the writeup).
+
+entries:
+  - domain: "example.com"
+    fonts:
+      - family: "Some Sans"
+        owner: "Some Foundry"
+        expected: needs_check
+        note: "commercial font, no readable license string, not in our registry"
+      - family: "Open Fallback"
+        expected: ok
+        note: "ships an OFL string — provably open"
+
+  - domain: "example.org"
+    fonts:
+      - family: "Restricted Display"
+        expected: violation
+        note: "OS/2 fsType Restricted-License bit is set — embedding forbidden"

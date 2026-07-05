@@ -16,8 +16,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from fontsentry import config, demo, scan
-from fontsentry.models import DiffResult, Registry, RunReport
+from fontsentry import config, demo, scan, validation
+from fontsentry.models import DiffResult, Registry, RunReport, Target
 from fontsentry.registry.registry import validate_registry
 from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
@@ -171,6 +171,46 @@ def diff(
     result = diff_runs(load_run(previous), load_run(current))
     _print_diff(result)
     raise typer.Exit(1 if result.new_findings else 0)
+
+
+@app.command()
+def validate(
+    labels_file: Path = typer.Option(
+        Path("validation/labels.yaml"), "--labels", help="Human-labelled ground truth."
+    ),
+    config_dir: Path = typer.Option(Path("config"), "--config-dir", help="Config directory."),
+    registry_dir: Path = typer.Option(Path("registry"), "--registry-dir", help="Registry dir."),
+    out: Path | None = typer.Option(None, "--out", help="Write the markdown summary here."),
+) -> None:
+    """Validate verdicts against a labelled ground truth (Phase 8). Runs REAL scans.
+
+    Exits non-zero when there is a false negative (the tool said OK where a human
+    did not) — the unsafe direction, useful for gating.
+    """
+
+    labels = validation.load_labels(labels_file)
+    settings = config.load_settings(config.resolve_config_path(config_dir, "settings"))
+    rules = config.load_rules(config.resolve_config_path(config_dir, "rules"))
+    registry = config.load_registry(config.resolve_config_path(registry_dir, "licenses"))
+    targets = [Target(domain=e.domain) for e in labels.entries]
+    now = datetime.now(UTC).replace(microsecond=0)
+
+    async def _run() -> RunReport:
+        client = httpx.AsyncClient()
+        try:
+            return await scan.run_scan(targets, settings, rules, registry, client=client, now=now)
+        finally:
+            await client.aclose()
+
+    report = asyncio.run(_run())
+    result = validation.compare(report, labels)
+    summary = validation.render_summary(result)
+    console.print(summary)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(summary, encoding="utf-8")
+        console.print(f"Summary written to [cyan]{out}[/]")
+    raise typer.Exit(1 if result.false_negatives else 0)
 
 
 @registry_app.command("validate")
