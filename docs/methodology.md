@@ -38,10 +38,12 @@ Two ground rules shaped the code:
 
 ## Architecture in one line
 
-`crawl → detect → risk (+ registry suppression) → report`, with aggregation across
-the whole crawl before scoring so cross-domain rules can be evaluated. Concerns are
-strictly separated and the CLI holds no business logic. See the ADRs in
-[`docs/adr/`](adr/) for the stack and scoring-model decisions.
+`crawl → detect → classify (verdicts + registry) → report`, with aggregation across
+the whole crawl before classification so cross-domain facts can be evaluated.
+Concerns are strictly separated and the CLI holds no business logic. See the ADRs
+in [`docs/adr/`](adr/) — notably **ADR 0003**, which retired the weighted risk
+score for **deterministic license + privacy verdicts** (a fixed decision table,
+each verdict carrying an explicit reason).
 
 ## Detection accuracy
 
@@ -80,9 +82,41 @@ The crawler is **politeness-bound, not CPU-bound.** Numbers to set expectations
   and pass; `localhost`, link-local (`169.254.169.254`), and private ranges are
   refused (`crawl.block_private_hosts`, default on).
 
+## Hardening, then a judgement-layer change
+
+After the initial build the project ran a **hardening roadmap** (see
+[`docs/roadmap.md`](roadmap.md)): frontend test net + coverage floor, god-file
+refactors, a crawler-reality/threat-model pass, and detection-accuracy validation —
+each a small, evidence-producing phase, the judgement layer held frozen throughout.
+Then, in exactly one phase, the judgement layer changed: **ADR 0003** replaced the
+unvalidated weighted score with the deterministic verdict engine. Isolating that
+change kept the infrastructure work and the later validation each pointed at a
+stable target.
+
+## Human review found real bugs
+
+The process deliberately includes a **human check** — a person, not another AI
+session. Running the finished tool against a purpose-built, labelled test page
+(one font-delivery method per section) surfaced three genuine detection bugs that
+the offline suite could not have caught on its own:
+
+1. fonts delivered via CSS `@import` were seen only as usages and misread as system
+   fonts;
+2. JavaScript-injected fonts were reported as a clean "OK / system";
+3. a font whose OS/2 `fsType` forbids embedding was not flagged.
+
+Each was fixed in its own commit **with a regression test**. The same check also
+found two cases that were *deliberately not* pursued — flagging the common
+Preview & Print `fsType` bit (would manufacture false positives) and full
+JavaScript rendering (a heavy, optional Playwright subsystem). Those are recorded
+as conscious non-goals in [`LIMITATIONS.md`](../LIMITATIONS.md). Documenting the
+boundary is treated as a result, not a gap.
+
 ## What "done" means here
 
 - mypy-clean, ruff-clean, all tests passing, offline.
 - One command (`uv run fontsentry scan --demo`) yields a meaningful report on a
   clean clone with no internet and no private data.
-- The risk score is consistently framed as a heuristic estimate, never legal advice.
+- The verdicts are consistently framed as a **deterministic aid, not legal advice**;
+  `NEEDS_CHECK` is owned as the honest default, and the limits are stated in
+  [`LIMITATIONS.md`](../LIMITATIONS.md).

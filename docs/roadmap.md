@@ -91,13 +91,18 @@ pinned in the suite.
 **Done:** score removed; verdicts + reasons everywhere; rule tests green; schema
 & config migration documented.
 
-### 7 — Human review, limitations, process writeup, freeze  · S/M · process
+### 7 — Human review, limitations, process writeup, freeze  · S/M · process  · ◧ IN PROGRESS
 A human reviews the now-final core (`engine`/verdicts, `registry`, `fetcher`,
 `scan`) — not another AI session; recorded. Add `LIMITATIONS.md` ("what this is
 NOT"). Make `methodology.md` an honest account of how it was built (Claude Code,
 phases, gates, guards, human review, validation) — the benchmark exhibit. Tag an
 `infra-stable` reference (e.g. v0.4.0); verdict rules formally frozen.
 **Done:** core human-reviewed; limits and process documented; stable reference tag.
+- ✅ `LIMITATIONS.md` added; ✅ `methodology.md` updated (verdicts, hardening,
+  human-review-found bugs). A first human check already ran against a labelled
+  test page and caught three real detection bugs (fixed with tests) — recorded in
+  `methodology.md`. ◧ **Pending:** the operator's own review of the core files and
+  the `v0.4.0` freeze tag.
 
 ### 8 — Verdict-rule validation on ground truth  · M · risk: low
 On the stable, reviewed tool. Labelled set (20–30 real domains, human verdict:
