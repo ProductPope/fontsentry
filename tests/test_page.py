@@ -52,6 +52,18 @@ async def test_detect_page_system_font() -> None:
     assert dets[0].embedding is EmbeddingMethod.SYSTEM
 
 
+async def test_detect_page_local_only_face_is_system() -> None:
+    # A @font-face whose only source is local() (e.g. next/font metric-adjustment
+    # "… Fallback" families) embeds nothing — a local alias, not a licensable font.
+    css = (
+        '@font-face{font-family:"Adjusted Fallback";src:local("Arial")}'
+        ".a{font-family:'Adjusted Fallback'}"
+    )
+    stub = _StubFetcher({PAGE: _page(f"<style>{css}</style>")})
+    dets = {d.family: d for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    assert dets["Adjusted Fallback"].embedding is EmbeddingMethod.SYSTEM
+
+
 async def test_detect_page_unknown_delivery_for_unobserved_family() -> None:
     # A non-system family used in font-family with no @font-face (e.g. injected by
     # JavaScript) is UNKNOWN delivery — not a clean system font.

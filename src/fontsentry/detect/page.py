@@ -158,6 +158,21 @@ async def detect_page(fetcher: Fetcher, page_url: str) -> list[DetectedFont]:
     for css_text, base_url in blocks:
         for rule in parse_font_faces(css_text, base_url=base_url):
             face_families.add(rule.family.lower())
+            # A @font-face with no fetchable url — only `local()` sources (or none) —
+            # embeds nothing: it aliases a locally-installed font. This is how
+            # next/font's metric-adjustment "… Fallback" families and bare local()
+            # faces work. Treat it as a system/local font, not an embedded web font
+            # (otherwise it surfaces as a spurious licensing finding).
+            if _best_source(rule) is None:
+                detected.append(
+                    DetectedFont(
+                        family=rule.family,
+                        embedding=EmbeddingMethod.SYSTEM,
+                        font_format=FontFormat.UNKNOWN,
+                        source_page=page_url,
+                    )
+                )
+                continue
             applied = rule.family.lower() in used_lower
             detected.append(await _detect_face(fetcher, rule, page_url, page_host, applied))
 
