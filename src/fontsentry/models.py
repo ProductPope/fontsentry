@@ -23,6 +23,9 @@ class EmbeddingMethod(StrEnum):
     MONOTYPE = "monotype"
     OTHER_CDN = "other_cdn"
     SYSTEM = "system"
+    # Referenced in a font-family stack but no @font-face and not a known system
+    # font — how it is delivered was not observed (e.g. injected via JavaScript).
+    UNKNOWN = "unknown"
 
 
 class FontFormat(StrEnum):
@@ -95,6 +98,7 @@ class FontMetadata(BaseModel):
     license_url: str | None = None  # name ID 14
     unique_id: str | None = None  # name ID 3
     num_glyphs: int | None = None
+    fs_type: int | None = None  # OS/2 fsType embedding-permission bits
 
 
 class DetectedFont(BaseModel):

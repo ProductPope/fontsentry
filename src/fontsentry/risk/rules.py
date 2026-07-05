@@ -76,6 +76,20 @@ def paid_cdn_delivery(agg: AggregatedFont, paid_cdns: list[str]) -> bool:
     return any(e in wanted for e in agg.embeddings)
 
 
+# OS/2 fsType: the Restricted-License bit (0x0002) is the foundry's unambiguous
+# "no embedding" flag. Preview & Print (0x0004) is deliberately NOT treated as a
+# violation — it is a common default and too weak a signal to be definite.
+_FS_TYPE_RESTRICTED = 0x0002
+
+
+def embedding_forbidden(agg: AggregatedFont) -> bool:
+    """True when the font file's OS/2 fsType forbids embedding (Restricted License)."""
+    meta = agg.metadata
+    if meta is None or meta.fs_type is None:
+        return False
+    return bool(meta.fs_type & _FS_TYPE_RESTRICTED)
+
+
 def missing_license_string(agg: AggregatedFont) -> bool:
     meta = agg.metadata
     if meta is None:

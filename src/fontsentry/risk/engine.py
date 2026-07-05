@@ -155,6 +155,8 @@ def validate_rules(rules: RulesConfig) -> list[str]:
 
 def _evidence_notes(agg: AggregatedFont, rules: RulesConfig) -> list[str]:
     notes: list[str] = []
+    if EmbeddingMethod.UNKNOWN in agg.embeddings:
+        notes.append("referenced but its delivery was not observed (may be injected by JavaScript)")
     if clf.desktop_format_on_web(agg, rules.desktop_formats):
         notes.append("a desktop font format is served on the web")
     if clf.paid_cdn_delivery(agg, rules.paid_cdns):
@@ -196,6 +198,12 @@ def classify_license(
         return LicenseVerdict.OK, "openly licensed (known open family)", []
 
     # 4. No cover and not open: definite violations.
+    if clf.embedding_forbidden(agg):
+        return (
+            LicenseVerdict.VIOLATION,
+            "the font's embedding bits (OS/2 fsType) forbid web embedding",
+            [],
+        )
     if clf.family_is_paid_tier(agg, rules.paid_tier_families):
         return LicenseVerdict.VIOLATION, "a paid tier is served with no license on record", []
     if clf.self_host_prohibited(

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Detection gaps found against a ground-truth test page** (fontsentry.com/poligon):
+  read OS/2 `fsType` and flag a self-hosted font whose Restricted-License bit
+  forbids embedding as a **VIOLATION**; **follow CSS `@import`** so fonts delivered
+  through an imported sheet are detected (not seen only as a usage); and classify a
+  family referenced with no `@font-face` and not on the known-system list as
+  **UNKNOWN delivery** (→ needs-check with an evidence note) instead of a clean
+  system font — closing false "OK / system" results for JavaScript-injected fonts.
+
 ### Changed (breaking)
 - **Deterministic verdicts replace the weighted risk score** (ADR 0003). Each font
   now carries a **license verdict** (`OK` / `NEEDS_CHECK` / `VIOLATION`) with an

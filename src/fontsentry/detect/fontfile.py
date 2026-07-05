@@ -66,6 +66,12 @@ def read_font_metadata(data: bytes) -> tuple[FontMetadata, FontFormat]:
         if "maxp" in font:
             num_glyphs = int(font["maxp"].numGlyphs)
 
+        # OS/2 fsType: the foundry's machine-readable embedding permission. The
+        # low licensing bits say whether the font may be embedded at all.
+        fs_type: int | None = None
+        if "OS/2" in font:
+            fs_type = int(font["OS/2"].fsType)
+
         metadata = FontMetadata(
             family_name=best(_NAME_TYPO_FAMILY) or best(_NAME_FAMILY),
             owner=best(_NAME_MANUFACTURER),
@@ -75,6 +81,7 @@ def read_font_metadata(data: bytes) -> tuple[FontMetadata, FontFormat]:
             license_url=best(_NAME_LICENSE_URL),
             unique_id=best(_NAME_UNIQUE_ID),
             num_glyphs=num_glyphs,
+            fs_type=fs_type,
         )
         return metadata, _format_of(font)
     except Exception as exc:  # fonttools raises many types on malformed tables

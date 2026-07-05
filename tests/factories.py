@@ -36,6 +36,7 @@ def build_test_font(
     unique_id: str | None = "DemoOwner: Demo Sans: 2026",
     extra_glyphs: int = 0,
     flavor: str | None = None,
+    fs_type: int = 0,
 ) -> bytes:
     """Return font bytes with the given name-table fields. ``flavor`` may be 'woff'."""
 
@@ -63,7 +64,7 @@ def build_test_font(
         "uniqueFontIdentifier": unique_id,
     }
     fb.setupNameTable({k: v for k, v in name_fields.items() if v is not None})
-    fb.setupOS2()
+    fb.setupOS2(fsType=fs_type)
     fb.setupPost()
 
     if flavor is not None:

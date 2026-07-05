@@ -12,6 +12,7 @@ export interface FontMetadata {
   license_url: string | null;
   unique_id: string | null;
   num_glyphs: number | null;
+  fs_type: number | null;
 }
 
 export interface Finding {

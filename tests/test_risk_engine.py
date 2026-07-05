@@ -40,6 +40,7 @@ def _font(
     license_desc: str | None = "Desktop license.",
     num_glyphs: int | None = 800,
     applied: bool = True,
+    fs_type: int | None = None,
 ) -> DetectedFont:
     return DetectedFont(
         family=family,
@@ -53,6 +54,7 @@ def _font(
             copyright=copyright,
             license_description=license_desc,
             num_glyphs=num_glyphs,
+            fs_type=fs_type,
         ),
         applied=applied,
     )
@@ -146,6 +148,18 @@ def test_self_host_prohibited_is_violation(rules: RulesConfig) -> None:
     assert "self-hosting" in finding.license_reason
 
 
+def test_restricted_fstype_is_violation(rules: RulesConfig) -> None:
+    # OS/2 fsType Restricted-License bit set: the foundry forbids embedding.
+    finding = evaluate([_font(fs_type=0x0002)], rules, Registry(), NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.VIOLATION
+    assert "fsType" in finding.license_reason
+
+
+def test_installable_fstype_not_flagged(rules: RulesConfig) -> None:
+    finding = evaluate([_font(fs_type=0)], rules, Registry(), NOW)[0]
+    assert finding.license_verdict is not LicenseVerdict.VIOLATION
+
+
 def test_missing_license_string_adds_evidence(rules: RulesConfig) -> None:
     finding = evaluate([_font(copyright=None, license_desc=None)], rules, Registry(), NOW)[0]
     assert finding.license_verdict is LicenseVerdict.NEEDS_CHECK
@@ -184,6 +198,18 @@ def test_paid_tier_in_name_is_violation(rules: RulesConfig) -> None:
     finding = evaluate(fonts, rules, Registry(), NOW)[0]
     assert finding.license_verdict is LicenseVerdict.VIOLATION
     assert "paid tier" in finding.license_reason
+
+
+def test_unknown_delivery_is_needs_check(rules: RulesConfig) -> None:
+    # A font referenced but not observed (UNKNOWN delivery) must not read as OK.
+    font = DetectedFont(
+        family="Injected Sans",
+        embedding=EmbeddingMethod.UNKNOWN,
+        source_page="https://example.com/",
+    )
+    finding = evaluate([font], rules, Registry(), NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.NEEDS_CHECK
+    assert any("delivery was not observed" in n for n in finding.evidence_notes)
 
 
 def test_system_font_is_ok(rules: RulesConfig) -> None:

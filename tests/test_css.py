@@ -116,6 +116,19 @@ def test_realistic_messy_css_yields_only_real_families() -> None:
     }
 
 
+def test_parse_imports() -> None:
+    text = '@import url("a.css"); @import "b.css" screen; @import url(c.css);'
+    assert css.parse_imports(text, base_url="https://x/y/") == [
+        "https://x/y/a.css",
+        "https://x/y/b.css",
+        "https://x/y/c.css",
+    ]
+
+
+def test_parse_imports_none() -> None:
+    assert css.parse_imports("body{color:red}") == []
+
+
 def test_format_helpers() -> None:
     assert css.format_from_hint("woff2") is FontFormat.WOFF2
     assert css.format_from_hint("'truetype'") is FontFormat.TTF
