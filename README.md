@@ -4,16 +4,19 @@ Audit and monitor the fonts used across many web domains, and estimate the
 probability that each detected font is being used **in violation of its license**.
 
 FontSentry crawls a configurable list of domains, detects every web font and how
-it is embedded, downloads reachable font files to read their metadata, and scores
-each font against an editable, rule-driven risk engine. It aggregates the same
-font across all domains so cross-domain rules (e.g. "this license permits at most
-N domains") can be evaluated globally. Findings already covered by a license
-registry you maintain are suppressed automatically.
+it is embedded, downloads reachable font files to read their metadata, and gives
+each font two **deterministic verdicts** — a **license** verdict
+(`OK` / `NEEDS_CHECK` / `VIOLATION`, each with a reason) and a **privacy** verdict
+(self-hosted vs third-party / GDPR). It aggregates the same font across all domains
+so cross-domain facts (e.g. "this license permits at most N domains") are evaluated
+globally. Fonts already covered by a license registry you maintain resolve to `OK`
+automatically. See [ADR 0003](docs/adr/0003-deterministic-verdicts.md).
 
 > [!IMPORTANT]
-> **The risk score is a heuristic estimate, not legal advice.** A high score means
-> "worth a human looking at the license", not "infringement". FontSentry does not
-> determine legal liability. Always confirm with the owner or your legal team.
+> **The verdicts are a deterministic aid, not legal advice.** A `VIOLATION` or
+> `NEEDS_CHECK` means "worth a human looking at the license", not "infringement".
+> FontSentry does not determine legal liability. Always confirm with the owner or
+> your legal team. See [LIMITATIONS.md](LIMITATIONS.md).
 
 > [!TIP]
 > **Not technical?** See [START_HERE.md](START_HERE.md) — set up and run the

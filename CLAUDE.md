@@ -4,9 +4,12 @@ Guidance for future Claude Code sessions working in this repo.
 
 ## What this project is
 
-A CLI that crawls web domains, detects fonts and their embedding method, reads
-font metadata, and scores each font for license-violation risk against an editable
-rule set. The risk score is an explicitly-labelled heuristic, never legal advice.
+A CLI (and local web UI) that crawls web domains, detects fonts and their embedding
+method, reads font metadata, and gives each font two deterministic verdicts — a
+license verdict (`OK` / `NEEDS_CHECK` / `VIOLATION`, with a reason) and a privacy
+verdict — via a fixed decision table (ADR 0003), plus an editable classification
+config. The verdicts are an explicitly-labelled deterministic aid, never legal
+advice.
 
 ## Architecture (strict separation of concerns)
 
@@ -16,7 +19,7 @@ src/fontsentry/
   models.py    pydantic domain models (Finding, DetectedFont, RegistryEntry, ...)
   crawl/       async fetch, robots, passive discovery, on-disk cache
   detect/      html + css parsing, embedding classification, font-file metadata
-  risk/        data-driven scoring engine + rule loading
+  risk/        deterministic verdict engine (classify_license) + classification helpers
   registry/    owned-license registry + suppression logic
   report/      json (source of truth), html (jinja2), diff
   web/         FastAPI backend for the local UI (server, jobs, scheduler)
@@ -32,9 +35,9 @@ returns 501 elsewhere). The server binds 127.0.0.1 only and rejects cross-origin
 state-changing requests. Frontend lives in `web/` with a token-based design system
 (see `web/DESIGN_SYSTEM.md`); the built `web/dist` is served by the backend.
 
-Data flows one way: **crawl → detect → risk (+ registry suppression) → report.**
-Cross-domain rules need the full set of detected fonts, so aggregation happens
-after the whole crawl completes, before scoring.
+Data flows one way: **crawl → detect → classify (verdicts + registry) → report.**
+Cross-domain facts need the full set of detected fonts, so aggregation happens
+after the whole crawl completes, before classification.
 
 ## Conventions
 
@@ -84,14 +87,20 @@ All configuration and operation live in the UI (Targets, Registry, Rules,
 scans, schedules). Do **not** route a normal user through YAML or the CLI.
 Everything stays local — never send their domains or licenses anywhere.
 
-## How to add a risk rule
+## How to change classification (verdicts)
 
-1. Add an entry to `config/rules.example.yaml` with `id`, `description`, `weight`,
-   `confidence`, and its match condition. Document it with an inline comment.
-2. If it needs a new condition type, implement the predicate in `risk/engine.py`
-   and register it; keep rule *data* in YAML, rule *mechanics* in code.
-3. Add a unit test in `tests/test_risk_engine.py` (use fixtures, no network).
-4. Document the rule in `docs/rules.md`.
+The engine is a fixed decision table (ADR 0003), not weighted rules. Tune *data* in
+`config/rules.example.yaml` (open-license patterns, free owners, open/paid-tier
+families, self-host-prohibited lists, paid CDNs, desktop formats, subset threshold);
+the *mechanics* live in `risk/`.
+
+1. To retune, edit the classification lists in `config/rules.example.yaml`.
+2. For a genuinely new *kind* of check, add a helper in `risk/rules.py` and wire it
+   into `classify_license` in `risk/engine.py` (data in YAML, mechanics in code).
+3. Add a deterministic unit test in `tests/test_risk_engine.py` (known input →
+   expected verdict; offline, no network).
+4. Document it in `docs/rules.md`. Verdicts stay three-valued: OK / NEEDS_CHECK /
+   VIOLATION.
 
 ## What must NEVER be committed
 
@@ -112,10 +121,10 @@ generated reports, caches, `.env`. Enforced by `.gitignore` — keep it tight.
 
 ## Docs stay current (enforced)
 
-`tests/test_docs.py` is a CI-enforced freshness guard: it fails if a rule
-predicate, a default rule id, or a `CrawlSettings` field is undocumented, or if
-`CHANGELOG.md` lost its `[Unreleased]` section. So **update docs in the same PR
-as the code** — a new predicate/setting/rule without a doc entry turns CI red.
+`tests/test_docs.py` is a CI-enforced freshness guard: it fails if a classification
+config key or a `CrawlSettings` field is undocumented, or if `CHANGELOG.md` lost its
+`[Unreleased]` section. So **update docs in the same PR as the code** — a new
+classification key or setting without a doc entry turns CI red.
 When you add a user-facing feature, also update the relevant doc (README CLI
 options, `docs/rules.md`, `config/*.example.yaml` comments) and add a CHANGELOG
 entry. Extend `test_docs.py` when a new kind of doc↔code contract is worth pinning.

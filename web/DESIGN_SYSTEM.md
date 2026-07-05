@@ -33,9 +33,9 @@ strong typographic hierarchy, and colour used only to encode risk — never deco
 | `--color-accent` | `bg-accent` / `text-accent` | Primary actions, links, focus ring (slate-blue) |
 | `--color-accent-fg` | `text-accent-fg` | Text/icon ON an accent fill |
 | `--color-accent-soft` | `bg-accent-soft` | Accent tint backgrounds, `::selection` |
-| `--color-band-{low,medium,high}` | `text-band-*` | Risk band foreground (text/icon) |
-| `--color-band-{low,medium,high}-bg` | `bg-band-*-bg` | Risk band pill/chip fill |
-| `--color-band-{low,medium,high}-line` | `border-band-*-line` | Risk band pill/chip border |
+| `--color-band-{low,medium,high}` | `text-band-*` | Verdict/risk foreground; low=OK, medium=Need check, high=Violation |
+| `--color-band-{low,medium,high}-bg` | `bg-band-*-bg` | Verdict/risk pill/chip fill |
+| `--color-band-{low,medium,high}-line` | `border-band-*-line` | Verdict/risk pill/chip border |
 | `--shadow-tk` / `--shadow-tk-lg` | `shadow-tk` / `shadow-tk-lg` | Card / modal-toast elevation |
 | `--radius-tk` | `rounded-tk` | Buttons, inputs (8px) |
 | `--radius-card` | `rounded-card` | Cards, tables, modals (12px) |
