@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-05
+
+Verdicts release. Human-reviewed core; verdict rules frozen (see
+[docs/roadmap.md](docs/roadmap.md) Phase 7).
+
 ### Fixed
 - **Detection gaps found against a ground-truth test page** (fontsentry.com/poligon):
   read OS/2 `fsType` and flag a self-hosted font whose Restricted-License bit
@@ -15,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   family referenced with no `@font-face` and not on the known-system list as
   **UNKNOWN delivery** (→ needs-check with an evidence note) instead of a clean
   system font — closing false "OK / system" results for JavaScript-injected fonts.
+- **More gaps found auditing real sites**: a `local()`-only `@font-face` (Next.js
+  next/font metric fallbacks) is a local alias, not a spurious finding; inline
+  `data:` URI fonts are decoded so their metadata is read; preloaded font files are
+  read even without a static `@font-face`; third-party font-loader scripts (Adobe
+  Typekit, Font Awesome kit, Cloud.typography) are flagged as a privacy finding; and
+  the UI polls a scan until it finishes instead of a fixed 5-minute cap (no false
+  "scan timed out").
 
 ### Changed (breaking)
 - **Deterministic verdicts replace the weighted risk score** (ADR 0003). Each font
@@ -26,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reports, the run diff, the CLI, and the web UI all move to verdicts.
 
 ### Added
+- **`crawl.self_hosted_hosts`** — declare your own asset domains (e.g. a CDN on a
+  separate domain) so their fonts count as first-party, not a third-party privacy leak.
+- **"How it works" UI page** — a read-only explanation of the deterministic decision
+  table (verdict meanings, decision order, evidence notes, privacy axis); the FAQ
+  moved here from under the results table.
+- **`LIMITATIONS.md`** — an honest account of what the tool does not do (JS-rendered
+  SPAs, loader scripts, bot-protected sites, fsType Preview&Print not flagged).
 - **Detection-accuracy validation** (`tests/test_detection_accuracy.py`): measures
   embedded-font detection as precision/recall against the demo corpus's known
   ground truth (100%/100% — no false families, none missed), documented in
