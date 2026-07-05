@@ -9,6 +9,15 @@ The bar is: **every decision is deliberate, documented, and defensible, and the
 tool is honest about what it is and isn't.** A defended tradeoff is a passed
 review; the failure mode is an *unforced error* or an *undefended claim*.
 
+## Post-freeze detection work (2026-07-05)
+
+After the `v0.4.0` freeze, two detection features closed the biggest recall gap
+(self-hosted fonts on client-rendered SPAs): `scan-source` (audit font files in a
+local repo, offline) and a live-scan **JS bundle scan**. Headless-browser
+rendering ("B2") is **deliberately deferred** — the bundle scan covers the common
+case and a browser is a heavyweight, less-deterministic dependency. Decision +
+residue documented in [ADR 0004](adr/0004-spa-font-discovery.md).
+
 ## Current position (2026-07-04)
 
 Phases **1–5 complete** (PRs #59–#64): hygiene, frontend test net + coverage floor,

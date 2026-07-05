@@ -31,10 +31,13 @@ stylesheets, and font preloads. Consequences:
   runtime from string fragments, or one that lives only in a lazily-loaded route
   chunk not referenced from the shell. When a family is referenced in
   `font-family` but never defined and never recovered, it is reported as **UNKNOWN
-  delivery → NEEDS_CHECK**, not a clean result. Full rendering requires the optional
-  Playwright fallback (the `browser` extra), **off by default** — it is heavy (a
-  headless browser) and only helps a minority of pages. When you have the site's
-  source, `fontsentry scan-source PATH` sidesteps this entirely: it reads the font
+  delivery → NEEDS_CHECK**, not a clean result. Fully rendering the page in a
+  headless browser would close this last gap, but that is **deliberately not
+  built** — the static bundle scan already covers the common case, and a headless
+  browser is a heavyweight, less-deterministic dependency we don't add until it's
+  shown necessary (see [ADR 0004](adr/0004-spa-font-discovery.md); the `browser`
+  extra is a placeholder seam only). When you have the site's source,
+  `fontsentry scan-source PATH` sidesteps rendering entirely: it reads the font
   files straight from a checked-out repo, so it finds self-hosted fonts regardless
   of how the app loads them at runtime.
 
