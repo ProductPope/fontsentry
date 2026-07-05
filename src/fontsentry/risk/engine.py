@@ -155,6 +155,8 @@ def validate_rules(rules: RulesConfig) -> list[str]:
 
 def _evidence_notes(agg: AggregatedFont, rules: RulesConfig) -> list[str]:
     notes: list[str] = []
+    if EmbeddingMethod.UNKNOWN in agg.embeddings:
+        notes.append("referenced but its delivery was not observed (may be injected by JavaScript)")
     if clf.desktop_format_on_web(agg, rules.desktop_formats):
         notes.append("a desktop font format is served on the web")
     if clf.paid_cdn_delivery(agg, rules.paid_cdns):

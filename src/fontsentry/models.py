@@ -23,6 +23,9 @@ class EmbeddingMethod(StrEnum):
     MONOTYPE = "monotype"
     OTHER_CDN = "other_cdn"
     SYSTEM = "system"
+    # Referenced in a font-family stack but no @font-face and not a known system
+    # font — how it is delivered was not observed (e.g. injected via JavaScript).
+    UNKNOWN = "unknown"
 
 
 class FontFormat(StrEnum):

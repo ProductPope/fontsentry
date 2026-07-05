@@ -40,6 +40,64 @@ def _best_source(rule: FontFaceRule) -> FontSource | None:
     return min(rule.sources, key=lambda s: _FORMAT_RANK.get(s.font_format, 9))
 
 
+# Family names that ship with an OS / are web-safe. A family used in a font-family
+# stack with no @font-face and not on this list is UNKNOWN delivery (not SYSTEM) —
+# it may be injected by JavaScript or otherwise unobserved, which must not read as
+# a clean "system font". Lowercased; generic keywords are filtered earlier in CSS.
+_KNOWN_SYSTEM_FAMILIES = frozenset(
+    {
+        "arial",
+        "arial black",
+        "helvetica",
+        "helvetica neue",
+        "times",
+        "times new roman",
+        "georgia",
+        "courier",
+        "courier new",
+        "verdana",
+        "tahoma",
+        "trebuchet ms",
+        "palatino",
+        "palatino linotype",
+        "garamond",
+        "cambria",
+        "calibri",
+        "candara",
+        "consolas",
+        "constantia",
+        "corbel",
+        "franklin gothic medium",
+        "gill sans",
+        "lucida grande",
+        "lucida sans unicode",
+        "segoe ui",
+        "segoe ui emoji",
+        "apple color emoji",
+        "menlo",
+        "monaco",
+        "sf pro",
+        "sf pro text",
+        "sf pro display",
+        "roboto",  # Android system font
+        "noto sans",
+        "noto serif",
+        "dejavu sans",
+        "liberation sans",
+        "cantarell",
+        "ubuntu",
+        "droid sans",
+        "impact",
+        "comic sans ms",
+        "webdings",
+        # Synthetic system-fallback names used by the offline demo (brand-neutral
+        # stand-ins for real OS fonts).
+        "common sans",
+        "common serif",
+    }
+)
+
+
 # Bound how many stylesheets one page may pull in (linked + transitively imported)
 # so an @import cycle or a hostile sheet can't fan out unboundedly.
 _MAX_STYLESHEETS = 40
@@ -104,15 +162,20 @@ async def detect_page(fetcher: Fetcher, page_url: str) -> list[DetectedFont]:
             detected.append(await _detect_face(fetcher, rule, page_url, page_host, applied))
 
     for family in used_families:
-        if family.lower() not in face_families:
-            detected.append(
-                DetectedFont(
-                    family=family,
-                    embedding=EmbeddingMethod.SYSTEM,
-                    font_format=FontFormat.UNKNOWN,
-                    source_page=page_url,
-                )
+        if family.lower() in face_families:
+            continue
+        # Used but never defined by an @font-face: a known system font (no license
+        # concern) or an UNKNOWN delivery (referenced but not observed — e.g.
+        # injected by JavaScript), which must not read as a clean system font.
+        is_system = family.lower() in _KNOWN_SYSTEM_FAMILIES
+        detected.append(
+            DetectedFont(
+                family=family,
+                embedding=EmbeddingMethod.SYSTEM if is_system else EmbeddingMethod.UNKNOWN,
+                font_format=FontFormat.UNKNOWN,
+                source_page=page_url,
             )
+        )
 
     return detected
 

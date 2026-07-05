@@ -200,6 +200,18 @@ def test_paid_tier_in_name_is_violation(rules: RulesConfig) -> None:
     assert "paid tier" in finding.license_reason
 
 
+def test_unknown_delivery_is_needs_check(rules: RulesConfig) -> None:
+    # A font referenced but not observed (UNKNOWN delivery) must not read as OK.
+    font = DetectedFont(
+        family="Injected Sans",
+        embedding=EmbeddingMethod.UNKNOWN,
+        source_page="https://example.com/",
+    )
+    finding = evaluate([font], rules, Registry(), NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.NEEDS_CHECK
+    assert any("delivery was not observed" in n for n in finding.evidence_notes)
+
+
 def test_system_font_is_ok(rules: RulesConfig) -> None:
     system = DetectedFont(
         family="Georgia", embedding=EmbeddingMethod.SYSTEM, source_page="https://example.com/"
