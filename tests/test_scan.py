@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from fontsentry import config, demo
-from fontsentry.models import Finding, FindingStatus, RiskBand, RunReport
+from fontsentry.models import Finding, LicenseVerdict, RunReport
 from fontsentry.scan import run_scan
 
 NOW = datetime(2026, 6, 30, 12, 0, 0, tzinfo=UTC)
@@ -57,18 +57,14 @@ def findings(report: RunReport) -> dict[str, Finding]:
     return {f.family: f for f in report.findings}
 
 
-def _rule_ids(finding: Finding) -> set[str]:
-    return {t.id for t in finding.triggered_rules}
+def _notes(finding: Finding) -> str:
+    return " ".join(finding.evidence_notes)
 
 
-async def test_atlas_is_high_risk_cross_domain(findings: dict[str, Finding]) -> None:
+async def test_atlas_is_violation_cross_domain(findings: dict[str, Finding]) -> None:
     atlas = findings["Atlas Grotesk Private"]
-    assert atlas.status is FindingStatus.OPEN
-    assert atlas.band is RiskBand.HIGH
+    assert atlas.license_verdict is LicenseVerdict.VIOLATION
     assert atlas.domain_count == 2  # aggregated across both demo domains
-    assert {"desktop-format-on-web", "self-host-prohibited", "max-domains-exceeded"} <= _rule_ids(
-        atlas
-    )
 
 
 async def test_report_records_duration(report: RunReport) -> None:
@@ -89,28 +85,30 @@ async def test_findings_carry_example_pages(findings: dict[str, Finding]) -> Non
     assert atlas.page_count >= len(atlas.example_urls)
 
 
-async def test_harbor_is_suppressed(findings: dict[str, Finding]) -> None:
+async def test_harbor_is_covered(findings: dict[str, Finding]) -> None:
     harbor = findings["Harbor Serif"]
-    assert harbor.status is FindingStatus.RESOLVED
+    assert harbor.license_verdict is LicenseVerdict.OK
     assert harbor.registry_match is True
+    assert "covered by your license" in harbor.license_reason
 
 
-async def test_acme_commercial_unregistered(findings: dict[str, Finding]) -> None:
+async def test_acme_needs_check_with_evidence(findings: dict[str, Finding]) -> None:
     acme = findings["Acme Display"]
-    assert acme.status is FindingStatus.OPEN
-    assert {"commercial-no-registry", "missing-copyright"} <= _rule_ids(acme)
+    assert acme.license_verdict is LicenseVerdict.NEEDS_CHECK
+    assert "no license or copyright" in _notes(acme)
+    assert "desktop font format" in _notes(acme)
 
 
-async def test_expired_license_surfaces(findings: dict[str, Finding]) -> None:
+async def test_expired_license_is_violation(findings: dict[str, Finding]) -> None:
     expired = findings["Expired Face"]
-    assert expired.status is FindingStatus.OPEN
-    assert "expired-license" in _rule_ids(expired)
+    assert expired.license_verdict is LicenseVerdict.VIOLATION
+    assert "expired" in expired.license_reason
 
 
-async def test_open_font_not_flagged_commercial(findings: dict[str, Finding]) -> None:
+async def test_open_font_is_ok(findings: dict[str, Finding]) -> None:
     public = findings["Public Glyphs Sans"]
-    # OFL font from a known-free owner must not trigger the commercial rule.
-    assert "commercial-no-registry" not in _rule_ids(public)
+    # OFL font from a known-free owner is provably open -> OK, not NEEDS_CHECK.
+    assert public.license_verdict is LicenseVerdict.OK
 
 
 async def test_domain_view_present(report: RunReport) -> None:

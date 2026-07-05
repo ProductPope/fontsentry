@@ -1,7 +1,6 @@
 // Typed client for the FontSentry backend. Mirrors the pydantic models.
 
-export type Band = "low" | "medium" | "high";
-export type Status = "open" | "resolved";
+export type LicenseVerdict = "ok" | "needs_check" | "violation";
 export type PrivacyClass = "self_hosted" | "third_party_api" | "mixed" | "not_applicable";
 
 export interface FontMetadata {
@@ -15,14 +14,6 @@ export interface FontMetadata {
   num_glyphs: number | null;
 }
 
-export interface TriggeredRule {
-  id: string;
-  description: string;
-  weight: number;
-  confidence: number;
-  points: number;
-}
-
 export interface Finding {
   family: string;
   family_group: string;
@@ -31,23 +22,21 @@ export interface Finding {
   formats: string[];
   embeddings: string[];
   metadata: FontMetadata | null;
-  score: number;
-  band: Band;
-  status: Status;
-  triggered_rules: TriggeredRule[];
+  license_verdict: LicenseVerdict;
+  license_reason: string;
+  evidence_notes: string[];
+  privacy: PrivacyClass;
   registry_match: boolean;
-  suppression_reason: string | null;
   example_urls: string[];
   page_count: number;
   applied: boolean;
-  privacy: PrivacyClass;
 }
 
 export interface RunSummary {
   total_findings: number;
-  open_findings: number;
-  resolved_findings: number;
-  by_band: Partial<Record<Band, number>>;
+  needs_action: number;
+  by_verdict: Partial<Record<LicenseVerdict, number>>;
+  by_privacy: Partial<Record<PrivacyClass, number>>;
 }
 
 export interface HostAsset {
@@ -58,8 +47,9 @@ export interface HostAsset {
 export interface DomainFont {
   family: string;
   owner: string | null;
-  band: Band;
-  status: Status;
+  license_verdict: LicenseVerdict;
+  license_reason: string;
+  privacy: PrivacyClass;
   embeddings: string[];
   formats: string[];
   hosts: string[];
@@ -86,8 +76,8 @@ export interface RunReport {
 export interface FindingDelta {
   family: string;
   owner: string | null;
-  old_score: number;
-  new_score: number;
+  old_verdict: LicenseVerdict;
+  new_verdict: LicenseVerdict;
   old_domains: string[];
   new_domains: string[];
 }
@@ -173,32 +163,25 @@ export interface RegistryConfig {
   entries: RegistryEntry[];
 }
 
-export interface RuleCondition {
-  type: string;
-  params: Record<string, unknown>;
+export interface FamilySpec {
+  contains_all: string[];
+  excludes: string[];
 }
 
-export interface Rule {
-  id: string;
-  description: string;
-  weight: number;
-  confidence: number;
-  when: RuleCondition;
-}
-
-export interface BandThresholds {
-  medium: number;
-  high: number;
-}
-
-export interface Scoring {
-  max_raw: number;
-  bands: BandThresholds;
+export interface SelfHostProhibited {
+  owners: string[];
+  families: string[];
 }
 
 export interface RulesConfig {
-  scoring: Scoring;
-  rules: Rule[];
+  open_license_patterns: string[];
+  free_owners: string[];
+  open_families: FamilySpec[];
+  paid_tier_families: FamilySpec[];
+  self_host_prohibited: SelfHostProhibited;
+  paid_cdns: string[];
+  desktop_formats: string[];
+  subset_max_glyphs: number;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

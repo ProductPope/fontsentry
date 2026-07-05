@@ -1,110 +1,88 @@
-"""Unit tests for individual rule predicates (edge cases, guards, boundaries)."""
+"""Unit tests for the classification helpers (edge cases, guards, boundaries)."""
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
-from fontsentry.models import AggregatedFont, EmbeddingMethod, FontFormat, FontMetadata
-from fontsentry.risk.rules import (
-    PredicateContext,
-    commercial_unregistered,
-    family_name_matches,
-    format_on_web,
-    missing_name_field,
-    paid_cdn_unregistered,
-    self_host_prohibited,
-    subset_signal,
+from fontsentry.models import (
+    AggregatedFont,
+    EmbeddingMethod,
+    FamilySpec,
+    FontFormat,
+    FontMetadata,
 )
+from fontsentry.risk import rules as clf
 
-NOW = date(2026, 6, 30)
 
-
-def _ctx(params: dict[str, Any], **agg_kw: Any) -> PredicateContext:
-    agg = AggregatedFont(family=agg_kw.pop("family", "Demo Sans"), **agg_kw)
-    return PredicateContext(agg=agg, entry=None, now=NOW, params=params)
+def _agg(**kw: Any) -> AggregatedFont:
+    return AggregatedFont(family=kw.pop("family", "Demo Sans"), **kw)
 
 
 def _meta(**kw: Any) -> FontMetadata:
     return FontMetadata(**kw)
 
 
-def test_family_name_matches_empty_contains_all_never_matches() -> None:
-    assert family_name_matches(_ctx({"contains_all": []}, family="Font Awesome 6 Pro")) is False
+def test_family_is_paid_tier_empty_contains_all_never_matches() -> None:
+    agg = _agg(family="Font Awesome 6 Pro")
+    assert clf.family_is_paid_tier(agg, [FamilySpec(contains_all=[])]) is False
 
 
-def test_family_name_matches_excludes_suppresses() -> None:
-    ctx = _ctx(
-        {"contains_all": ["font awesome", "pro"], "excludes": ["duotone"]},
-        family="Font Awesome 6 Pro Duotone",
-    )
-    assert family_name_matches(ctx) is False
+def test_family_is_paid_tier_excludes_suppresses() -> None:
+    agg = _agg(family="Font Awesome 6 Pro Duotone")
+    spec = FamilySpec(contains_all=["font awesome", "pro"], excludes=["duotone"])
+    assert clf.family_is_paid_tier(agg, [spec]) is False
 
 
-def test_family_name_matches_positive() -> None:
-    ctx = _ctx({"contains_all": ["font awesome", "pro"]}, family="Font Awesome 6 Pro")
-    assert family_name_matches(ctx) is True
+def test_family_is_paid_tier_positive() -> None:
+    agg = _agg(family="Font Awesome 6 Pro")
+    spec = FamilySpec(contains_all=["font awesome", "pro"])
+    assert clf.family_is_paid_tier(agg, [spec]) is True
 
 
 def test_subset_signal_strict_below_threshold_and_web_gate() -> None:
     web = {"formats": [FontFormat.WOFF2]}
-    assert subset_signal(_ctx({"max_glyphs": 256}, metadata=_meta(num_glyphs=255), **web)) is True
-    assert subset_signal(_ctx({"max_glyphs": 256}, metadata=_meta(num_glyphs=256), **web)) is False
+    assert clf.subset_signal(_agg(metadata=_meta(num_glyphs=255), **web), 256) is True
+    assert clf.subset_signal(_agg(metadata=_meta(num_glyphs=256), **web), 256) is False
     # No web format -> never a subset signal.
-    assert (
-        subset_signal(
-            _ctx({"max_glyphs": 256}, metadata=_meta(num_glyphs=10), formats=[FontFormat.TTF])
-        )
-        is False
-    )
+    ttf = _agg(metadata=_meta(num_glyphs=10), formats=[FontFormat.TTF])
+    assert clf.subset_signal(ttf, 256) is False
     # No metadata / no glyph count -> False.
-    assert subset_signal(_ctx({}, metadata=None, formats=[FontFormat.WOFF2])) is False
+    assert clf.subset_signal(_agg(metadata=None, formats=[FontFormat.WOFF2]), 256) is False
 
 
-def test_paid_cdn_unregistered_skips_bad_name_matches_valid() -> None:
-    ctx = _ctx(
-        {"cdns": ["adobe_fonts", "not_a_real_method"]},
-        embeddings=[EmbeddingMethod.ADOBE_FONTS],
-    )
-    assert paid_cdn_unregistered(ctx) is True
+def test_paid_cdn_delivery_skips_bad_name_matches_valid() -> None:
+    agg = _agg(embeddings=[EmbeddingMethod.ADOBE_FONTS])
+    assert clf.paid_cdn_delivery(agg, ["adobe_fonts", "not_a_real_method"]) is True
 
 
-def test_missing_name_field_empty_fires_unknown_field_ignored() -> None:
-    # Empty copyright fires; but an unknown/misspelled field name must NOT fire.
-    assert missing_name_field(_ctx({"fields": ["copyright"]}, metadata=_meta(copyright=""))) is True
+def test_missing_license_string() -> None:
+    empty = _agg(metadata=_meta(copyright="", license_description=""))
+    assert clf.missing_license_string(empty) is True
     full = _meta(copyright="c 2026", license_description="lic")
-    assert missing_name_field(_ctx({"fields": ["bogus_field"]}, metadata=full)) is False
-
-
-def test_missing_name_field_no_metadata_is_false() -> None:
-    assert missing_name_field(_ctx({"fields": ["copyright"]}, metadata=None)) is False
-
-
-def test_commercial_unregistered_requires_metadata_evidence() -> None:
-    # No metadata -> we don't assert "commercial".
-    assert commercial_unregistered(_ctx({}, metadata=None)) is False
+    assert clf.missing_license_string(_agg(metadata=full)) is False
+    # No metadata -> no evidence either way.
+    assert clf.missing_license_string(_agg(metadata=None)) is False
 
 
 def test_self_host_prohibited_requires_self_hosted_and_folds_case() -> None:
-    prohibited = {"owners": ["Meridian Letterworks"], "families": []}
     # Not self-hosted -> False even if owner matches.
-    assert (
-        self_host_prohibited(
-            _ctx(
-                prohibited, owner="Meridian Letterworks", embeddings=[EmbeddingMethod.GOOGLE_FONTS]
-            )
-        )
-        is False
-    )
+    not_hosted = _agg(owner="Meridian Letterworks", embeddings=[EmbeddingMethod.GOOGLE_FONTS])
+    assert clf.self_host_prohibited(not_hosted, ["Meridian Letterworks"], []) is False
     # Self-hosted + owner match (case-insensitive) -> True.
-    assert (
-        self_host_prohibited(
-            _ctx(prohibited, owner="meridian letterworks", embeddings=[EmbeddingMethod.SELF_HOSTED])
-        )
-        is True
-    )
+    hosted = _agg(owner="meridian letterworks", embeddings=[EmbeddingMethod.SELF_HOSTED])
+    assert clf.self_host_prohibited(hosted, ["Meridian Letterworks"], []) is True
 
 
-def test_format_on_web_excludes_system_only() -> None:
-    ctx = _ctx({"formats": ["ttf"]}, formats=[FontFormat.TTF], embeddings=[EmbeddingMethod.SYSTEM])
-    assert format_on_web(ctx) is False
+def test_desktop_format_on_web_excludes_system_only() -> None:
+    agg = _agg(formats=[FontFormat.TTF], embeddings=[EmbeddingMethod.SYSTEM])
+    assert clf.desktop_format_on_web(agg, ["ttf"]) is False
+    served = _agg(formats=[FontFormat.TTF], embeddings=[EmbeddingMethod.SELF_HOSTED])
+    assert clf.desktop_format_on_web(served, ["ttf"]) is True
+
+
+def test_open_signals() -> None:
+    ofl = _agg(metadata=_meta(license_description="SIL Open Font License (OFL)"))
+    assert clf.looks_open_licensed(ofl, ["OFL"]) is True
+    assert clf.owner_is_free(_agg(owner="Public Glyphs Foundation"), ["Public Glyphs Foundation"])
+    fa = _agg(family="Font Awesome 5 Free")
+    assert clf.family_is_open(fa, [FamilySpec(contains_all=["font awesome"], excludes=["pro"])])

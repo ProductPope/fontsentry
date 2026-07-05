@@ -1,128 +1,50 @@
-# FontSentry risk-engine rules. Copy to rules.yaml (gitignored) and edit freely.
+# FontSentry classification config. Copy to rules.yaml (gitignored) and edit freely.
 #
-# How scoring works:
-#   * Every rule whose condition matches an aggregated font contributes
-#     `weight * confidence` points to that font's raw score.
-#   * The raw score is normalized:  score = min(100, 100 * raw / scoring.max_raw).
-#   * The score maps to a band using scoring.bands thresholds.
+# The verdict engine is DETERMINISTIC (ADR 0003): no weights, no scores. Everything
+# below is pure classification data that the fixed decision table reads. See
+# docs/rules.md for the full reference and the decision order.
 #
-# Rule mechanics (condition `type`s) are implemented in fontsentry/risk/engine.py.
-# Everything below — weights, confidences, thresholds, and the lists inside each
-# condition — is pure data you can tune without touching code.
-# See docs/rules.md for the full reference.
+# License verdict per font: OK · NEEDS_CHECK · VIOLATION (each with a reason).
+# Privacy verdict is derived from the delivery method — not configured here.
 
-scoring:
-  max_raw: 90        # raw weighted sum that maps to a score of 100 (clamped)
-  bands:
-    medium: 30       # score >= 30  -> at least MEDIUM
-    high: 60         # score >= 60  -> HIGH
+# --- Provably-OPEN signals: any match -> license OK (no registry entry needed) ---
 
-rules:
-  # A desktop/print font format delivered over the web via @font-face. Desktop
-  # licenses almost never permit web embedding, so this is a strong signal.
-  - id: desktop-format-on-web
-    description: "Desktop font format (ttf/otf) served on the web via @font-face."
-    weight: 30
-    confidence: 0.85
-    when:
-      type: format_on_web
-      params:
-        formats: ["ttf", "otf"]
+# Substrings looked for in the font's name-table license/copyright strings.
+open_license_patterns: ["OFL", "Open Font License", "Apache", "GPL", "Ubuntu Font License"]
 
-  # A commercial-owner font with no matching entry in your license registry.
-  # "Commercial" = the font is NOT detectably under an open license and the
-  # owner is not in the known-free list.
-  - id: commercial-no-registry
-    description: "Commercial-owner font with no matching license-registry entry."
-    weight: 35
-    confidence: 0.6
-    when:
-      type: commercial_unregistered
-      params:
-        open_license_patterns: ["OFL", "Open Font License", "Apache", "GPL", "Ubuntu Font License"]
-        free_owners: ["The Sentinel Type Co-op", "Public Glyphs Foundation"]
-        # Families that are openly licensed but ship without a license string in
-        # the name table, so open_license_patterns can't see it. Matched by name;
-        # `excludes` keeps paid tiers of the same family from being whitelisted.
-        open_families:
-          - contains_all: ["font awesome"]   # Free/Brands are OFL-licensed
-            excludes: ["pro", "duotone", "sharp"]  # ...but these tiers are paid
+# Foundries/owners whose fonts are free to use.
+free_owners: ["The Sentinel Type Co-op", "Public Glyphs Foundation"]
 
-  # The same font appears on more domains than the registry license permits.
-  # Evaluated across the FULL crawl (cross-domain rule).
-  - id: max-domains-exceeded
-    description: "Font present on more domains than the registry entry's max_domains allows."
-    weight: 40
-    confidence: 0.9
-    hard: true   # a definite over-limit violation — don't discount if unrendered
-    when:
-      type: max_domains_exceeded
-      params: {}
+# Families that are openly licensed but ship WITHOUT a license string in the name
+# table (so open_license_patterns can't see it). Matched by family name;
+# `excludes` keeps paid tiers of the same family from being whitelisted.
+open_families:
+  - contains_all: ["font awesome"]        # Free/Brands are OFL-licensed
+    excludes: ["pro", "duotone", "sharp"] # ...but these tiers are paid
 
-  # Self-hosted font whose license is known to prohibit self-hosting.
-  # Names below are illustrative placeholders — replace with real ones you track.
-  - id: self-host-prohibited
-    description: "Self-hosted font from a owner/family whose license forbids self-hosting."
-    weight: 35
-    confidence: 0.7
-    hard: true   # prohibited self-hosting is a violation regardless of rendering
-    when:
-      type: self_host_prohibited
-      params:
-        owners: ["Meridian Letterworks"]
-        families: ["Atlas Grotesk Private"]
+# --- Definite-VIOLATION signals (apply only when no valid registry cover exists) ---
 
-  # Font served from a known paid CDN with no corresponding registry entry.
-  - id: paid-cdn-no-registry
-    description: "Font from a paid CDN (Adobe Fonts / Monotype) with no registry entry."
-    weight: 30
-    confidence: 0.75
-    when:
-      type: paid_cdn_unregistered
-      params:
-        cdns: ["adobe_fonts", "monotype"]
+# Paid tiers announced by the family name itself (e.g. Font Awesome Pro). Serving
+# one with no license on record is a violation on its own.
+paid_tier_families:
+  - contains_all: ["font awesome", "pro"]
+    excludes: []
 
-  # Copyright/license string missing or stripped from the font name table —
-  # often a sign of an illegitimately repackaged file.
-  - id: missing-copyright
-    description: "Copyright or license string missing from the font name table."
-    weight: 15
-    confidence: 0.5
-    when:
-      type: missing_name_field
-      params:
-        fields: ["copyright", "license"]
+# Owners/families whose license is known to forbid self-hosting. Names below are
+# illustrative placeholders — replace with real ones you track.
+self_host_prohibited:
+  owners: ["Meridian Letterworks"]
+  families: ["Atlas Grotesk Private"]
 
-  # Registry license has expired (valid_until is in the past).
-  - id: expired-license
-    description: "A matching registry license has expired (valid_until in the past)."
-    weight: 40
-    confidence: 0.95
-    hard: true   # an expired license is a real lapse regardless of rendering
-    when:
-      type: license_expired
-      params: {}
+# --- Evidence-note signals: context for NEEDS_CHECK. These NEVER decide a verdict,
+#     they only explain why a font is worth a human check. ---
 
-  # A paid tier announced by the family name itself. Font Awesome Pro (and its
-  # Pro-only Duotone/Sharp styles) is licensed per-domain, so serving it is a
-  # strong signal on its own — separate from the registry check above.
-  - id: paid-tier-in-name
-    description: "Family name indicates a paid tier (e.g. Font Awesome Pro)."
-    weight: 40
-    confidence: 0.7
-    hard: true   # serving a paid tier is a concern even if not applied to text
-    when:
-      type: family_name_matches
-      params:
-        contains_all: ["font awesome", "pro"]
-        excludes: []
+# Third-party paid CDNs (embedding methods). Delivery from these with no recorded
+# license is noted (and is also a privacy/third-party fact).
+paid_cdns: ["adobe_fonts", "monotype"]
 
-  # Low-confidence subsetting signal. Reliable subset detection is hard, so this
-  # is a flag with deliberately low weight — it nudges, it does not decide.
-  - id: subset-signal
-    description: "Possible subsetting detected (low-confidence flag, lightly weighted)."
-    weight: 5
-    confidence: 0.2
-    when:
-      type: subset_signal
-      params: {}
+# Desktop/print formats that rarely carry web-embedding rights.
+desktop_formats: ["ttf", "otf"]
+
+# Below this glyph count a web font looks subsetted (a weak, low-confidence hint).
+subset_max_glyphs: 256

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (breaking)
+- **Deterministic verdicts replace the weighted risk score** (ADR 0003). Each font
+  now carries a **license verdict** (`OK` / `NEEDS_CHECK` / `VIOLATION`) with an
+  explicit reason and evidence notes, plus the existing **privacy verdict**. The
+  score/band and `triggered_rules` are gone; the engine is a fixed decision table.
+  `rules.yaml` becomes classification data (no `scoring:`/weights) — a breaking
+  config change; report schema bumped to 9 (older reports still load). JSON/HTML/CSV
+  reports, the run diff, the CLI, and the web UI all move to verdicts.
+
 ### Added
 - **Detection-accuracy validation** (`tests/test_detection_accuracy.py`): measures
   embedded-font detection as precision/recall against the demo corpus's known

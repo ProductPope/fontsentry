@@ -10,7 +10,6 @@ from __future__ import annotations
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -37,10 +36,21 @@ class FontFormat(StrEnum):
     UNKNOWN = "unknown"
 
 
-class RiskBand(StrEnum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
+class LicenseVerdict(StrEnum):
+    """Deterministic license classification (ADR 0003). Nuance lives in the reason.
+
+    OK          — no action needed: covered by a registry license, provably open,
+                  or a system/fallback font (no license question).
+    NEEDS_CHECK  — the honest default: no license on record and not provably open;
+                  a human should look. Carries evidence notes explaining why.
+    VIOLATION    — a definite lapse: a declared license expired or out of scope /
+                  over max_domains, a paid tier served without cover, or a
+                  self-host-prohibited font self-hosted without cover.
+    """
+
+    OK = "ok"
+    NEEDS_CHECK = "needs_check"
+    VIOLATION = "violation"
 
 
 class PrivacyClass(StrEnum):
@@ -126,20 +136,8 @@ class AggregatedFont(BaseModel):
         return len(self.domains)
 
 
-class TriggeredRule(BaseModel):
-    """A rule that fired for a finding, with the points it contributed."""
-
-    model_config = _REPORT_MODEL_CONFIG
-
-    id: str
-    description: str
-    weight: float
-    confidence: float
-    points: float
-
-
 class Finding(BaseModel):
-    """A scored font identity: the unit of a report."""
+    """A classified font identity: the unit of a report (ADR 0003, deterministic)."""
 
     model_config = _REPORT_MODEL_CONFIG
 
@@ -150,20 +148,27 @@ class Finding(BaseModel):
     formats: list[FontFormat] = Field(default_factory=list)
     embeddings: list[EmbeddingMethod] = Field(default_factory=list)
     metadata: FontMetadata | None = None
-    score: int = 0
-    band: RiskBand = RiskBand.LOW
-    status: FindingStatus = FindingStatus.OPEN
-    triggered_rules: list[TriggeredRule] = Field(default_factory=list)
+    # Deterministic verdicts, each with an explicit reason.
+    license_verdict: LicenseVerdict = LicenseVerdict.NEEDS_CHECK
+    license_reason: str = ""
+    evidence_notes: list[str] = Field(default_factory=list)  # inform NEEDS_CHECK; never decide
+    privacy: PrivacyClass = PrivacyClass.NOT_APPLICABLE  # delivery-based privacy axis
     registry_match: bool = False
-    suppression_reason: str | None = None
     example_urls: list[str] = Field(default_factory=list)  # sample pages the font was seen on
     page_count: int = 0  # distinct pages the font was seen on
     applied: bool = True  # False = served via @font-face but not applied to any text
-    privacy: PrivacyClass = PrivacyClass.NOT_APPLICABLE  # delivery-based privacy axis
 
     @property
     def domain_count(self) -> int:
         return len(self.domains)
+
+    @property
+    def needs_action(self) -> bool:
+        """True when a human should look: a license concern or a privacy leak."""
+        return self.license_verdict is not LicenseVerdict.OK or self.privacy in (
+            PrivacyClass.THIRD_PARTY_API,
+            PrivacyClass.MIXED,
+        )
 
 
 class RunSummary(BaseModel):
@@ -172,9 +177,9 @@ class RunSummary(BaseModel):
     model_config = _REPORT_MODEL_CONFIG
 
     total_findings: int = 0
-    open_findings: int = 0
-    resolved_findings: int = 0
-    by_band: dict[RiskBand, int] = Field(default_factory=dict)
+    needs_action: int = 0  # license verdict != OK, or a third-party/mixed privacy leak
+    by_verdict: dict[LicenseVerdict, int] = Field(default_factory=dict)
+    by_privacy: dict[PrivacyClass, int] = Field(default_factory=dict)
 
 
 class HostAsset(BaseModel):
@@ -193,8 +198,9 @@ class DomainFont(BaseModel):
 
     family: str
     owner: str | None = None
-    band: RiskBand = RiskBand.LOW
-    status: FindingStatus = FindingStatus.OPEN
+    license_verdict: LicenseVerdict = LicenseVerdict.NEEDS_CHECK
+    license_reason: str = ""
+    privacy: PrivacyClass = PrivacyClass.NOT_APPLICABLE
     embeddings: list[EmbeddingMethod] = Field(default_factory=list)
     formats: list[FontFormat] = Field(default_factory=list)
     hosts: list[str] = Field(default_factory=list)
@@ -221,7 +227,7 @@ class RunReport(BaseModel):
 
     model_config = _REPORT_MODEL_CONFIG
 
-    schema_version: int = 8
+    schema_version: int = 9
     generated_at: datetime
     duration_seconds: float = 0.0  # wall-clock scan time; powers ETA estimates
     summary: RunSummary
@@ -230,20 +236,20 @@ class RunReport(BaseModel):
 
 
 class FindingDelta(BaseModel):
-    """An open finding present in both runs whose score or domain spread changed."""
+    """A finding present in both runs whose verdict or domain spread changed."""
 
     model_config = ConfigDict(extra="forbid")
 
     family: str
     owner: str | None = None
-    old_score: int
-    new_score: int
+    old_verdict: LicenseVerdict
+    new_verdict: LicenseVerdict
     old_domains: list[str] = Field(default_factory=list)
     new_domains: list[str] = Field(default_factory=list)
 
 
 class DiffResult(BaseModel):
-    """The difference between two runs, over open (alertable) findings."""
+    """The difference between two runs, over findings that need action."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -355,79 +361,46 @@ class TargetsConfig(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# Risk rules
+# Classification config (ADR 0003): pure data for the deterministic decision
+# table. No weights, no thresholds — mechanics live in fontsentry.risk.
 # --------------------------------------------------------------------------- #
 
 
-class RuleCondition(BaseModel):
-    """A named predicate plus its parameters.
-
-    The predicate *vocabulary* is implemented in ``risk.engine`` (a fixed,
-    auditable set). The predicate *parameters* (formats, owner lists, CDN sets,
-    thresholds) are pure data and live in ``rules.yaml`` — that is what makes the
-    engine editable without touching code.
-    """
+class FamilySpec(BaseModel):
+    """Match a font by family name: contains every substring in `contains_all`
+    (case-insensitive) and none in `excludes`. Empty `contains_all` never matches."""
 
     model_config = ConfigDict(extra="forbid")
 
-    type: str = Field(min_length=1, description="Predicate name registered in risk.engine.")
-    params: dict[str, Any] = Field(default_factory=dict)
+    contains_all: list[str] = Field(default_factory=list)
+    excludes: list[str] = Field(default_factory=list)
 
 
-class Rule(BaseModel):
+class SelfHostProhibited(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(min_length=1)
-    description: str = ""
-    weight: float = Field(ge=0, description="Points contributed when the rule fires.")
-    confidence: float = Field(ge=0, le=1, description="Scales the weight (0..1).")
-    hard: bool = Field(
-        default=False,
-        description=(
-            "A hard violation (e.g. expired/over-limit license, paid tier): its score "
-            "is NOT halved when the font is served-but-not-applied."
-        ),
-    )
-    when: RuleCondition
-
-
-class BandThresholds(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    medium: float = Field(ge=0, le=100)
-    high: float = Field(ge=0, le=100)
-
-    @field_validator("high")
-    @classmethod
-    def _high_above_medium(cls, value: float, info: Any) -> float:
-        medium = info.data.get("medium")
-        if medium is not None and value < medium:
-            raise ValueError("band 'high' threshold must be >= 'medium' threshold")
-        return value
-
-
-class Scoring(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    max_raw: float = Field(gt=0, description="Raw weighted sum that maps to a score of 100.")
-    bands: BandThresholds
+    owners: list[str] = Field(default_factory=list)
+    families: list[str] = Field(default_factory=list)
 
 
 class RulesConfig(BaseModel):
+    """Classification data for the verdict engine (editable without touching code)."""
+
     model_config = ConfigDict(extra="forbid")
 
-    scoring: Scoring
-    rules: list[Rule] = Field(default_factory=list)
+    # Provably-OPEN signals (any -> license OK without a registry entry).
+    open_license_patterns: list[str] = Field(default_factory=list)
+    free_owners: list[str] = Field(default_factory=list)
+    open_families: list[FamilySpec] = Field(default_factory=list)
 
-    @field_validator("rules")
-    @classmethod
-    def _unique_ids(cls, rules: list[Rule]) -> list[Rule]:
-        seen: set[str] = set()
-        for rule in rules:
-            if rule.id in seen:
-                raise ValueError(f"duplicate rule id: {rule.id!r}")
-            seen.add(rule.id)
-        return rules
+    # Definite-VIOLATION signals (when no valid registry cover applies).
+    paid_tier_families: list[FamilySpec] = Field(default_factory=list)
+    self_host_prohibited: SelfHostProhibited = Field(default_factory=SelfHostProhibited)
+
+    # Evidence-note signals (context for NEEDS_CHECK — they never decide a verdict).
+    paid_cdns: list[str] = Field(default_factory=list)  # embedding methods, e.g. adobe_fonts
+    desktop_formats: list[str] = Field(default_factory=list)  # e.g. ttf, otf
+    subset_max_glyphs: int = Field(default=256, ge=0)
 
 
 # --------------------------------------------------------------------------- #

@@ -1,67 +1,66 @@
-# Risk rules reference
+# Classification reference
 
-The risk engine is driven by `config/rules.yaml` (copy from
-`config/rules.example.yaml`). This page documents the scoring model, every default
-rule, and how to add your own.
+The verdict engine is **deterministic** (see [ADR 0003](adr/0003-deterministic-verdicts.md)):
+no weights, no scores. Each font gets two verdicts, each with an explicit reason.
+`config/rules.yaml` (copy from `config/rules.example.yaml`) holds only the
+**classification data**; the decision table itself lives in `fontsentry/risk/`.
 
-> The score is a **heuristic estimate, not legal advice**. A high score means a
-> font is worth a human checking — not that infringement has occurred.
+> The verdicts are a deterministic aid, **not legal advice**. `VIOLATION` or
+> `NEEDS_CHECK` means a font is worth a human review — not a legal determination.
 
-## Scoring model
+## The two verdicts
 
-1. Per-page detections are aggregated into one identity per **(family, owner)**
-   across all scanned domains (a different owner for the same family name is a
-   different font, so a benign owner can't mask a commercial one).
-2. Every rule whose condition matches contributes `weight × confidence` points.
-3. The raw sum is normalized: `score = min(100, 100 × raw / scoring.max_raw)`.
-4. The score maps to a band via `scoring.bands` (`medium` and `high` thresholds;
-   below `medium` is `low`).
-5. A font served via `@font-face` but not applied to any text has its score
-   **halved** — unless a rule marked `hard: true` fired (e.g. expired/over-limit
-   license, paid tier), which is a real violation regardless of rendering.
+**License verdict** — one of:
 
-```yaml
-scoring:
-  max_raw: 90       # raw weighted sum that maps to a score of 100 (clamped)
-  bands:
-    medium: 30
-    high: 60
+- **OK** — no action: covered by a registry license, provably open, or a
+  system/fallback font.
+- **NEEDS_CHECK** — the honest default: no license on record and not provably open.
+  Carries *evidence notes* (context) that inform but never decide.
+- **VIOLATION** — a definite lapse: a declared license expired or is out of scope /
+  over `max_domains`; a paid tier served with no cover; a self-host-prohibited font
+  self-hosted with no cover.
+
+**Privacy verdict** — derived from the delivery method (not configured here):
+`self_hosted`, `third_party_api` (visitor IPs sent to a font CDN — a GDPR fact),
+`mixed`, or `not_applicable` (system font).
+
+## Decision order (first match wins)
+
+1. Delivery is system-only → **OK** (no license question).
+2. A matching registry entry: valid + in scope + within `max_domains` → **OK**;
+   otherwise (expired / out of scope / over limit) → **VIOLATION**. *(A declared,
+   lapsed license is a violation — the registry check precedes the open check.)*
+3. No registry cover, but provably open (open license string, free owner, or a known
+   open family) → **OK**.
+4. No cover and not open: a paid tier by name, or a self-host-prohibited font
+   self-hosted → **VIOLATION**.
+5. Otherwise → **NEEDS_CHECK** with evidence notes.
+
+## Classification config keys
+
+| Key | Role | Effect |
+| --- | --- | --- |
+| `open_license_patterns` | provably-open | substrings in the name-table license/copyright → OK |
+| `free_owners` | provably-open | owners whose fonts are free → OK |
+| `open_families` | provably-open | families that are open but ship no license string → OK (each with `contains_all` / `excludes`) |
+| `paid_tier_families` | violation | family names that indicate a paid tier (e.g. Font Awesome Pro) → VIOLATION when uncovered |
+| `self_host_prohibited` | violation | `owners` / `families` whose license forbids self-hosting → VIOLATION when self-hosted and uncovered |
+| `paid_cdns` | evidence | embedding methods (e.g. `adobe_fonts`) that add a "paid CDN, no license" note |
+| `desktop_formats` | evidence | formats (e.g. `ttf`, `otf`) that add a "desktop format on the web" note |
+| `subset_max_glyphs` | evidence | below this glyph count a web font adds a "looks subsetted" note |
+
+Evidence-note keys (`paid_cdns`, `desktop_formats`, `subset_max_glyphs`) only add
+context to `NEEDS_CHECK`; they never by themselves make a font a `VIOLATION`.
+
+## Editing and validating
+
+Edit `config/rules.yaml`, then check it:
+
+```bash
+fontsentry rules validate --file config/rules.yaml
 ```
 
-## Condition types (predicate vocabulary)
-
-Implemented in `src/fontsentry/risk/rules.py`. Parameters come from the rule.
-
-| `type` | Fires when | Params |
-| --- | --- | --- |
-| `format_on_web` | A listed font format is served via @font-face (embedding ≠ system) | `formats` |
-| `commercial_unregistered` | Metadata present, not an open license, owner not free, family not a known-open family, and no registry entry | `open_license_patterns`, `free_owners`, `open_families` |
-| `family_name_matches` | The family name contains every `contains_all` substring and none in `excludes` (e.g. a paid tier like Font Awesome Pro) | `contains_all`, `excludes` |
-| `max_domains_exceeded` | A matching registry entry's `max_domains` is exceeded across the crawl | — |
-| `self_host_prohibited` | Self-hosted and the owner/family is on a prohibited list | `owners`, `families` |
-| `paid_cdn_unregistered` | Served from a listed paid CDN with no registry entry | `cdns` |
-| `missing_name_field` | A listed name-table field is missing/empty (metadata present) | `fields` |
-| `license_expired` | A matching registry entry has expired (`valid_until` past) | — |
-| `subset_signal` | A web-format font has fewer glyphs than a threshold (low confidence) | `max_glyphs` |
-
-Predicates that need evidence (commercial, missing-field, subset) only fire when
-the font file was actually downloaded and parsed, avoiding false positives on
-unreachable files.
-
-## Default rules
-
-The shipped `rules.example.yaml` defines: `desktop-format-on-web`,
-`commercial-no-registry`, `max-domains-exceeded`, `self-host-prohibited`,
-`paid-cdn-no-registry`, `missing-copyright`, `expired-license`, `paid-tier-in-name`,
-and `subset-signal`.
-Each is documented with an inline comment in that file.
-
-## Adding a rule
-
-1. Add an entry to `rules.yaml` with `id`, `description`, `weight`, `confidence`,
-   an optional `hard: true` (a definite violation — its score is not halved for a
-   served-but-unapplied font), and a `when` block referencing a condition `type`.
-2. If you need a new *kind* of check, add a predicate to
-   `src/fontsentry/risk/rules.py` and register it in `PREDICATES`.
-3. Add a unit test in `tests/test_risk_engine.py` (offline, fixture-based).
-4. Document it here and validate: `fontsentry rules validate --file config/rules.yaml`.
+Adding a genuinely new *kind* of check (not just data) means adding a helper in
+`fontsentry/risk/rules.py`, wiring it into the decision table in
+`fontsentry/risk/engine.py`, and a deterministic test (known input → expected
+verdict) in `tests/test_risk_engine.py`.

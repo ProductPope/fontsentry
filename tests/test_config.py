@@ -10,9 +10,9 @@ import pytest
 from fontsentry import config
 from fontsentry.config import ConfigError
 from fontsentry.models import (
+    LicenseVerdict,
     Registry,
     RegistryEntry,
-    RiskBand,
     Settings,
     Target,
     TargetsConfig,
@@ -67,17 +67,9 @@ def test_example_files_load(config_dir: Path, registry_dir: Path) -> None:
 
     assert settings.crawl.max_depth == 2
     assert targets.targets[0].domain == "example.com"
-    assert {r.id for r in rules.rules} == {
-        "desktop-format-on-web",
-        "commercial-no-registry",
-        "max-domains-exceeded",
-        "self-host-prohibited",
-        "paid-cdn-no-registry",
-        "missing-copyright",
-        "expired-license",
-        "paid-tier-in-name",
-        "subset-signal",
-    }
+    assert "OFL" in rules.open_license_patterns
+    assert "ttf" in rules.desktop_formats
+    assert rules.self_host_prohibited.owners == ["Meridian Letterworks"]
     assert "Atlas Grotesk Private" in {e.family for e in registry.entries}
 
 
@@ -124,30 +116,23 @@ def test_domain_scheme_and_trailing_slash_stripped(tmp_path: Path) -> None:
     assert targets.targets[0].domain == "example.com"
 
 
-def test_duplicate_rule_id_rejected(tmp_path: Path) -> None:
+def test_unknown_classification_key_rejected(tmp_path: Path) -> None:
     path = tmp_path / "rules.yaml"
-    path.write_text(
-        "scoring:\n"
-        "  max_raw: 90\n"
-        "  bands: {medium: 30, high: 60}\n"
-        "rules:\n"
-        "  - {id: dup, weight: 1, confidence: 1, when: {type: subset_signal}}\n"
-        "  - {id: dup, weight: 1, confidence: 1, when: {type: subset_signal}}\n",
-        encoding="utf-8",
-    )
-    with pytest.raises(ConfigError, match="duplicate rule id"):
+    path.write_text("bogus_key: 1\n", encoding="utf-8")
+    with pytest.raises(ConfigError):
         config.load_rules(path)
 
 
-def test_band_high_below_medium_rejected(tmp_path: Path) -> None:
+def test_classification_config_loads(tmp_path: Path) -> None:
     path = tmp_path / "rules.yaml"
     path.write_text(
-        "scoring:\n  max_raw: 90\n  bands: {medium: 60, high: 30}\nrules: []\n",
+        "open_license_patterns: [OFL]\ndesktop_formats: [ttf, otf]\nsubset_max_glyphs: 128\n",
         encoding="utf-8",
     )
-    with pytest.raises(ConfigError, match="high"):
-        config.load_rules(path)
+    rules = config.load_rules(path)
+    assert rules.open_license_patterns == ["OFL"]
+    assert rules.subset_max_glyphs == 128
 
 
-def test_riskband_values() -> None:
-    assert [b.value for b in RiskBand] == ["low", "medium", "high"]
+def test_license_verdict_values() -> None:
+    assert [v.value for v in LicenseVerdict] == ["ok", "needs_check", "violation"]

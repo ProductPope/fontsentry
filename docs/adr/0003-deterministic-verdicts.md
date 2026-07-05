@@ -96,3 +96,15 @@ are **removed** (breaking config change; report schema bump; `RiskBand` →
   not a 0–100 number. This is a deliberate loss of false precision.
 - **Breaking changes:** config (`rules.yaml`), report schema, and the UI
   (band badge → verdict + reason). Requires a migration and version bump.
+
+## Amendment (as implemented)
+
+The **license verdict surface is three states**, not five:
+`OK` · `NEEDS_CHECK` · `VIOLATION`. The five conceptual cases collapse as:
+`COVERED`, `OPEN`, and system-only all resolve to **OK**; the nuance (covered by
+your license vs provably open vs system font) is carried in the verdict's
+**reason** string, not a separate enum value. `UNKNOWN` is renamed **NEEDS_CHECK**
+(the same first-class honest default, with evidence notes). `VIOLATION` is
+unchanged. This keeps the operator-facing model to three legible outcomes while
+preserving the deterministic decision order above. The **privacy verdict** is
+unchanged (`self_hosted` / `third_party_api` / `mixed` / `not_applicable`).

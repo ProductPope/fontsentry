@@ -6,7 +6,7 @@ import {
   groupFindings,
   groupKeyOf,
   isSystemOnly,
-  worstBand,
+  worstVerdict,
 } from "./findings";
 
 function f(over: Partial<Finding> = {}): Finding {
@@ -18,16 +18,14 @@ function f(over: Partial<Finding> = {}): Finding {
     formats: [],
     embeddings: ["self_hosted"],
     metadata: null,
-    score: 10,
-    band: "low",
-    status: "open",
-    triggered_rules: [],
+    license_verdict: "needs_check",
+    license_reason: "",
+    evidence_notes: [],
+    privacy: "self_hosted",
     registry_match: false,
-    suppression_reason: null,
     example_urls: [],
     page_count: 0,
     applied: true,
-    privacy: "self_hosted",
     ...over,
   };
 }
@@ -46,10 +44,16 @@ describe("findingKey", () => {
   });
 });
 
-describe("worstBand", () => {
-  it("returns the most severe band", () => {
-    expect(worstBand([f({ band: "low" }), f({ band: "high" }), f({ band: "medium" })])).toBe("high");
-    expect(worstBand([f({ band: "low" })])).toBe("low");
+describe("worstVerdict", () => {
+  it("returns the most severe verdict", () => {
+    expect(
+      worstVerdict([
+        f({ license_verdict: "ok" }),
+        f({ license_verdict: "violation" }),
+        f({ license_verdict: "needs_check" }),
+      ]),
+    ).toBe("violation");
+    expect(worstVerdict([f({ license_verdict: "ok" })])).toBe("ok");
   });
 });
 
@@ -62,24 +66,27 @@ describe("isSystemOnly", () => {
 });
 
 describe("actionText", () => {
-  it("varies by status/system", () => {
-    expect(actionText(f({ status: "resolved" }))).toMatch(/No action needed/);
+  it("varies by verdict/system", () => {
+    expect(actionText(f({ license_verdict: "ok" }))).toMatch(/No action needed/);
+    expect(actionText(f({ license_verdict: "violation", license_reason: "expired" }))).toMatch(
+      /Confirm the license/,
+    );
     expect(actionText(f({ embeddings: ["system"] }))).toMatch(/system \/ fallback/);
-    expect(actionText(f({ status: "open", embeddings: ["self_hosted"] }))).toMatch(/Registry/);
+    expect(actionText(f({ license_verdict: "needs_check" }))).toMatch(/Registry/);
   });
 });
 
 describe("groupFindings", () => {
-  it("folds variants into one group and orders by top score", () => {
+  it("folds variants into one group and orders by worst verdict", () => {
     const rows = [
-      f({ family: "metropolis", family_group: "Metropolis", score: 70 }),
-      f({ family: "metropolis-bold", family_group: "Metropolis", score: 40 }),
-      f({ family: "Roboto", family_group: "Roboto", score: 50 }),
+      f({ family: "metropolis", family_group: "Metropolis", license_verdict: "violation" }),
+      f({ family: "metropolis-bold", family_group: "Metropolis", license_verdict: "ok" }),
+      f({ family: "Roboto", family_group: "Roboto", license_verdict: "needs_check" }),
     ];
     const groups = groupFindings(rows, true);
     expect(groups.map((g) => g.label)).toEqual(["Metropolis", "Roboto"]);
     expect(groups[0]!.findings).toHaveLength(2);
-    // ascending flips the order (Roboto 50 vs Metropolis top 70)
+    // ascending flips the order (Roboto needs_check vs Metropolis violation)
     expect(groupFindings(rows, false).map((g) => g.label)).toEqual(["Roboto", "Metropolis"]);
   });
 });

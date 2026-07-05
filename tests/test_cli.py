@@ -47,7 +47,7 @@ def test_rules_validate_ok(repo_root: Path) -> None:
         app, ["rules", "validate", "--file", str(repo_root / "config" / "rules.example.yaml")]
     )
     assert result.exit_code == 0
-    assert "rules OK" in result.output
+    assert "config OK" in result.output
 
 
 def test_registry_validate_ok(repo_root: Path) -> None:
@@ -64,17 +64,17 @@ def test_diff_two_runs(tmp_path: Path, repo_root: Path) -> None:
     older = tmp_path / "fontsentry-20260101T000000Z.report.json"
     newer = tmp_path / "fontsentry-20260201T000000Z.report.json"
     older.write_text(
-        '{"schema_version":1,"generated_at":"2026-01-01T00:00:00Z",'
-        '"summary":{"total_findings":0,"open_findings":0,"resolved_findings":0,"by_band":{}},'
+        '{"schema_version":9,"generated_at":"2026-01-01T00:00:00Z",'
+        '"summary":{"total_findings":0,"needs_action":0,"by_verdict":{},"by_privacy":{}},'
         '"findings":[]}',
         encoding="utf-8",
     )
     newer.write_text(
-        '{"schema_version":1,"generated_at":"2026-02-01T00:00:00Z",'
-        '"summary":{"total_findings":1,"open_findings":1,"resolved_findings":0,"by_band":{}},'
+        '{"schema_version":9,"generated_at":"2026-02-01T00:00:00Z",'
+        '"summary":{"total_findings":1,"needs_action":1,"by_verdict":{},"by_privacy":{}},'
         '"findings":[{"family":"New Font","owner":"Acme","domains":["a.com"],'
-        '"formats":["ttf"],"embeddings":["self_hosted"],"score":70,"band":"high",'
-        '"status":"open","triggered_rules":[],"registry_match":false}]}',
+        '"formats":["ttf"],"embeddings":["self_hosted"],"license_verdict":"violation",'
+        '"license_reason":"x","privacy":"self_hosted","registry_match":false}]}',
         encoding="utf-8",
     )
     result = runner.invoke(app, ["diff", str(older), str(newer)])

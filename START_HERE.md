@@ -27,8 +27,9 @@ Everything happens in the browser. The first screen walks you through it:
 1. **Add your websites** — the domains you want to check.
 2. **Run an audit** — click **Start audit** (top-right). Not ready with your
    real sites? Choose **demo** to see how it works on sample data.
-3. **Read the results** — each font gets a risk band (High / Medium / Low).
-   Open a row to see *why* it was flagged and *what to do*.
+3. **Read the results** — each font gets a plain-language **license verdict**
+   (OK / Need check / Violation) and a **privacy verdict** (self-hosted vs
+   third-party). Open a row to see *why* and *what to do*.
 
 To record fonts you already have a license for, go to **Registry** and add
 them — matching findings then clear automatically on the next audit.
@@ -39,5 +40,6 @@ Everything stays on your machine. The app is reachable only from your own
 computer (127.0.0.1), and your real website list and licenses are saved to
 local files that are never shared or uploaded.
 
-> **Note:** the risk score is a heuristic estimate, **not legal advice**. A
-> high band means "worth a human checking the license", not "infringement".
+> **Note:** the verdicts are a deterministic aid, **not legal advice**. A
+> Violation or Need check means "worth a human checking the license", not
+> "infringement".

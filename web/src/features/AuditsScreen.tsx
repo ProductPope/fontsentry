@@ -3,15 +3,20 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { cn } from "../lib/cn";
 import { api } from "../lib/api";
-import type { Band, RunMeta, ScheduleInfo } from "../lib/api";
+import type { LicenseVerdict, RunMeta, ScheduleInfo } from "../lib/api";
 import type { ToastKind } from "../components/Toast";
 import { ScheduleDialog } from "./ScheduleDialog";
 
-const BAND_ORDER: Band[] = ["high", "medium", "low"];
-const BAND_TEXT: Record<Band, string> = {
-  high: "text-band-high",
-  medium: "text-band-medium",
-  low: "text-band-low",
+const VERDICT_ORDER: LicenseVerdict[] = ["violation", "needs_check", "ok"];
+const VERDICT_TEXT: Record<LicenseVerdict, string> = {
+  violation: "text-band-high",
+  needs_check: "text-band-medium",
+  ok: "text-band-low",
+};
+const VERDICT_LABEL: Record<LicenseVerdict, string> = {
+  violation: "violation",
+  needs_check: "need check",
+  ok: "ok",
 };
 
 function fmtDate(iso: string): string {
@@ -81,13 +86,13 @@ export function AuditsScreen({ runs, selectedId, onOpenRun, notify }: AuditsScre
                       <span className="text-xs text-faint">{fmtDate(r.generated_at)}</span>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
-                      {BAND_ORDER.map((b) => (
-                        <span key={b} className={cn("font-mono tabular-nums", BAND_TEXT[b])}>
-                          {r.summary.by_band[b] ?? 0} {b}
+                      {VERDICT_ORDER.map((v) => (
+                        <span key={v} className={cn("font-mono tabular-nums", VERDICT_TEXT[v])}>
+                          {r.summary.by_verdict[v] ?? 0} {VERDICT_LABEL[v]}
                         </span>
                       ))}
                       <span className="font-mono tabular-nums text-muted">
-                        {r.summary.open_findings}/{r.summary.total_findings} open
+                        {r.summary.needs_action}/{r.summary.total_findings} need action
                       </span>
                     </div>
                   </button>

@@ -24,7 +24,7 @@ export function Faq() {
 
       <Item q="Fonts view vs Domains view?">
         Same audit, two perspectives. <strong>Fonts</strong> lists each font once, aggregated
-        across every domain it appears on (expand a row for the triggered rules and metadata).{" "}
+        across every domain it appears on (expand a row for the reason and metadata).{" "}
         <strong>Domains</strong> lists fonts per host — each domain and subdomain as its own
         rows — plus how many domains were scanned, how many are live, and how many subdomains
         were found.
@@ -47,18 +47,25 @@ export function Faq() {
             Domains, the exact host (subdomains tagged <em>subdomain</em>).
           </li>
           <li>
-            <strong>Band / Status</strong> — risk level, and whether it is an open finding or
-            covered by a license (see below).
+            <strong>License / Privacy</strong> — the two deterministic verdicts (see below).
           </li>
         </ul>
       </Item>
 
-      <Item q="What do High / Medium / Low mean?">
-        A risk <strong>band</strong> derived from a 0–100 score: the more (and stronger) the rules
-        a font triggers, the higher the score. High = most worth a human checking the license,
-        Low = little signal. This is a <strong>heuristic estimate, not legal advice</strong> — a
-        high band does not mean infringement, only that it is worth reviewing. Thresholds are
-        configurable in <code>config/rules.yaml</code>.
+      <Item q="What do OK / Need check / Violation mean?">
+        The <strong>license verdict</strong> comes from a fixed decision table (no scores):{" "}
+        <strong>OK</strong> — covered by your registry, provably open, or a system font;{" "}
+        <strong>Need check</strong> — no license on record and not provably open (the honest
+        default; the row lists what we noticed); <strong>Violation</strong> — a definite lapse
+        (an expired or out-of-scope license, a paid tier, or self-hosting a font that forbids it).
+        This is a <strong>deterministic aid, not legal advice</strong> — a verdict is a prompt to
+        review, not a legal determination.
+      </Item>
+
+      <Item q="What is the Privacy verdict?">
+        Independent of the license: how the font is delivered. <strong>Self-hosted</strong> leaks
+        nothing; <strong>Third-party</strong> (Google Fonts API, Adobe, a CDN) sends each visitor's
+        IP off-site — a GDPR/RODO concern even when the font is free. Self-host the files to fix it.
       </Item>
 
       <Item q="What is &quot;Embedding&quot;?">
@@ -79,21 +86,20 @@ export function Faq() {
         </ul>
       </Item>
 
-      <Item q="Open vs Resolved — does the status change by itself?">
-        Yes. Status is <strong>recomputed on every scan</strong>; it is never edited by hand. A
-        finding is <strong>Resolved</strong> automatically when a matching entry in your license
-        registry covers it — same owner + family, the domain is allowed, the domain count is
-        within the license limit, and the license has not expired. Otherwise it stays{" "}
-        <strong>Open</strong> with a reason.
+      <Item q="Does the verdict change by itself?">
+        Yes. Verdicts are <strong>recomputed on every scan</strong>; they are never edited by hand.
+        A font becomes <strong>OK</strong> automatically when a matching entry in your license
+        registry covers it — same owner + family, the domain is allowed, the domain count is within
+        the license limit, and the license has not expired.
       </Item>
 
-      <Item q="How do I change the status for a domain?">
-        You don't set it directly — you record the license. Add an entry to{" "}
+      <Item q="How do I clear a font for a domain?">
+        You don't set the verdict directly — you record the license. Add an entry to{" "}
         <code>registry/licenses.yaml</code> (copy from{" "}
         <code>registry/licenses.example.yaml</code>) with the <code>owner</code>,{" "}
         <code>family</code>, the <code>allowed_domains</code> that include this domain, an optional{" "}
         <code>max_domains</code>, and <code>valid_until</code>. On the next audit that font on that
-        domain flips to Resolved.
+        domain turns <strong>OK</strong>.
       </Item>
 
       <Item q="How do I load a list of domains to scan?">

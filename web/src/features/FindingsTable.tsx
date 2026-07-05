@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { RiskBadge, StatusText } from "../components/Badge";
+import { useMemo, useState } from "react";
+import { PrivacyText, VerdictBadge } from "../components/Badge";
 import { Select } from "../components/Select";
 import { TextInput } from "../components/TextInput";
+import type { Finding, LicenseVerdict } from "../lib/api";
 import { cn } from "../lib/cn";
-import { api } from "../lib/api";
-import type { Finding, Status } from "../lib/api";
-import { delivery, isPrivacyFlagged, needsAction } from "../lib/privacy";
-import { findingKey, groupFindings, type Group, worstBand } from "../lib/findings";
-import { FindingDetail, type RuleInfo, type Thresholds } from "./finding-detail";
+import { findingKey, groupFindings, needsAction, worstVerdict, type Group } from "../lib/findings";
+import { delivery, isPrivacyFlagged } from "../lib/privacy";
+import { FindingDetail } from "./finding-detail";
 
 type Focus = "action" | "privacy" | "all";
 
@@ -16,6 +15,9 @@ const FOCUS_CHIPS: { id: Focus; label: string }[] = [
   { id: "privacy", label: "Privacy (GDPR)" },
   { id: "all", label: "All" },
 ];
+
+// Sort severity: most-attention-worthy first.
+const RANK: Record<LicenseVerdict, number> = { violation: 2, needs_check: 1, ok: 0 };
 
 function DeliveryBadge({ finding }: { finding: Finding }) {
   const d = delivery(finding);
@@ -44,27 +46,11 @@ const TH = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]";
 export function FindingsTable({ findings }: { findings: Finding[] }) {
   const [search, setSearch] = useState("");
   const [focus, setFocus] = useState<Focus>("action");
-  const [status, setStatus] = useState<Status | "all">("all");
+  const [verdict, setVerdict] = useState<LicenseVerdict | "all">("all");
   const [desc, setDesc] = useState(true);
   const [grouped, setGrouped] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-  // Band thresholds + the full rule list power the score gauge and the
-  // "didn't apply" breakdown. Best-effort — the panel degrades without them.
-  const [thresholds, setThresholds] = useState<Thresholds>(null);
-  const [rules, setRules] = useState<RuleInfo[] | null>(null);
-  useEffect(() => {
-    api
-      .getRules()
-      .then((cfg) => {
-        setThresholds(cfg.scoring.bands);
-        setRules(cfg.rules.map((r) => ({ id: r.id, description: r.description })));
-      })
-      .catch(() => {
-        // gauge/breakdown are enhancements; ignore failures
-      });
-  }, []);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -72,18 +58,21 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
       .filter((f) =>
         focus === "action" ? needsAction(f) : focus === "privacy" ? isPrivacyFlagged(f) : true,
       )
-      .filter((f) => (status === "all" ? true : f.status === status))
+      .filter((f) => (verdict === "all" ? true : f.license_verdict === verdict))
       .filter(
         (f) =>
           q === "" ||
           f.family.toLowerCase().includes(q) ||
           (f.owner ?? "").toLowerCase().includes(q),
       )
-      .sort((a, b) => (desc ? b.score - a.score : a.score - b.score));
-  }, [findings, search, focus, status, desc]);
+      .sort((a, b) =>
+        desc
+          ? RANK[b.license_verdict] - RANK[a.license_verdict]
+          : RANK[a.license_verdict] - RANK[b.license_verdict],
+      );
+  }, [findings, search, focus, verdict, desc]);
 
   const hiddenCount = findings.length - rows.length;
-
   const groups = useMemo(() => groupFindings(rows, desc), [rows, desc]);
 
   const toggleGroup = (key: string) =>
@@ -100,7 +89,11 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
         Findings
       </h2>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div role="group" aria-label="Filter findings" className="flex rounded-tk border border-stroke bg-surface2 p-0.5">
+        <div
+          role="group"
+          aria-label="Filter findings"
+          className="flex rounded-tk border border-stroke bg-surface2 p-0.5"
+        >
           {FOCUS_CHIPS.map((c) => (
             <button
               key={c.id}
@@ -127,11 +120,15 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
             />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block font-medium">Status</span>
-            <Select value={status} onChange={(e) => setStatus(e.target.value as Status | "all")}>
+            <span className="mb-1 block font-medium">License</span>
+            <Select
+              value={verdict}
+              onChange={(e) => setVerdict(e.target.value as LicenseVerdict | "all")}
+            >
               <option value="all">all</option>
-              <option value="open">open</option>
-              <option value="resolved">resolved</option>
+              <option value="violation">violation</option>
+              <option value="needs_check">needs check</option>
+              <option value="ok">ok</option>
             </Select>
           </label>
           <label className="flex items-center gap-1.5 pb-2 text-sm">
@@ -147,14 +144,14 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
 
       {focus === "action" && hiddenCount > 0 && (
         <p className="text-xs text-faint">
-          {hiddenCount} open-licensed / low-risk font{hiddenCount === 1 ? "" : "s"} hidden — switch
-          to <strong>All</strong> to see everything.
+          {hiddenCount} OK / no-action font{hiddenCount === 1 ? "" : "s"} hidden — switch to{" "}
+          <strong>All</strong> to see everything.
         </p>
       )}
 
       <div className="overflow-x-auto rounded-card border border-stroke">
         <table className="w-full border-collapse bg-surface text-sm">
-          <caption className="sr-only">Detected fonts and their risk</caption>
+          <caption className="sr-only">Detected fonts and their verdicts</caption>
           <thead>
             <tr className="bg-surface2 text-left text-muted">
               <th scope="col" className={TH}>
@@ -172,58 +169,51 @@ export function FindingsTable({ findings }: { findings: Finding[] }) {
               <th scope="col" className={TH} aria-sort={desc ? "descending" : "ascending"}>
                 <button
                   onClick={() => setDesc((d) => !d)}
-                  aria-label={`Sort by score ${desc ? "ascending" : "descending"}`}
+                  aria-label={`Sort by severity ${desc ? "ascending" : "descending"}`}
                 >
-                  Score{" "}
-                  <span aria-hidden="true">{desc ? "▼" : "▲"}</span>
+                  License <span aria-hidden="true">{desc ? "▼" : "▲"}</span>
                 </button>
               </th>
               <th scope="col" className={TH}>
-                Band
-              </th>
-              <th scope="col" className={TH}>
-                Status
+                Privacy
               </th>
             </tr>
           </thead>
           <tbody>
-            {(grouped ? groups : rows.map((f) => ({ key: findingKey(f), label: f.family, findings: [f] }))).map(
-              (g) => {
-                // A single-variant group renders as a plain row — only families
-                // that actually split into weights/styles get a group header.
-                if (g.findings.length === 1) {
-                  const f = g.findings[0]!;
-                  const key = findingKey(f);
-                  const isOpen = expanded === key;
-                  return (
-                    <FindingRows
-                      key={key}
-                      finding={f}
-                      isOpen={isOpen}
-                      onToggle={() => setExpanded(isOpen ? null : key)}
-                      thresholds={thresholds}
-                      rules={rules}
-                    />
-                  );
-                }
-                const groupOpen = expandedGroups.has(g.key);
+            {(grouped
+              ? groups
+              : rows.map((f) => ({ key: findingKey(f), label: f.family, findings: [f] }))
+            ).map((g) => {
+              // A single-variant group renders as a plain row — only families that
+              // actually split into weights/styles get a group header.
+              if (g.findings.length === 1) {
+                const f = g.findings[0]!;
+                const key = findingKey(f);
+                const isOpen = expanded === key;
                 return (
-                  <GroupRows
-                    key={g.key}
-                    group={g}
-                    isOpen={groupOpen}
-                    onToggle={() => toggleGroup(g.key)}
-                    expanded={expanded}
-                    onToggleFinding={(k) => setExpanded(expanded === k ? null : k)}
-                    thresholds={thresholds}
-                    rules={rules}
+                  <FindingRows
+                    key={key}
+                    finding={f}
+                    isOpen={isOpen}
+                    onToggle={() => setExpanded(isOpen ? null : key)}
                   />
                 );
-              },
-            )}
+              }
+              const groupOpen = expandedGroups.has(g.key);
+              return (
+                <GroupRows
+                  key={g.key}
+                  group={g}
+                  isOpen={groupOpen}
+                  onToggle={() => toggleGroup(g.key)}
+                  expanded={expanded}
+                  onToggleFinding={(k) => setExpanded(expanded === k ? null : k)}
+                />
+              );
+            })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-muted">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted">
                   No findings match the filters.
                 </td>
               </tr>
@@ -241,19 +231,14 @@ function GroupRows({
   onToggle,
   expanded,
   onToggleFinding,
-  thresholds,
-  rules,
 }: {
   group: Group;
   isOpen: boolean;
   onToggle: () => void;
   expanded: string | null;
   onToggleFinding: (key: string) => void;
-  thresholds: Thresholds;
-  rules: RuleInfo[] | null;
 }) {
-  const band = worstBand(group.findings);
-  const maxScore = Math.max(...group.findings.map((f) => f.score));
+  const verdict = worstVerdict(group.findings);
   const domains = new Set(group.findings.flatMap((f) => f.domains)).size;
   const owners = new Set(group.findings.map((f) => f.owner ?? ""));
   const owner = owners.size === 1 ? [...owners][0] || "—" : "—";
@@ -277,11 +262,12 @@ function GroupRows({
           <DeliveryBadge finding={rep} />
         </td>
         <td className="px-4 py-2 font-mono tabular-nums">{domains}</td>
-        <td className="px-4 py-2 font-mono font-semibold tabular-nums">{maxScore}</td>
         <td className="px-4 py-2">
-          <RiskBadge band={band} />
+          <VerdictBadge verdict={verdict} />
         </td>
-        <td className="px-4 py-2" />
+        <td className="px-4 py-2">
+          <PrivacyText privacy={rep.privacy} />
+        </td>
       </tr>
       {isOpen &&
         group.findings.map((f) => {
@@ -292,8 +278,6 @@ function GroupRows({
               finding={f}
               isOpen={expanded === key}
               onToggle={() => onToggleFinding(key)}
-              thresholds={thresholds}
-              rules={rules}
               indent
             />
           );
@@ -306,15 +290,11 @@ function FindingRows({
   finding,
   isOpen,
   onToggle,
-  thresholds,
-  rules,
   indent = false,
 }: {
   finding: Finding;
   isOpen: boolean;
   onToggle: () => void;
-  thresholds: Thresholds;
-  rules: RuleInfo[] | null;
   indent?: boolean;
 }) {
   const detailId = `finding-detail-${findingKey(finding)}`;
@@ -337,18 +317,17 @@ function FindingRows({
           <DeliveryBadge finding={finding} />
         </td>
         <td className="px-4 py-2 font-mono tabular-nums">{finding.domains.length}</td>
-        <td className="px-4 py-2 font-mono font-semibold tabular-nums">{finding.score}</td>
         <td className="px-4 py-2">
-          <RiskBadge band={finding.band} />
+          <VerdictBadge verdict={finding.license_verdict} />
         </td>
         <td className="px-4 py-2">
-          <StatusText status={finding.status} />
+          <PrivacyText privacy={finding.privacy} />
         </td>
       </tr>
       {isOpen && (
         <tr id={detailId}>
-          <td colSpan={7} className="p-0">
-            <FindingDetail finding={finding} thresholds={thresholds} rules={rules} />
+          <td colSpan={6} className="p-0">
+            <FindingDetail finding={finding} />
           </td>
         </tr>
       )}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "./api";
-import { delivery, isPrivacyFlagged, needsAction, privacyAdvice } from "./privacy";
+import { needsAction } from "./findings";
+import { delivery, isPrivacyFlagged, privacyAdvice } from "./privacy";
 
 function finding(over: Partial<Finding> = {}): Finding {
   return {
@@ -11,16 +12,14 @@ function finding(over: Partial<Finding> = {}): Finding {
     formats: ["woff2"],
     embeddings: ["self_hosted"],
     metadata: null,
-    score: 10,
-    band: "low",
-    status: "open",
-    triggered_rules: [],
+    license_verdict: "ok",
+    license_reason: "",
+    evidence_notes: [],
+    privacy: "self_hosted",
     registry_match: false,
-    suppression_reason: null,
     example_urls: [],
     page_count: 1,
     applied: true,
-    privacy: "self_hosted",
     ...over,
   };
 }
@@ -77,17 +76,12 @@ describe("isPrivacyFlagged", () => {
 });
 
 describe("needsAction", () => {
-  it("hides open/low, keeps medium+ and privacy-flagged", () => {
-    expect(needsAction(finding({ band: "low", status: "open", privacy: "self_hosted" }))).toBe(
-      false,
-    );
-    expect(needsAction(finding({ band: "medium", status: "open" }))).toBe(true);
-    // Low licence risk but third-party delivery still needs attention (GDPR).
-    expect(needsAction(finding({ band: "low", privacy: "third_party_api" }))).toBe(true);
-    // Resolved (covered) low is not actionable.
-    expect(needsAction(finding({ band: "low", status: "resolved", privacy: "self_hosted" }))).toBe(
-      false,
-    );
+  it("hides OK/self-hosted, keeps non-OK and privacy-flagged", () => {
+    expect(needsAction(finding({ license_verdict: "ok", privacy: "self_hosted" }))).toBe(false);
+    expect(needsAction(finding({ license_verdict: "needs_check" }))).toBe(true);
+    expect(needsAction(finding({ license_verdict: "violation" }))).toBe(true);
+    // OK licence but third-party delivery still needs attention (GDPR).
+    expect(needsAction(finding({ license_verdict: "ok", privacy: "third_party_api" }))).toBe(true);
   });
 });
 
