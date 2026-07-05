@@ -24,15 +24,31 @@ const TITLES: Record<Route, string> = {
   rules: "Rules",
 };
 
+const _sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Poll until the backend job finishes. A real multi-domain crawl is politeness-
+// bound and can run for many minutes, so there is no fixed attempt cap — we follow
+// the job's own status and only give up if it errors or the job can't be reached
+// several times in a row (transient blips during a busy crawl are tolerated).
 async function pollJob(jobId: string, onProgress: (job: Job) => void): Promise<string> {
-  for (let i = 0; i < 600; i++) {
-    const job = await api.getJob(jobId);
+  let consecutiveErrors = 0;
+  for (;;) {
+    let job: Job;
+    try {
+      job = await api.getJob(jobId);
+      consecutiveErrors = 0;
+    } catch (e) {
+      if (++consecutiveErrors >= 5) {
+        throw e instanceof Error ? e : new Error("lost contact with the scan");
+      }
+      await _sleep(2000);
+      continue;
+    }
     onProgress(job);
     if (job.status === "done" && job.run_id) return job.run_id;
     if (job.status === "error") throw new Error(job.error ?? "scan failed");
-    await new Promise((r) => setTimeout(r, 500));
+    await _sleep(1500);
   }
-  throw new Error("scan timed out");
 }
 
 export default function App() {
