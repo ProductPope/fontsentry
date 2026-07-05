@@ -7,7 +7,10 @@ so it works identically over the network and over the demo's local transport.
 
 from __future__ import annotations
 
-from urllib.parse import urlsplit
+import base64
+import binascii
+from collections.abc import Iterable
+from urllib.parse import unquote_to_bytes, urlsplit
 
 from fontsentry.crawl.fetcher import Fetcher
 from fontsentry.detect.css import (
@@ -19,9 +22,21 @@ from fontsentry.detect.css import (
 )
 from fontsentry.detect.embedding import classify_embedding
 from fontsentry.detect.fontfile import FontReadError, read_font_metadata
-from fontsentry.detect.html import parse_html
+from fontsentry.detect.html import HtmlAssets, parse_html
 from fontsentry.models import DetectedFont, EmbeddingMethod, FontFormat
 from fontsentry.textutil import decode_text
+
+# Third-party font-loader scripts: a <script> from one of these delivers fonts at
+# runtime (the @font-face is not statically visible), which is a third-party
+# privacy fact even when we can't enumerate the individual fonts. host substring
+# -> (label, method).
+_FONT_LOADERS: tuple[tuple[str, str, EmbeddingMethod], ...] = (
+    ("use.typekit.net", "Adobe Fonts (Typekit)", EmbeddingMethod.ADOBE_FONTS),
+    ("use.typekit.com", "Adobe Fonts (Typekit)", EmbeddingMethod.ADOBE_FONTS),
+    ("p.typekit.net", "Adobe Fonts (Typekit)", EmbeddingMethod.ADOBE_FONTS),
+    ("kit.fontawesome.com", "Font Awesome (Kit)", EmbeddingMethod.OTHER_CDN),
+    ("cloud.typography.com", "Cloud.typography", EmbeddingMethod.OTHER_CDN),
+)
 
 # Preference order when an @font-face lists several sources.
 _FORMAT_RANK = {
@@ -103,12 +118,14 @@ _KNOWN_SYSTEM_FAMILIES = frozenset(
 _MAX_STYLESHEETS = 40
 
 
-async def _collect_css(fetcher: Fetcher, page_url: str) -> list[tuple[str, str]]:
-    """Return (css_text, base_url) pairs for inline, linked, and @imported stylesheets."""
+async def _collect_css(
+    fetcher: Fetcher, page_url: str
+) -> tuple[list[tuple[str, str]], HtmlAssets | None]:
+    """Return (css_text, base_url) pairs and the page's parsed HTML assets."""
 
     result = await fetcher.fetch(page_url)
     if result is None or not result.ok or "html" not in result.content_type.lower():
-        return []
+        return [], None
 
     html = decode_text(result.content, result.content_type)
     assets = parse_html(html, base_url=page_url)
@@ -135,18 +152,47 @@ async def _collect_css(fetcher: Fetcher, page_url: str) -> list[tuple[str, str]]
         blocks.append((text, url))
         queue.extend(parse_imports(text, base_url=url))
 
-    return blocks
+    return blocks, assets
 
 
-async def detect_page(fetcher: Fetcher, page_url: str) -> list[DetectedFont]:
+def _decode_data_uri(url: str) -> bytes | None:
+    """Decode `data:[<mime>][;base64],<data>` into bytes (inline-embedded fonts)."""
+    if not url.startswith("data:"):
+        return None
+    header, _, data = url[5:].partition(",")
+    if not data:
+        return None
+    try:
+        if ";base64" in header.lower():
+            return base64.b64decode(data)
+        return unquote_to_bytes(data)
+    except (binascii.Error, ValueError):
+        return None
+
+
+async def _font_bytes(fetcher: Fetcher, url: str) -> bytes | None:
+    """Get a font's bytes — decoded inline for data: URIs, otherwise fetched."""
+    if url.startswith("data:"):
+        return _decode_data_uri(url)
+    fetched = await fetcher.fetch(url)
+    if fetched is not None and fetched.ok and fetched.content:
+        return fetched.content
+    return None
+
+
+async def detect_page(
+    fetcher: Fetcher, page_url: str, *, own_hosts: Iterable[str] = ()
+) -> list[DetectedFont]:
     """Detect all fonts referenced by a single page."""
 
     page_host = urlsplit(page_url).netloc
-    blocks = await _collect_css(fetcher, page_url)
+    own = tuple(own_hosts)
+    blocks, assets = await _collect_css(fetcher, page_url)
 
     face_families: set[str] = set()
     used_families: set[str] = set()
     detected: list[DetectedFont] = []
+    seen_urls: set[str] = set()
 
     # Which families are actually referenced by a font-family usage. Used both to
     # find system fonts (used but no @font-face) and to mark @font-face fonts that
@@ -174,7 +220,10 @@ async def detect_page(fetcher: Fetcher, page_url: str) -> list[DetectedFont]:
                 )
                 continue
             applied = rule.family.lower() in used_lower
-            detected.append(await _detect_face(fetcher, rule, page_url, page_host, applied))
+            font = await _detect_face(fetcher, rule, page_url, page_host, applied, own)
+            if font.font_url:
+                seen_urls.add(font.font_url)
+            detected.append(font)
 
     for family in used_families:
         if family.lower() in face_families:
@@ -192,23 +241,101 @@ async def detect_page(fetcher: Fetcher, page_url: str) -> list[DetectedFont]:
             )
         )
 
+    if assets is not None:
+        preloads = await _detect_preloads(fetcher, assets, page_url, page_host, own, seen_urls)
+        detected.extend(preloads)
+        detected.extend(_detect_loaders(assets, page_url))
+
     return detected
 
 
+async def _detect_preloads(
+    fetcher: Fetcher,
+    assets: HtmlAssets,
+    page_url: str,
+    page_host: str,
+    own: tuple[str, ...],
+    seen_urls: set[str],
+) -> list[DetectedFont]:
+    """Read <link rel=preload as=font> files not already covered by an @font-face.
+
+    A preloaded font whose @font-face never appears in the static CSS was likely
+    wired up by JavaScript; the file itself is still fetchable, so read its name
+    table to name it and judge it, instead of missing it.
+    """
+    out: list[DetectedFont] = []
+    for url in assets.preload_font_urls:
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        data = await _font_bytes(fetcher, url)
+        if data is None:
+            continue
+        try:
+            metadata, file_format = read_font_metadata(data)
+        except FontReadError:
+            continue
+        family = (metadata.family_name or "").strip()
+        if not family:
+            continue
+        out.append(
+            DetectedFont(
+                family=family,
+                embedding=classify_embedding(url, page_host, own),
+                font_format=file_format,
+                source_page=page_url,
+                font_url=url,
+                metadata=metadata,
+            )
+        )
+    return out
+
+
+def _detect_loaders(assets: HtmlAssets, page_url: str) -> list[DetectedFont]:
+    """Flag third-party font-loader scripts (Typekit, Font Awesome kit, …).
+
+    We can't enumerate the fonts a loader injects at runtime, but the script's
+    presence is a third-party delivery fact worth surfacing (privacy) — one finding
+    per provider, so the operator sees the GDPR exposure.
+    """
+    out: list[DetectedFont] = []
+    seen: set[str] = set()
+    for src in assets.script_srcs:
+        host = urlsplit(src).hostname or ""
+        for marker, label, method in _FONT_LOADERS:
+            if marker in host.lower() and label not in seen:
+                seen.add(label)
+                out.append(
+                    DetectedFont(
+                        family=label,
+                        embedding=method,
+                        font_format=FontFormat.UNKNOWN,
+                        source_page=page_url,
+                        font_url=src,
+                    )
+                )
+    return out
+
+
 async def _detect_face(
-    fetcher: Fetcher, rule: FontFaceRule, page_url: str, page_host: str, applied: bool
+    fetcher: Fetcher,
+    rule: FontFaceRule,
+    page_url: str,
+    page_host: str,
+    applied: bool,
+    own: tuple[str, ...] = (),
 ) -> DetectedFont:
     source = _best_source(rule)
     font_url = source.url if source else None
     fmt = source.font_format if source else FontFormat.UNKNOWN
-    embedding = classify_embedding(font_url, page_host)
+    embedding = classify_embedding(font_url, page_host, own)
 
     metadata = None
     if font_url:
-        fetched = await fetcher.fetch(font_url)
-        if fetched is not None and fetched.ok and fetched.content:
+        data = await _font_bytes(fetcher, font_url)
+        if data:
             try:
-                metadata, file_format = read_font_metadata(fetched.content)
+                metadata, file_format = read_font_metadata(data)
                 if fmt is FontFormat.UNKNOWN:
                     fmt = file_format
             except FontReadError:
