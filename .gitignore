@@ -25,6 +25,9 @@ out/
 validation/labels.yaml
 validation/result.md
 
+# Local-only working material — never committed
+external/
+
 # Built web UI
 web/dist/
 web/node_modules/
