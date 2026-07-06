@@ -160,6 +160,60 @@ def test_installable_fstype_not_flagged(rules: RulesConfig) -> None:
     assert finding.license_verdict is not LicenseVerdict.VIOLATION
 
 
+# --- Crawl-order independence: the same detections must yield the same verdict
+# in any input order (metadata is chosen by content, not arrival). -------------
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_restricted_fstype_wins_regardless_of_crawl_order(
+    rules: RulesConfig, reverse: bool
+) -> None:
+    # One file carries the restricted-embedding bit, another is clean. Whichever
+    # the crawl met first used to decide; the restricted evidence must win always.
+    fonts = [
+        _font(fmt=FontFormat.WOFF2, fs_type=0x0002, copyright=None, license_desc=None),
+        _font(fmt=FontFormat.WOFF, fs_type=0, copyright=None, license_desc=None),
+    ]
+    if reverse:
+        fonts.reverse()
+    finding = evaluate(fonts, rules, Registry(), NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.VIOLATION
+    assert "fsType" in finding.license_reason
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_license_bearing_file_wins_over_stripped_regardless_of_order(
+    rules: RulesConfig, reverse: bool
+) -> None:
+    # regular.woff2 stripped, bold.woff carrying an open-license string: the
+    # verdict used to flip with crawl order (OK vs NEEDS_CHECK).
+    fonts = [
+        _font(fmt=FontFormat.WOFF2, copyright=None, license_desc=None),
+        _font(
+            fmt=FontFormat.WOFF,
+            copyright=None,
+            license_desc="Licensed under the SIL Open Font License (OFL) 1.1",
+        ),
+    ]
+    if reverse:
+        fonts.reverse()
+    finding = evaluate(fonts, rules, Registry(), NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.OK
+
+
+def test_empty_embeddings_never_classifies_ok(rules: RulesConfig) -> None:
+    # AggregatedFont.embeddings defaults to [] — a future caller constructing one
+    # directly must not get a silent "system font -> OK".
+    from fontsentry.models import AggregatedFont
+    from fontsentry.registry.registry import evaluate_suppression
+    from fontsentry.risk.engine import classify_license
+
+    agg = AggregatedFont(family="Ghost Face")
+    suppression = evaluate_suppression(agg, Registry(), NOW)
+    verdict, _reason, _notes = classify_license(agg, suppression, rules)
+    assert verdict is LicenseVerdict.NEEDS_CHECK
+
+
 # --- Decision-order pins (ADR 0003): conflicting signals across steps. Each of
 # these fails if two adjacent steps of classify_license are swapped. -----------
 

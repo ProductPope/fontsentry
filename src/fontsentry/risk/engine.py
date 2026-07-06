@@ -55,10 +55,36 @@ class _Accumulator:
     domains: set[str] = field(default_factory=set)
     formats: set[FontFormat] = field(default_factory=set)
     embeddings: set[EmbeddingMethod] = field(default_factory=set)
-    metadata: FontMetadata | None = None
+    # (metadata, tie-break key) per file — one canonical winner is picked at build
+    # time by content, so the verdict can't depend on crawl order.
+    metadata_candidates: list[tuple[FontMetadata, str]] = field(default_factory=list)
     occurrences: int = 0
     pages: set[str] = field(default_factory=set)
     applied: bool = False
+
+
+def _metadata_rank(candidate: tuple[FontMetadata, str]) -> tuple[int, int, str]:
+    meta, tie = candidate
+    restricted = meta.fs_type is not None and bool(meta.fs_type & clf.FS_TYPE_RESTRICTED)
+    has_license = bool(meta.license_description or meta.copyright)
+    return (0 if restricted else 1, 0 if has_license else 1, tie)
+
+
+def _canonical_metadata(candidates: list[tuple[FontMetadata, str]]) -> FontMetadata | None:
+    """Pick one file's metadata for the aggregated identity, order-independently.
+
+    The same family can ship as several files with different name tables (one
+    stripped, one carrying "OFL", one with the restricted-embedding bit). Taking
+    whichever arrived first made the verdict depend on crawl order. Rank by
+    content instead — restricted-embedding bit first (the safe direction), then
+    a file that carries license/copyright text over a stripped one, then a
+    lexicographic tie-break. A whole object is chosen (never a field-wise merge)
+    so the evidence stays attributable to one real file.
+    """
+
+    if not candidates:
+        return None
+    return min(candidates, key=_metadata_rank)[0]
 
 
 def _domain_of(url: str) -> str:
@@ -106,8 +132,8 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
 
         if acc.owner is None and owner:
             acc.owner = owner
-        if acc.metadata is None and font.metadata is not None:
-            acc.metadata = font.metadata
+        if font.metadata is not None:
+            acc.metadata_candidates.append((font.metadata, font.font_url or font.source_page))
 
         acc.domains.add(_domain_of(font.source_page))
         acc.formats.add(font.font_format)
@@ -126,7 +152,7 @@ def aggregate(fonts: list[DetectedFont]) -> list[AggregatedFont]:
                 domains=sorted(acc.domains),
                 formats=sorted(acc.formats, key=lambda f: f.value),
                 embeddings=sorted(acc.embeddings, key=lambda e: e.value),
-                metadata=acc.metadata,
+                metadata=_canonical_metadata(acc.metadata_candidates),
                 occurrences=acc.occurrences,
                 example_urls=sorted(acc.pages)[:5],
                 page_count=len(acc.pages),
@@ -175,8 +201,9 @@ def classify_license(
 ) -> tuple[LicenseVerdict, str, list[str]]:
     """Deterministic license verdict + reason + evidence notes (first match wins)."""
 
-    # 1. System/fallback fonts pose no license question.
-    if not any(e is not EmbeddingMethod.SYSTEM for e in agg.embeddings):
+    # 1. System/fallback fonts pose no license question. (An empty embeddings list
+    #    means "unobserved", not "system" — it falls through to the honest default.)
+    if agg.embeddings and not any(e is not EmbeddingMethod.SYSTEM for e in agg.embeddings):
         return LicenseVerdict.OK, "system or fallback font — no license needed", []
 
     # 2. A matching registry entry decides: covered -> OK; declared but lapsed or
