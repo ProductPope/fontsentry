@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Bundle scan: relative font URLs now resolve against the bundle's own host**,
+  not the page's — a root-relative path inside a bundle served from a declared
+  asset domain (`crawl.self_hosted_hosts`) previously 404'd and the font was
+  missed (the exact SPA-with-asset-CDN case of ADR 0004). JSON-escaped URLs
+  (`https:\/\/…`, as emitted in webpack/Vite manifests) are now recognized too.
 - **`fontsentry validate` no longer passes on a broken scan.** A font can only
   be a false negative if it was detected, so a scan that detected nothing (network
   down, every host blocked) reported zero false negatives and exited 0. The

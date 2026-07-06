@@ -48,6 +48,48 @@ async def test_bundle_cross_site_script_not_fetched() -> None:
     assert "Offsite Sans" not in families
 
 
+async def test_bundle_relative_url_resolves_against_bundle_host() -> None:
+    # Regression: a root-relative font path inside a bundle served from a declared
+    # asset domain belongs to that domain — resolving it against the page host
+    # produced a 404 and the font vanished (the ADR 0004 asset-CDN case).
+    asset_js = "https://static.brand-assets.test/main.js"
+    asset_font = "https://static.brand-assets.test/fonts/brand.woff2"
+    font = build_test_font(family_name="Asset Sans", flavor="woff2")
+    stub = _StubFetcher(
+        {
+            PAGE: _page(f'<script src="{asset_js}"></script>'),
+            asset_js: _result(asset_js, b'var f=e("/fonts/brand.woff2");', "text/javascript"),
+            asset_font: _result(asset_font, font, "font/woff2"),
+        }
+    )
+    dets = {
+        d.family: d
+        for d in await detect_page(
+            stub,  # type: ignore[arg-type]
+            PAGE,
+            own_hosts=("static.brand-assets.test",),
+        )
+    }
+    assert "Asset Sans" in dets
+    assert dets["Asset Sans"].font_url == asset_font
+
+
+async def test_bundle_json_escaped_url_recovered() -> None:
+    # Regression: webpack/Vite manifests embed URLs JSON-escaped (https:\/\/…);
+    # the extraction regex needs the unescaped form or these bundles yield nothing.
+    font = build_test_font(family_name="Manifest Sans", flavor="woff2")
+    escaped = r'{"font":"https:\/\/example.com\/assets\/fonts\/brand.woff2"}'
+    stub = _StubFetcher(
+        {
+            PAGE: _page('<script src="/main.js"></script>'),
+            BUNDLE_URL: _js(escaped),
+            FONT_URL: _result(FONT_URL, font, "font/woff2"),
+        }
+    )
+    families = {d.family for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    assert "Manifest Sans" in families
+
+
 async def test_bundle_unreadable_url_skipped() -> None:
     # A .woff2 string that isn't actually a font is fetched but discarded.
     stub = _StubFetcher(

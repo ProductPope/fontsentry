@@ -63,9 +63,13 @@ async def detect_bundle_fonts(
         fetched = await fetcher.fetch(src)
         if fetched is None or not fetched.ok or not fetched.content:
             continue
-        text = fetched.content.decode("utf-8", "replace")
+        # Webpack/Vite-style manifests embed URLs JSON-escaped (https:\/\/…);
+        # unescape so the regex sees them. A stray non-URL hit costs one 404.
+        text = fetched.content.decode("utf-8", "replace").replace("\\/", "/")
         for match in _FONT_URL_RE.findall(text):
-            url = urljoin(page_url, match)
+            # Root-relative paths belong to the bundle's own host (which may be a
+            # declared asset domain), not necessarily the page's.
+            url = urljoin(src, match)
             if url in seen_urls or url in font_urls:
                 continue
             font_urls.append(url)
