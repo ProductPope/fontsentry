@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The `fsType` Restricted-License check now precedes the open-evidence checks**
+  in the verdict decision order. Previously an open-license word in the font's
+  self-reported name-table text (which anyone can edit) cleared a font whose own
+  embedding bits forbid web embedding — weaker evidence outranked stronger. A
+  valid registry cover still wins (a purchased license is the permission the bit
+  demands). The full decision order is now pinned by tests that combine
+  conflicting signals across steps.
+
 ### Fixed
 - **Bundle scan: relative font URLs now resolve against the bundle's own host**,
   not the page's — a root-relative path inside a bundle served from a declared

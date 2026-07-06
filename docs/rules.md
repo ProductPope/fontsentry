@@ -29,12 +29,16 @@ no weights, no scores. Each font gets two verdicts, each with an explicit reason
 1. Delivery is system-only → **OK** (no license question).
 2. A matching registry entry: valid + in scope + within `max_domains` → **OK**;
    otherwise (expired / out of scope / over limit) → **VIOLATION**. *(A declared,
-   lapsed license is a violation — the registry check precedes the open check.)*
-3. No registry cover, but provably open (open license string, free owner, or a known
-   open family) → **OK**.
-4. No cover and not open: the font's OS/2 `fsType` forbids web embedding, a paid
-   tier by name, or a self-host-prohibited font self-hosted → **VIOLATION**.
-5. Otherwise → **NEEDS_CHECK** with evidence notes.
+   lapsed license is a violation — the registry check precedes the open check.
+   A valid cover also wins over the `fsType` bit below: a purchased license is
+   exactly the permission that bit demands.)*
+3. No registry cover and the font's OS/2 `fsType` Restricted-License bit forbids
+   web embedding → **VIOLATION**. *(The file's own machine-readable bit outranks
+   the self-reported name-table text read in the next step, which anyone can edit.)*
+4. Provably open (open license string, free owner, or a known open family) → **OK**.
+5. Not open: a paid tier by name, or a self-host-prohibited font self-hosted
+   → **VIOLATION**.
+6. Otherwise → **NEEDS_CHECK** with evidence notes.
 
 ## Classification config keys
 

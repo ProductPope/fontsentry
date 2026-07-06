@@ -189,7 +189,18 @@ def classify_license(
         reason = suppression.reason or "the declared license does not cover this use"
         return LicenseVerdict.VIOLATION, reason, []
 
-    # 3. No registry cover: provably open -> OK.
+    # 3. No registry cover: the OS/2 fsType Restricted-License bit is the foundry's
+    #    definitive machine-readable "no embedding". It outranks the open-evidence
+    #    checks below, which read self-reported name-table text anyone can edit —
+    #    weaker evidence must not clear a font the file itself forbids.
+    if clf.embedding_forbidden(agg):
+        return (
+            LicenseVerdict.VIOLATION,
+            "the font's embedding bits (OS/2 fsType) forbid web embedding",
+            [],
+        )
+
+    # 4. Provably open -> OK.
     if clf.looks_open_licensed(agg, rules.open_license_patterns):
         return LicenseVerdict.OK, "openly licensed (license string in the font file)", []
     if clf.owner_is_free(agg, rules.free_owners):
@@ -197,13 +208,7 @@ def classify_license(
     if clf.family_is_open(agg, rules.open_families):
         return LicenseVerdict.OK, "openly licensed (known open family)", []
 
-    # 4. No cover and not open: definite violations.
-    if clf.embedding_forbidden(agg):
-        return (
-            LicenseVerdict.VIOLATION,
-            "the font's embedding bits (OS/2 fsType) forbid web embedding",
-            [],
-        )
+    # 5. Not open: the remaining definite violations.
     if clf.family_is_paid_tier(agg, rules.paid_tier_families):
         return LicenseVerdict.VIOLATION, "a paid tier is served with no license on record", []
     if clf.self_host_prohibited(
@@ -211,7 +216,7 @@ def classify_license(
     ):
         return LicenseVerdict.VIOLATION, "self-hosting is not permitted for this font", []
 
-    # 5. The honest default.
+    # 6. The honest default.
     return (
         LicenseVerdict.NEEDS_CHECK,
         "no license on record and not provably open",
