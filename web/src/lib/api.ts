@@ -164,6 +164,11 @@ export interface RegistryConfig {
   entries: RegistryEntry[];
 }
 
+export interface RegistryImportResult {
+  registry: RegistryConfig;
+  errors: string[];
+}
+
 export interface FamilySpec {
   contains_all: string[];
   excludes: string[];
@@ -253,6 +258,13 @@ export const api = {
     request<RegistryConfig>("/api/config/registry/import", {
       method: "POST",
       body: JSON.stringify(registry),
+    }),
+  registryCsvUrl: "/api/config/registry/export.csv",
+  importRegistryCsv: (csv: string) =>
+    request<RegistryImportResult>("/api/config/registry/import.csv", {
+      method: "POST",
+      headers: { "Content-Type": "text/csv" },
+      body: csv,
     }),
   getRules: () => request<RulesConfig>("/api/config/rules"),
   saveRules: (rules: RulesConfig) =>

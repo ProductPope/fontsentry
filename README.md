@@ -67,9 +67,11 @@ uv run fontsentry serve        # → http://127.0.0.1:8000
 ```
 
 - **Start audit** runs a scan (demo or real) and shows the report when it finishes.
-- **Registry import / export** — back up the owned-license registry to a JSON file
-  and import it back (merges by owner+family, never deletes). Proofs stay local
-  under `registry/proofs/` and are not part of the JSON.
+- **Registry import / export** — back up the owned-license registry and import it
+  back, as **JSON** (lossless) or **CSV** (for spreadsheets: `allowed_domains`
+  pipe-separated, `valid_until` an ISO date). Import merges by owner+family (never
+  deletes); bad CSV rows are skipped and reported. Proofs stay local under
+  `registry/proofs/` and are not part of the export.
 - **Schedule recurring audit** creates a real OS scheduled task that runs
   `fontsentry scan` on a cadence — even when the UI is closed. Uses the **Windows
   Task Scheduler** on Windows and **cron** on Linux (one `crontab` line, tagged

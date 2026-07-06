@@ -223,6 +223,47 @@ def test_registry_import_merges_and_persists(tmp_path: Path) -> None:
         assert (registry_dir / "licenses.yaml").exists()  # persisted
 
 
+def test_registry_export_csv(tmp_path: Path) -> None:
+    registry_dir = tmp_path / "registry"
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        client.put(
+            "/api/config/registry",
+            json={
+                "entries": [
+                    {
+                        "owner": "Acme",
+                        "family": "Sans",
+                        "license_type": "Web",
+                        "allowed_domains": ["a.com", "b.com"],
+                    }
+                ]
+            },
+        )
+        resp = client.get("/api/config/registry/export.csv")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/csv")
+        assert "attachment" in resp.headers.get("content-disposition", "")
+        lines = resp.text.splitlines()
+        assert lines[0].startswith("owner,family,license_type,allowed_domains")
+        assert "Acme,Sans,Web,a.com|b.com" in resp.text
+
+
+def test_registry_import_csv_merges_and_reports_errors(tmp_path: Path) -> None:
+    registry_dir = tmp_path / "registry"
+    csv_text = "owner,family,license_type,max_domains\nAcme,Sans,Web,2\nBad,Serif,Web,notanumber\n"
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        resp = client.post(
+            "/api/config/registry/import.csv",
+            content=csv_text,
+            headers={"content-type": "text/csv"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [e["family"] for e in body["registry"]["entries"]] == ["Sans"]
+        assert len(body["errors"]) == 1 and body["errors"][0].startswith("row 3:")
+        assert (registry_dir / "licenses.yaml").exists()
+
+
 def test_run_not_found(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/runs/missing.report.json").status_code == 404

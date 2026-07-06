@@ -28,6 +28,7 @@ from fontsentry.models import (
     TargetsConfig,
 )
 from fontsentry.registry.catalog import CATALOG
+from fontsentry.registry.portable import registry_from_csv, registry_to_csv
 from fontsentry.registry.registry import merge_registries
 from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
@@ -47,6 +48,7 @@ from fontsentry.web.scheduler import (
 from fontsentry.web.schemas import (
     FirstSeen,
     KnownFont,
+    RegistryImportResult,
     RunMeta,
     ScanEstimate,
     ScanRequest,
@@ -253,6 +255,31 @@ def create_app(
         merged = merge_registries(current, incoming)
         config.save_registry(path, merged)
         return merged
+
+    def _load_registry_or_empty() -> Registry:
+        path = registry_dir / "licenses.yaml"
+        try:
+            return config.load_registry(path) if path.exists() else Registry()
+        except config.ConfigError:
+            return Registry()
+
+    @app.get("/api/config/registry/export.csv")
+    async def export_registry_csv() -> Response:
+        return Response(
+            content=registry_to_csv(_load_registry_or_empty()),
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="fontsentry-registry.csv"'},
+        )
+
+    @app.post("/api/config/registry/import.csv")
+    async def import_registry_csv(request: Request) -> RegistryImportResult:
+        # Excel writes a UTF-8 BOM; utf-8-sig strips it so the first column header
+        # isn't read as "﻿owner".
+        text = (await request.body()).decode("utf-8-sig")
+        incoming, errors = registry_from_csv(text)
+        merged = merge_registries(_load_registry_or_empty(), incoming)
+        config.save_registry(registry_dir / "licenses.yaml", merged)
+        return RegistryImportResult(registry=merged, errors=errors)
 
     @app.get("/api/config/rules")
     async def get_rules() -> RulesConfig:

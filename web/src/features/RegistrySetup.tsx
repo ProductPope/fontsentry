@@ -160,6 +160,35 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
     }
   }
 
+  const csvRef = useRef<HTMLInputElement>(null);
+
+  function exportCsv() {
+    const a = document.createElement("a");
+    a.href = api.registryCsvUrl;
+    a.download = "fontsentry-registry.csv";
+    a.click();
+  }
+
+  // CSV columns: owner, family, license_type, allowed_domains (pipe-separated),
+  // max_domains, proof_path, invoice_path, valid_until (ISO date), notes. Bad rows
+  // are skipped and reported; good rows are still merged in.
+  async function importCsv(file: File) {
+    setBusy(true);
+    try {
+      const res = await api.importRegistryCsv(await file.text());
+      setEntries(res.registry.entries);
+      if (res.errors.length > 0) {
+        notify(`Imported with ${res.errors.length} skipped row(s): ${res.errors[0]}`, "info");
+      } else {
+        notify(`Imported — ${res.registry.entries.length} licenses total`, "success");
+      }
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "CSV import failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div>
@@ -208,6 +237,28 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
                 const file = e.target.files?.[0];
                 e.target.value = ""; // allow re-selecting the same file
                 if (file) void importRegistry(file);
+              }}
+            />
+            <Button
+              variant="secondary"
+              disabled={busy || entries.length === 0}
+              onClick={exportCsv}
+            >
+              Export CSV
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => csvRef.current?.click()}>
+              Import CSV
+            </Button>
+            <input
+              ref={csvRef}
+              type="file"
+              accept="text/csv,.csv"
+              aria-label="Import registry CSV file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void importCsv(file);
               }}
             />
           </div>

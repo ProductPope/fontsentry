@@ -6,13 +6,20 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from fontsentry.models import RunSummary
+from fontsentry.models import Registry, RunSummary
 
 
 class RunMeta(BaseModel):
     id: str
     generated_at: datetime
     summary: RunSummary
+
+
+class RegistryImportResult(BaseModel):
+    """Result of a CSV registry import: the merged registry plus per-row errors."""
+
+    registry: Registry
+    errors: list[str] = Field(default_factory=list)
 
 
 class FirstSeen(BaseModel):
