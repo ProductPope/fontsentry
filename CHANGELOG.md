@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-06
+
+SPA font discovery + verdict validation. Closes the biggest detection-recall gap
+(fonts a single-page app injects at runtime) and completes roadmap Phase 8.
+
 ### Added
 - **JS bundle scan.** A live `scan` now reads self-hosted font URLs out of a page's
   own same-site JavaScript bundles, recovering fonts a single-page app (Angular,
