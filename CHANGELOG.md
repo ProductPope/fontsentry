@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Font-preload fetches are now capped per page** (50), like every other fetch
+  path (stylesheets, bundles, bundle font URLs) — a hostile or broken page with
+  thousands of `<link rel="preload" as="font">` could previously drive a fetch
+  for each. Truncation is logged, not silent.
 - **Imports are size-bounded.** Workspace and registry import bodies were read
   unbounded, and a restored zip had no decompression limits — a small crafted
   "backup from another machine" could exhaust RAM/disk. Every state-changing

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 from collections.abc import Iterable
 from urllib.parse import unquote_to_bytes, urlsplit
 
@@ -26,6 +27,8 @@ from fontsentry.detect.fontfile import FontReadError, read_font_metadata
 from fontsentry.detect.html import HtmlAssets, parse_html
 from fontsentry.models import DetectedFont, EmbeddingMethod, FontFormat
 from fontsentry.textutil import decode_text
+
+logger = logging.getLogger(__name__)
 
 # Third-party font-loader scripts: a <script> from one of these delivers fonts at
 # runtime (the @font-face is not statically visible), which is a third-party
@@ -117,6 +120,10 @@ _KNOWN_SYSTEM_FAMILIES = frozenset(
 # Bound how many stylesheets one page may pull in (linked + transitively imported)
 # so an @import cycle or a hostile sheet can't fan out unboundedly.
 _MAX_STYLESHEETS = 40
+
+# Bound preload-driven font fetches per page — the one fetch path that had no cap
+# (stylesheets, bundles, and bundle font URLs all have one).
+_MAX_PRELOADS = 50
 
 
 async def _collect_css(
@@ -270,8 +277,19 @@ async def _detect_preloads(
     wired up by JavaScript; the file itself is still fetchable, so read its name
     table to name it and judge it, instead of missing it.
     """
+    preloads = assets.preload_font_urls
+    if len(preloads) > _MAX_PRELOADS:
+        # Not silent: a page this far over the cap is hostile or broken, and the
+        # operator should know coverage was truncated.
+        logger.warning(
+            "%s: %d font preloads, fetching only the first %d",
+            page_url,
+            len(preloads),
+            _MAX_PRELOADS,
+        )
+        preloads = preloads[:_MAX_PRELOADS]
     out: list[DetectedFont] = []
-    for url in assets.preload_font_urls:
+    for url in preloads:
         if url in seen_urls:
             continue
         seen_urls.add(url)
