@@ -18,6 +18,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from fontsentry.csv_safety import neutralize_cell, restore_cell
 from fontsentry.models import Registry, RegistryEntry
 
 _COLUMNS = [
@@ -40,17 +41,20 @@ def registry_to_csv(registry: Registry) -> str:
     writer = csv.DictWriter(out, fieldnames=_COLUMNS, lineterminator="\n")
     writer.writeheader()
     for e in registry.entries:
+        # Free-text fields can be fed from crawled font metadata (the registry
+        # form's suggestions), so neutralize formula-looking cells; the importer
+        # below reverses the escape, keeping the round-trip lossless.
         writer.writerow(
             {
-                "owner": e.owner,
-                "family": e.family,
-                "license_type": e.license_type,
-                "allowed_domains": _DOMAIN_SEP.join(e.allowed_domains),
+                "owner": neutralize_cell(e.owner),
+                "family": neutralize_cell(e.family),
+                "license_type": neutralize_cell(e.license_type),
+                "allowed_domains": neutralize_cell(_DOMAIN_SEP.join(e.allowed_domains)),
                 "max_domains": "" if e.max_domains is None else e.max_domains,
-                "proof_path": e.proof_path or "",
-                "invoice_path": e.invoice_path or "",
+                "proof_path": neutralize_cell(e.proof_path or ""),
+                "invoice_path": neutralize_cell(e.invoice_path or ""),
                 "valid_until": e.valid_until.isoformat() if e.valid_until else "",
-                "notes": e.notes or "",
+                "notes": neutralize_cell(e.notes or ""),
             }
         )
     return out.getvalue()
@@ -66,7 +70,7 @@ def _describe(exc: Exception) -> str:
 
 def _row_to_entry(row: dict[str, str | None]) -> RegistryEntry:
     def field(key: str) -> str:
-        return (row.get(key) or "").strip()
+        return restore_cell((row.get(key) or "").strip())
 
     domains = [d.strip() for d in field("allowed_domains").split(_DOMAIN_SEP) if d.strip()]
     max_domains = field("max_domains")

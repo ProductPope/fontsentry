@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Registry CSV export now neutralizes formula-looking cells** (CSV-injection /
+  DDE defense), matching what `SECURITY.md` already promised and what the findings
+  CSV already did. Free-text registry fields can be fed from crawled font
+  metadata, so a value like `=CMD(...)` could previously reach a spreadsheet raw.
+  The escape is reversed on import, keeping the export → import round-trip
+  lossless.
 - **A blank string in a classification list no longer silently flips the audit.**
   An empty (or whitespace-only) entry in `rules.yaml` substring-matches every
   font — in an OK-granting list (`open_license_patterns`, `free_owners`,

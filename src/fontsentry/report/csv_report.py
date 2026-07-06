@@ -9,18 +9,8 @@ from __future__ import annotations
 import csv
 import io
 
+from fontsentry.csv_safety import neutralize_cell as _safe
 from fontsentry.models import RunReport
-
-# Cells starting with these are interpreted as formulas by spreadsheet apps.
-# Font metadata (family/owner) and URLs are attacker-influenceable, so neutralize
-# any such cell with a leading apostrophe (CSV-injection / DDE defense).
-_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
-
-def _safe(value: object) -> str:
-    text = "" if value is None else str(value)
-    return "'" + text if text[:1] in _FORMULA_PREFIXES else text
-
 
 _HEADER = [
     "family",

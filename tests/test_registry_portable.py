@@ -68,3 +68,33 @@ def test_csv_import_missing_required_column() -> None:
     parsed, errors = registry_from_csv("owner,family\nAcme,Sans\n")
     assert parsed.entries == []
     assert errors and "license_type" in errors[0]
+
+
+def test_csv_export_neutralizes_formula_cells() -> None:
+    # Registry text fields can be fed from crawled font metadata, so a cell
+    # starting with a formula character must not reach a spreadsheet raw
+    # (CSV-injection / DDE). Regression: export previously wrote it verbatim.
+    registry = Registry(entries=[_entry(owner="=CMD()", family="@Import", notes="+SUM(A1)")])
+    text = registry_to_csv(registry)
+    assert "'=CMD()" in text
+    assert "'@Import" in text
+    assert "'+SUM(A1)" in text
+    assert "\n=CMD()" not in text and ",=CMD()" not in text
+
+
+def test_csv_round_trip_preserves_formula_looking_values() -> None:
+    # The neutralizing apostrophe is an export-side escape; import strips it,
+    # so export -> import returns the exact original entry.
+    registry = Registry(entries=[_entry(owner="=Weird Foundry", family="-Dash Sans")])
+    parsed, errors = registry_from_csv(registry_to_csv(registry))
+    assert errors == []
+    assert parsed == registry
+
+
+def test_csv_import_keeps_plain_apostrophe_prefix() -> None:
+    # Only the exact escape (apostrophe + formula char) is reversed; an
+    # apostrophe followed by anything else is user data and must survive.
+    text = "owner,family,license_type\n'Acme,Sans,Web\n"
+    parsed, errors = registry_from_csv(text)
+    assert errors == []
+    assert parsed.entries[0].owner == "'Acme"
