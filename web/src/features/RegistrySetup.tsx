@@ -9,6 +9,7 @@ import type { ToastKind } from "../components/Toast";
 import { api } from "../lib/api";
 import type { KnownFont, RegistryConfig, RegistryEntry } from "../lib/api";
 import { cn } from "../lib/cn";
+import { importSummary } from "../lib/importSummary";
 
 const LICENSE_TYPES = [
   "Open (OFL) — self-hosted",
@@ -150,9 +151,11 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
     setBusy(true);
     try {
       const parsed = JSON.parse(await file.text()) as RegistryConfig;
-      const saved = await api.importRegistry(parsed);
-      setEntries(saved.entries);
-      notify(`Imported — ${saved.entries.length} licenses total`, "success");
+      const res = await api.importRegistry(parsed);
+      setEntries(res.registry.entries);
+      // Replacements are called out: an import can overwrite an entry with a
+      // less strict one, and that must not happen invisibly.
+      notify(importSummary(res), res.replaced > 0 ? "info" : "success");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Import failed — expected a registry JSON", "error");
     } finally {
@@ -178,9 +181,12 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
       const res = await api.importRegistryCsv(await file.text());
       setEntries(res.registry.entries);
       if (res.errors.length > 0) {
-        notify(`Imported with ${res.errors.length} skipped row(s): ${res.errors[0]}`, "info");
+        notify(
+          `${importSummary(res)}; ${res.errors.length} skipped row(s): ${res.errors[0]}`,
+          "info",
+        );
       } else {
-        notify(`Imported — ${res.registry.entries.length} licenses total`, "success");
+        notify(importSummary(res), res.replaced > 0 ? "info" : "success");
       }
     } catch (e) {
       notify(e instanceof Error ? e.message : "CSV import failed", "error");

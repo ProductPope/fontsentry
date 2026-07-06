@@ -16,10 +16,14 @@ class RunMeta(BaseModel):
 
 
 class RegistryImportResult(BaseModel):
-    """Result of a CSV registry import: the merged registry plus per-row errors."""
+    """Result of a registry import: the merged registry, per-row errors (CSV only),
+    and how the merge changed what was already there — replacements are reported
+    because an import can silently *loosen* an entry (e.g. drop its expiry)."""
 
     registry: Registry
     errors: list[str] = Field(default_factory=list)
+    added: int = 0
+    replaced: int = 0
 
 
 class FirstSeen(BaseModel):

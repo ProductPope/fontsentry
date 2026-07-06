@@ -88,6 +88,56 @@ def test_restore_rejects_bad_zip(tmp_path: Path) -> None:
         restore_workspace_zip(b"not a zip", tmp_path / "c", tmp_path / "r", tmp_path / "rep")
 
 
+def _manifest_zip() -> tuple[io.BytesIO, zipfile.ZipFile]:
+    import json
+
+    buffer = io.BytesIO()
+    archive = zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED)
+    archive.writestr("manifest.json", json.dumps({"version": 1}))
+    return buffer, archive
+
+
+def test_restore_rejects_zip_bomb_by_declared_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A tiny compressed payload expanding past the decompression cap must be
+    # rejected before anything is extracted (limit lowered to keep the test fast;
+    # zeros compress ~1000:1, so the real 500 MB cap fits in a ~0.5 MB upload).
+    from fontsentry.web import workspace
+
+    monkeypatch.setattr(workspace, "_MAX_TOTAL_UNCOMPRESSED", 1024)
+    buffer, archive = _manifest_zip()
+    with archive:
+        archive.writestr("config/huge.yaml", b"\0" * 2048)
+    with pytest.raises(WorkspaceError, match="decompress"):
+        restore_workspace_zip(buffer.getvalue(), tmp_path / "c", tmp_path / "r", tmp_path / "rep")
+    assert not (tmp_path / "c").exists()  # nothing was written
+
+
+def test_restore_rejects_too_many_entries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fontsentry.web import workspace
+
+    monkeypatch.setattr(workspace, "_MAX_ENTRIES", 2)
+    buffer, archive = _manifest_zip()
+    with archive:
+        for i in range(3):
+            archive.writestr(f"config/f{i}.yaml", b"x")
+    with pytest.raises(WorkspaceError, match="entries"):
+        restore_workspace_zip(buffer.getvalue(), tmp_path / "c", tmp_path / "r", tmp_path / "rep")
+
+
+def test_unsafe_entry_rejects_before_any_write(tmp_path: Path) -> None:
+    # Path validation is a pre-pass: an unsafe entry anywhere in the archive
+    # rejects the whole backup, never leaving a half-restored workspace.
+    buffer, archive = _manifest_zip()
+    with archive:
+        archive.writestr("config/good.yaml", "ok")
+        archive.writestr("config/../../evil.txt", "pwned")
+    with pytest.raises(WorkspaceError, match="unsafe path"):
+        restore_workspace_zip(buffer.getvalue(), tmp_path / "c", tmp_path / "r", tmp_path / "rep")
+    assert not (tmp_path / "c" / "good.yaml").exists()
+
+
 def test_snapshot_list_and_read(tmp_path: Path) -> None:
     backups = tmp_path / "backups"
     info = write_snapshot(backups, b"PK-fake-zip", NOW)

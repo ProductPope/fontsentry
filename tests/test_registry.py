@@ -49,19 +49,38 @@ def test_merge_upserts_keeps_and_appends() -> None:
             _entry(owner="Gamma", family="Mono"),  # new
         ]
     )
-    merged = merge_registries(base, incoming)
+    merged, added, replaced = merge_registries(base, incoming)
 
     assert len(merged.entries) == 3
     # Match updated in place (incoming wins), base order preserved, new appended.
     assert (merged.entries[0].owner, merged.entries[0].license_type) == ("alpha", "Renewed")
     assert merged.entries[1].owner == "Beta"  # untouched, kept
     assert merged.entries[2].owner == "Gamma"  # appended
+    assert (added, replaced) == (1, 1)
 
 
 def test_merge_into_empty_base() -> None:
     incoming = Registry(entries=[_entry(owner="Alpha", family="Sans")])
-    merged = merge_registries(Registry(), incoming)
+    merged, added, replaced = merge_registries(Registry(), incoming)
     assert [e.owner for e in merged.entries] == ["Alpha"]
+    assert (added, replaced) == (1, 0)
+
+
+def test_merge_counts_replacement_even_when_looser() -> None:
+    # The dangerous case: an incoming entry with no expiry / no domain scope
+    # overwrites a stricter one. The merge must report it, never fold it away.
+    base = Registry(entries=[_entry(owner="Alpha", family="Sans", max_domains=1)])
+    incoming = Registry(entries=[_entry(owner="Alpha", family="Sans", max_domains=None)])
+    merged, added, replaced = merge_registries(base, incoming)
+    assert merged.entries[0].max_domains is None  # incoming won
+    assert (added, replaced) == (0, 1)
+
+
+def test_merge_identical_entry_is_not_a_replacement() -> None:
+    base = Registry(entries=[_entry(owner="Alpha", family="Sans")])
+    merged, added, replaced = merge_registries(base, base)
+    assert len(merged.entries) == 1
+    assert (added, replaced) == (0, 0)
 
 
 def _suppress(agg: AggregatedFont, entry: RegistryEntry) -> Suppression:

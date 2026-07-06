@@ -167,6 +167,8 @@ export interface RegistryConfig {
 export interface RegistryImportResult {
   registry: RegistryConfig;
   errors: string[];
+  added: number;
+  replaced: number;
 }
 
 export interface BackupInfo {
@@ -261,7 +263,7 @@ export const api = {
       body: JSON.stringify(registry),
     }),
   importRegistry: (registry: RegistryConfig) =>
-    request<RegistryConfig>("/api/config/registry/import", {
+    request<RegistryImportResult>("/api/config/registry/import", {
       method: "POST",
       body: JSON.stringify(registry),
     }),
