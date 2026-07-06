@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Privacy guard in CI** (`tests/test_gitignore.py`). Asserts that every sensitive
+  path (real `config/*.yaml`, `registry/licenses.yaml`, `registry/proofs/`,
+  `reports/`, `backups/`, `validation/` ground truth, any `external/` material,
+  `.env`) stays gitignored, and that no real user data is ever tracked. A loosened
+  ignore rule or an accidental `git add` now turns CI red instead of leaking data
+  to GitHub.
 - **Workspace backup & restore.** A new **Backup** screen snapshots the whole
   workspace — targets, licenses (with proof files), and every past audit — into one
   local zip under a gitignored `backups/` folder (nothing leaves the machine).

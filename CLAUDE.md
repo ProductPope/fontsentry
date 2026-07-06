@@ -107,8 +107,10 @@ the *mechanics* live in `risk/`.
 
 Real `config/*.yaml` (only `*.example.yaml`), `registry/licenses.yaml`, anything
 under `registry/proofs/` (except `.gitkeep` and the one synthetic example),
-generated reports, caches, workspace backups (`backups/`), `.env`. Enforced by
-`.gitignore` — keep it tight.
+generated reports, caches, workspace backups (`backups/`), any local-only
+`external/` material, `.env`. Enforced by `.gitignore` **and** CI-guarded by
+`tests/test_gitignore.py`, which fails if a sensitive path stops being ignored or
+if real user data ever becomes tracked. Keep both tight.
 
 ## Testing rules
 
