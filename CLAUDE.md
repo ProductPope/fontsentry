@@ -107,7 +107,8 @@ the *mechanics* live in `risk/`.
 
 Real `config/*.yaml` (only `*.example.yaml`), `registry/licenses.yaml`, anything
 under `registry/proofs/` (except `.gitkeep` and the one synthetic example),
-generated reports, caches, `.env`. Enforced by `.gitignore` — keep it tight.
+generated reports, caches, workspace backups (`backups/`), `.env`. Enforced by
+`.gitignore` — keep it tight.
 
 ## Testing rules
 

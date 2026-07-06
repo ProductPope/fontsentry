@@ -169,6 +169,12 @@ export interface RegistryImportResult {
   errors: string[];
 }
 
+export interface BackupInfo {
+  name: string;
+  size_bytes: number;
+  created_at: string;
+}
+
 export interface FamilySpec {
   contains_all: string[];
   excludes: string[];
@@ -265,6 +271,20 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "text/csv" },
       body: csv,
+    }),
+  listBackups: () => request<BackupInfo[]>("/api/workspace/backups"),
+  snapshotWorkspace: () => request<BackupInfo>("/api/workspace/snapshot", { method: "POST" }),
+  workspaceExportUrl: "/api/workspace/export",
+  backupDownloadUrl: (name: string) => `/api/workspace/backups/${encodeURIComponent(name)}`,
+  restoreBackup: (name: string) =>
+    request<{ restored: string }>(`/api/workspace/restore/${encodeURIComponent(name)}`, {
+      method: "POST",
+    }),
+  importWorkspace: (file: File) =>
+    request<{ restored: string }>("/api/workspace/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/zip" },
+      body: file,
     }),
   getRules: () => request<RulesConfig>("/api/config/rules"),
   saveRules: (rules: RulesConfig) =>

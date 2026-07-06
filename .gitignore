@@ -14,6 +14,9 @@ reports/
 out/
 *.report.json
 
+# Whole-workspace backups (local-only snapshots — never publish)
+backups/
+
 # HTTP / asset cache
 .cache/
 .fontsentry-cache/

@@ -72,6 +72,10 @@ uv run fontsentry serve        # → http://127.0.0.1:8000
   pipe-separated, `valid_until` an ISO date). Import merges by owner+family (never
   deletes); bad CSV rows are skipped and reported. Proofs stay local under
   `registry/proofs/` and are not part of the export.
+- **Backup & restore** — the Backup screen snapshots the whole workspace (targets,
+  licenses + proofs, and all past audits) into one local zip under `backups/`
+  (gitignored). Save, download, or restore a snapshot; a restore snapshots the
+  current state first, so it's undoable.
 - **Schedule recurring audit** creates a real OS scheduled task that runs
   `fontsentry scan` on a cadence — even when the UI is closed. Uses the **Windows
   Task Scheduler** on Windows and **cron** on Linux (one `crontab` line, tagged

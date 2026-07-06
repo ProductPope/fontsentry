@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Toast } from "./components/Toast";
 import type { ToastKind, ToastState } from "./components/Toast";
 import { AuditsScreen } from "./features/AuditsScreen";
+import { BackupScreen } from "./features/BackupScreen";
 import { HowItWorks } from "./features/HowItWorks";
 import { OverviewScreen } from "./features/OverviewScreen";
 import type { View } from "./features/OverviewScreen";
@@ -23,6 +24,7 @@ const TITLES: Record<Route, string> = {
   registry: "Registry",
   targets: "Targets",
   rules: "Rules",
+  backup: "Backup",
   "how-it-works": "How it works",
 };
 
@@ -267,6 +269,7 @@ export default function App() {
             />
           )}
           {route === "rules" && <RulesScreen notify={notify} />}
+          {route === "backup" && <BackupScreen notify={notify} />}
           {route === "how-it-works" && <HowItWorks />}
         </main>
       </div>

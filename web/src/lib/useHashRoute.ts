@@ -9,6 +9,7 @@ export const ROUTES = [
   "registry",
   "targets",
   "rules",
+  "backup",
   "how-it-works",
 ] as const;
 export type Route = (typeof ROUTES)[number];

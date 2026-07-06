@@ -11,6 +11,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -54,6 +55,16 @@ from fontsentry.web.schemas import (
     ScanRequest,
     ScanStarted,
 )
+from fontsentry.web.workspace import (
+    BackupInfo,
+    WorkspaceError,
+    build_workspace_zip,
+    list_backups,
+    read_backup,
+    restore_workspace_zip,
+    snapshot_filename,
+    write_snapshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +89,7 @@ def create_app(
     reports_dir: Path = Path("reports"),
     config_dir: Path = Path("config"),
     registry_dir: Path = Path("registry"),
+    backups_dir: Path = Path("backups"),
 ) -> FastAPI:
     app = FastAPI(title="FontSentry", docs_url=None, redoc_url=None)
     jobs = JobManager()
@@ -395,6 +407,61 @@ def create_app(
         except SchedulerError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return {"deleted": name}
+
+    def _workspace_zip() -> bytes:
+        return build_workspace_zip(config_dir, registry_dir, reports_dir)
+
+    @app.get("/api/workspace/backups")
+    async def list_workspace_backups() -> list[BackupInfo]:
+        return list_backups(backups_dir)
+
+    @app.post("/api/workspace/snapshot", status_code=201)
+    async def snapshot_workspace() -> BackupInfo:
+        return write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
+
+    @app.get("/api/workspace/export")
+    async def export_workspace() -> Response:
+        filename = snapshot_filename(datetime.now(UTC))
+        return Response(
+            content=_workspace_zip(),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @app.get("/api/workspace/backups/{name}")
+    async def download_backup(name: str) -> Response:
+        try:
+            data = read_backup(backups_dir, name)
+        except WorkspaceError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return Response(
+            content=data,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
+
+    def _restore(data: bytes) -> None:
+        # Always snapshot the current state before overwriting, so a restore is
+        # itself undoable.
+        write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
+        try:
+            restore_workspace_zip(data, config_dir, registry_dir, reports_dir)
+        except WorkspaceError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/workspace/restore/{name}")
+    async def restore_backup(name: str) -> dict[str, str]:
+        try:
+            data = read_backup(backups_dir, name)
+        except WorkspaceError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _restore(data)
+        return {"restored": name}
+
+    @app.post("/api/workspace/import")
+    async def import_workspace(request: Request) -> dict[str, str]:
+        _restore(await request.body())
+        return {"restored": "upload"}
 
     dist = _web_dist()
     if dist.is_dir():

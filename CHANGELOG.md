@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Workspace backup & restore.** A new **Backup** screen snapshots the whole
+  workspace — targets, licenses (with proof files), and every past audit — into one
+  local zip under a gitignored `backups/` folder (nothing leaves the machine).
+  Save a snapshot, download it, or restore/import one back. Restore overwrites the
+  current state but snapshots it first, so it's undoable; imports are guarded
+  against zip-slip and rejected unless they carry a FontSentry manifest.
 - **Registry import / export (JSON + CSV).** The Registry screen can export the
   owned-license registry and import it back, as **JSON** (lossless backup / move
   between machines) or **CSV** (for spreadsheets — `allowed_domains` pipe-separated,

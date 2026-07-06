@@ -24,6 +24,7 @@ def _client(
     *,
     config_dir: Path | None = None,
     registry_dir: Path | None = None,
+    backups_dir: Path | None = None,
 ) -> Iterator[TestClient]:
     # Only override config/registry dirs when a test needs isolation (the config
     # endpoints write files). Demo scans read rules from the real repo config, so
@@ -33,6 +34,8 @@ def _client(
         extra["config_dir"] = config_dir
     if registry_dir is not None:
         extra["registry_dir"] = registry_dir
+    if backups_dir is not None:
+        extra["backups_dir"] = backups_dir
     with TestClient(create_app(reports_dir=tmp_path, **extra)) as client:
         yield client
 
@@ -262,6 +265,56 @@ def test_registry_import_csv_merges_and_reports_errors(tmp_path: Path) -> None:
         assert [e["family"] for e in body["registry"]["entries"]] == ["Sans"]
         assert len(body["errors"]) == 1 and body["errors"][0].startswith("row 3:")
         assert (registry_dir / "licenses.yaml").exists()
+
+
+def test_workspace_snapshot_export_and_list(tmp_path: Path) -> None:
+    registry_dir, backups_dir = tmp_path / "registry", tmp_path / "backups"
+    with _client(tmp_path, registry_dir=registry_dir, backups_dir=backups_dir) as client:
+        client.put(
+            "/api/config/registry",
+            json={"entries": [{"owner": "Acme", "family": "Sans", "license_type": "Web"}]},
+        )
+        snap = client.post("/api/workspace/snapshot")
+        assert snap.status_code == 201
+        name = snap.json()["name"]
+        assert name.startswith("fontsentry-workspace-") and name.endswith(".zip")
+
+        assert name in [b["name"] for b in client.get("/api/workspace/backups").json()]
+
+        export = client.get("/api/workspace/export")
+        assert export.status_code == 200
+        assert export.headers["content-type"] == "application/zip"
+        assert export.content[:2] == b"PK"  # zip magic
+
+
+def test_workspace_restore_round_trip(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    registry_dir, backups_dir = tmp_path / "registry", tmp_path / "backups"
+    with _client(
+        tmp_path, config_dir=config_dir, registry_dir=registry_dir, backups_dir=backups_dir
+    ) as client:
+        client.put(
+            "/api/config/registry",
+            json={"entries": [{"owner": "Alpha", "family": "Sans", "license_type": "Web"}]},
+        )
+        name = client.post("/api/workspace/snapshot").json()["name"]
+
+        # Change state, then restore the snapshot — the change is rolled back.
+        client.put(
+            "/api/config/registry",
+            json={"entries": [{"owner": "Beta", "family": "Serif", "license_type": "Web"}]},
+        )
+        restored = client.post(f"/api/workspace/restore/{name}")
+        assert restored.status_code == 200
+
+        entries = client.get("/api/config/registry").json()["entries"]
+        assert [e["owner"] for e in entries] == ["Alpha"]
+
+
+def test_workspace_restore_missing_backup(tmp_path: Path) -> None:
+    with _client(tmp_path, backups_dir=tmp_path / "backups") as client:
+        resp = client.post("/api/workspace/restore/fontsentry-workspace-20260101T000000Z.zip")
+        assert resp.status_code == 404
 
 
 def test_run_not_found(tmp_path: Path) -> None:
