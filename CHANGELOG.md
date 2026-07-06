@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`fontsentry validate` no longer passes on a broken scan.** A font can only
+  be a false negative if it was detected, so a scan that detected nothing (network
+  down, every host blocked) reported zero false negatives and exited 0. The
+  command now exits `2` (inconclusive) when no labelled font was detected or when
+  more than `--max-missing` (default 50%) of the labels went undetected.
 - **The CI privacy guard now covers every sensitive class, not a subset.**
   `tests/test_gitignore.py` missed `.env.*` variants, crawl caches, non-JSON
   report artifacts, extra `validation/` files, and unrecognized `config/*.yaml`;

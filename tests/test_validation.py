@@ -17,6 +17,7 @@ from fontsentry.validation import (
     FontLabel,
     Labels,
     compare,
+    coverage_failure,
     load_labels,
     render_summary,
 )
@@ -91,6 +92,29 @@ def test_render_summary_flags_false_negatives() -> None:
     assert "False negatives" in text
     assert "Gamma" in text
     assert "agreement" in text
+
+
+def test_zero_detection_fails_coverage_gate() -> None:
+    # Regression: a broken scan (network down, hosts blocked) detects nothing,
+    # so it has zero false negatives *vacuously* — it must not read as "validated".
+    empty_report = RunReport(
+        generated_at=datetime(2026, 7, 5, 12, 0, 0), summary=RunSummary(), domains=[]
+    )
+    result = compare(empty_report, _labels())
+    assert result.false_negatives == []  # the vacuous pass the gate exists to catch
+    assert coverage_failure(result, max_missing=0.5) is not None
+
+
+def test_empty_labels_fail_coverage_gate() -> None:
+    result = compare(_report(), Labels())
+    assert coverage_failure(result, max_missing=0.5) is not None
+
+
+def test_missing_ratio_over_limit_fails_coverage_gate() -> None:
+    result = compare(_report(), _labels())  # 1 of 4 labels missing (25%)
+    assert coverage_failure(result, max_missing=0.5) is None
+    assert coverage_failure(result, max_missing=0.2) is not None
+    assert "--max-missing" in (coverage_failure(result, max_missing=0.2) or "")
 
 
 def test_load_labels_roundtrip(tmp_path: Path, repo_root: Path) -> None:

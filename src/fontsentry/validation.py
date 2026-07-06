@@ -133,6 +133,29 @@ def compare(report: RunReport, labels: Labels) -> ValidationResult:
     return result
 
 
+def coverage_failure(result: ValidationResult, max_missing: float) -> str | None:
+    """Why this run cannot support a verdict-rule conclusion — or None if it can.
+
+    A font can only be a false negative if it was detected, so a broken scan
+    (network down, every host blocked) detects nothing, produces zero false
+    negatives vacuously, and would pass the unsafe-direction gate. Detection
+    coverage is therefore a precondition of the verdict comparison, not a nicety.
+    """
+
+    if result.total == 0:
+        return "no labelled fonts were loaded — nothing to validate"
+    judged = result.matched + len(result.mismatched)
+    if judged == 0:
+        return "no labelled font was detected at all — the scan looks broken, not validated"
+    missing_ratio = len(result.missing) / result.total
+    if missing_ratio > max_missing:
+        return (
+            f"{len(result.missing)} of {result.total} labelled fonts were not detected "
+            f"({missing_ratio:.0%} > the --max-missing limit of {max_missing:.0%})"
+        )
+    return None
+
+
 def render_summary(result: ValidationResult) -> str:
     """A short markdown report of the validation run (for the terminal or docs)."""
 
