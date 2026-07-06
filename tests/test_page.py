@@ -87,6 +87,29 @@ async def test_detect_page_preload_without_fontface() -> None:
     assert dets["Preloaded Sans"].embedding is EmbeddingMethod.SELF_HOSTED
 
 
+async def test_preload_fanout_is_capped() -> None:
+    # Regression: preloads were the one fetch path without a per-page bound — a
+    # hostile page with thousands of <link rel=preload as=font> drove a fetch each.
+    from fontsentry.detect.page import _MAX_PRELOADS
+
+    class _CountingFetcher(_StubFetcher):
+        def __init__(self, routes: dict[str, FetchResult | None]) -> None:
+            super().__init__(routes)
+            self.fetched: list[str] = []
+
+        async def fetch(self, url: str) -> FetchResult | None:
+            self.fetched.append(url)
+            return await super().fetch(url)
+
+    links = "".join(
+        f'<link rel="preload" as="font" href="/f{i}.woff2">' for i in range(_MAX_PRELOADS + 25)
+    )
+    stub = _CountingFetcher({PAGE: _page(links)})
+    await detect_page(stub, PAGE)  # type: ignore[arg-type]
+    font_fetches = [u for u in stub.fetched if u.endswith(".woff2")]
+    assert len(font_fetches) == _MAX_PRELOADS
+
+
 async def test_detect_page_flags_font_loader_script() -> None:
     # A third-party loader script (Adobe Typekit) delivers fonts at runtime; flag
     # the provider as a third-party finding even though we can't enumerate the fonts.
