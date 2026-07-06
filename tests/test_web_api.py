@@ -197,6 +197,32 @@ def test_export_csv(tmp_path: Path) -> None:
         assert "Atlas Grotesk Private" in body
 
 
+def test_registry_import_merges_and_persists(tmp_path: Path) -> None:
+    registry_dir = tmp_path / "registry"
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        client.put(
+            "/api/config/registry",
+            json={"entries": [{"owner": "Alpha", "family": "Sans", "license_type": "Web"}]},
+        )
+        resp = client.post(
+            "/api/config/registry/import",
+            json={
+                "entries": [
+                    {"owner": "alpha", "family": "sans", "license_type": "Renewed"},
+                    {"owner": "Gamma", "family": "Mono", "license_type": "Web"},
+                ]
+            },
+        )
+        assert resp.status_code == 200
+        assert len(resp.json()["entries"]) == 2  # one upsert, one new
+
+        got = client.get("/api/config/registry").json()["entries"]
+        assert {e["owner"] for e in got} == {"alpha", "Gamma"}
+        alpha = next(e for e in got if e["owner"] == "alpha")
+        assert alpha["license_type"] == "Renewed"  # incoming won
+        assert (registry_dir / "licenses.yaml").exists()  # persisted
+
+
 def test_run_not_found(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/runs/missing.report.json").status_code == 404

@@ -28,6 +28,7 @@ from fontsentry.models import (
     TargetsConfig,
 )
 from fontsentry.registry.catalog import CATALOG
+from fontsentry.registry.registry import merge_registries
 from fontsentry.report.csv_report import build_csv
 from fontsentry.report.diff import diff_runs
 from fontsentry.report.json_report import first_seen_map, load_run
@@ -239,6 +240,19 @@ def create_app(
     async def put_registry(registry: Registry) -> Registry:
         config.save_registry(registry_dir / "licenses.yaml", registry)
         return registry
+
+    @app.post("/api/config/registry/import")
+    async def import_registry(incoming: Registry) -> Registry:
+        # Merge (upsert by owner+family) into the current registry rather than
+        # replacing it, so an import never silently drops existing licenses.
+        path = registry_dir / "licenses.yaml"
+        try:
+            current = config.load_registry(path) if path.exists() else Registry()
+        except config.ConfigError:
+            current = Registry()
+        merged = merge_registries(current, incoming)
+        config.save_registry(path, merged)
+        return merged
 
     @app.get("/api/config/rules")
     async def get_rules() -> RulesConfig:

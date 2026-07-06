@@ -106,3 +106,28 @@ def validate_registry(registry: Registry, proofs_dir: Path) -> list[str]:
             if not (proofs_dir / rel).exists():
                 errors.append(f"{label}: {kind} file not found: {proofs_dir / rel}")
     return errors
+
+
+def _entry_key(entry: RegistryEntry) -> tuple[str, str]:
+    return (entry.owner.strip().lower(), entry.family.strip().lower())
+
+
+def merge_registries(base: Registry, incoming: Registry) -> Registry:
+    """Upsert ``incoming`` entries into ``base`` by (owner, family), case-insensitively.
+
+    Incoming wins on a matching (owner, family); non-matching existing entries are
+    kept and nothing is deleted (a safe import: it never silently drops licenses).
+    Base order is preserved; genuinely new entries are appended in incoming order.
+    """
+
+    index = {_entry_key(entry): position for position, entry in enumerate(base.entries)}
+    merged = list(base.entries)
+    for entry in incoming.entries:
+        key = _entry_key(entry)
+        existing = index.get(key)
+        if existing is None:
+            index[key] = len(merged)
+            merged.append(entry)
+        else:
+            merged[existing] = entry
+    return Registry(entries=merged)

@@ -7,7 +7,7 @@ import { Modal } from "../components/Modal";
 import { TextInput } from "../components/TextInput";
 import type { ToastKind } from "../components/Toast";
 import { api } from "../lib/api";
-import type { KnownFont, RegistryEntry } from "../lib/api";
+import type { KnownFont, RegistryConfig, RegistryEntry } from "../lib/api";
 import { cn } from "../lib/cn";
 
 const LICENSE_TYPES = [
@@ -131,6 +131,35 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
     );
   }
 
+  const importRef = useRef<HTMLInputElement>(null);
+
+  function exportRegistry() {
+    const blob = new Blob([JSON.stringify({ entries }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "fontsentry-registry.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Import merges by owner+family on the server (never deletes), so re-importing a
+  // backup onto a machine with existing licenses is safe. Proofs are files, not
+  // rows — they are not carried in the JSON and stay under registry/proofs/.
+  async function importRegistry(file: File) {
+    setBusy(true);
+    try {
+      const parsed = JSON.parse(await file.text()) as RegistryConfig;
+      const saved = await api.importRegistry(parsed);
+      setEntries(saved.entries);
+      notify(`Imported — ${saved.entries.length} licenses total`, "success");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Import failed — expected a registry JSON", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div>
@@ -159,6 +188,28 @@ export function RegistrySetup({ notify }: { notify: (message: string, kind: Toas
                 Insert examples
               </Button>
             )}
+            <Button
+              variant="secondary"
+              disabled={busy || entries.length === 0}
+              onClick={exportRegistry}
+            >
+              Export JSON
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => importRef.current?.click()}>
+              Import JSON
+            </Button>
+            <input
+              ref={importRef}
+              type="file"
+              accept="application/json,.json"
+              aria-label="Import registry JSON file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = ""; // allow re-selecting the same file
+                if (file) void importRegistry(file);
+              }}
+            />
           </div>
 
           {entries.length === 0 ? (

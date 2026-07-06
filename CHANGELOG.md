@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Registry import / export (JSON).** The Registry screen can export the owned-
+  license registry to a JSON file (backup / move between machines) and import one
+  back. Import **merges** by owner+family on the server (upsert, never deletes), so
+  restoring a backup onto a machine that already has licenses is safe. Proofs are
+  files, not rows — they stay under `registry/proofs/` and are not carried in the
+  JSON. (CSV import/export for spreadsheets is planned as a follow-up.)
 - **Cross-platform recurring audits.** The UI's "schedule a recurring audit" now
   works on **Linux via cron** (one `crontab` line per schedule, tagged
   `# FontSentry:<name>` so only our own lines are touched), in addition to the

@@ -11,6 +11,7 @@ from fontsentry.registry.registry import (
     evaluate_suppression,
     find_entry,
     is_expired,
+    merge_registries,
     validate_registry,
 )
 
@@ -33,6 +34,34 @@ def _agg(
     domains: list[str], *, owner: str = "Acme Type", family: str = "Commercial Sans"
 ) -> AggregatedFont:
     return AggregatedFont(family=family, owner=owner, domains=sorted(domains))
+
+
+def test_merge_upserts_keeps_and_appends() -> None:
+    base = Registry(
+        entries=[
+            _entry(owner="Alpha", family="Sans", license_type="Web"),
+            _entry(owner="Beta", family="Serif"),
+        ]
+    )
+    incoming = Registry(
+        entries=[
+            _entry(owner="alpha", family="sans", license_type="Renewed"),  # case-insensitive
+            _entry(owner="Gamma", family="Mono"),  # new
+        ]
+    )
+    merged = merge_registries(base, incoming)
+
+    assert len(merged.entries) == 3
+    # Match updated in place (incoming wins), base order preserved, new appended.
+    assert (merged.entries[0].owner, merged.entries[0].license_type) == ("alpha", "Renewed")
+    assert merged.entries[1].owner == "Beta"  # untouched, kept
+    assert merged.entries[2].owner == "Gamma"  # appended
+
+
+def test_merge_into_empty_base() -> None:
+    incoming = Registry(entries=[_entry(owner="Alpha", family="Sans")])
+    merged = merge_registries(Registry(), incoming)
+    assert [e.owner for e in merged.entries] == ["Alpha"]
 
 
 def _suppress(agg: AggregatedFont, entry: RegistryEntry) -> Suppression:

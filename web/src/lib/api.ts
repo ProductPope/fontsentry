@@ -249,6 +249,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(registry),
     }),
+  importRegistry: (registry: RegistryConfig) =>
+    request<RegistryConfig>("/api/config/registry/import", {
+      method: "POST",
+      body: JSON.stringify(registry),
+    }),
   getRules: () => request<RulesConfig>("/api/config/rules"),
   saveRules: (rules: RulesConfig) =>
     request<RulesConfig>("/api/config/rules", {
