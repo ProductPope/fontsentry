@@ -377,6 +377,14 @@ class TargetsConfig(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
+def _reject_blank_entries(value: list[str]) -> list[str]:
+    # A blank pattern substring-matches every font, silently turning the whole
+    # list into "always true" — in an OK-granting list that clears every font.
+    if any(not item.strip() for item in value):
+        raise ValueError("blank entries are not allowed in classification lists")
+    return value
+
+
 class FamilySpec(BaseModel):
     """Match a font by family name: contains every substring in `contains_all`
     (case-insensitive) and none in `excludes`. Empty `contains_all` never matches."""
@@ -386,12 +394,22 @@ class FamilySpec(BaseModel):
     contains_all: list[str] = Field(default_factory=list)
     excludes: list[str] = Field(default_factory=list)
 
+    @field_validator("contains_all", "excludes")
+    @classmethod
+    def _no_blanks(cls, value: list[str]) -> list[str]:
+        return _reject_blank_entries(value)
+
 
 class SelfHostProhibited(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     owners: list[str] = Field(default_factory=list)
     families: list[str] = Field(default_factory=list)
+
+    @field_validator("owners", "families")
+    @classmethod
+    def _no_blanks(cls, value: list[str]) -> list[str]:
+        return _reject_blank_entries(value)
 
 
 class RulesConfig(BaseModel):
@@ -412,6 +430,11 @@ class RulesConfig(BaseModel):
     paid_cdns: list[str] = Field(default_factory=list)  # embedding methods, e.g. adobe_fonts
     desktop_formats: list[str] = Field(default_factory=list)  # e.g. ttf, otf
     subset_max_glyphs: int = Field(default=256, ge=0)
+
+    @field_validator("open_license_patterns", "free_owners", "paid_cdns", "desktop_formats")
+    @classmethod
+    def _no_blanks(cls, value: list[str]) -> list[str]:
+        return _reject_blank_entries(value)
 
 
 # --------------------------------------------------------------------------- #

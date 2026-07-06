@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A blank string in a classification list no longer silently flips the audit.**
+  An empty (or whitespace-only) entry in `rules.yaml` substring-matches every
+  font — in an OK-granting list (`open_license_patterns`, `free_owners`,
+  `open_families.contains_all`) one stray `""` cleared every font as `OK`, the
+  unsafe direction. Blank entries are now rejected at config load with a clear
+  error, across all classification lists.
+
 ## [0.6.0] - 2026-07-06
 
 Operator quality-of-life, all local-first: cross-platform recurring audits,

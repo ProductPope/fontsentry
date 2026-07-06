@@ -136,3 +136,24 @@ def test_classification_config_loads(tmp_path: Path) -> None:
 
 def test_license_verdict_values() -> None:
     assert [v.value for v in LicenseVerdict] == ["ok", "needs_check", "violation"]
+
+
+@pytest.mark.parametrize(
+    "yaml_body",
+    [
+        "open_license_patterns: ['']\n",  # '' in text is always True -> everything OK
+        "free_owners: [' ']\n",  # blank owner matches metadata-less fonts -> OK
+        "open_families:\n  - contains_all: ['']\n",  # matches every family -> OK
+        "paid_tier_families:\n  - contains_all: ['']\n",  # matches every family -> VIOLATION
+        "self_host_prohibited:\n  owners: ['']\n",
+        "paid_cdns: ['']\n",
+        "desktop_formats: [' ']\n",
+    ],
+)
+def test_blank_classification_entry_rejected(tmp_path: Path, yaml_body: str) -> None:
+    # Regression: a single blank string in a classification list substring-matches
+    # every font, silently flipping the whole audit (e.g. everything OK).
+    path = tmp_path / "rules.yaml"
+    path.write_text(yaml_body, encoding="utf-8")
+    with pytest.raises(ConfigError, match="blank"):
+        config.load_rules(path)
