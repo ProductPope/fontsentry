@@ -40,7 +40,7 @@ from fontsentry.web.scheduler import (
     ScheduleSpec,
     create_schedule,
     delete_schedule,
-    is_windows,
+    is_supported,
     list_schedules,
 )
 from fontsentry.web.schemas import (
@@ -328,16 +328,18 @@ def create_app(
 
     tasks_dir = Path(".fontsentry-tasks")
 
+    _unsupported = "scheduling is supported on Windows and Linux only"
+
     @app.get("/api/schedules")
     async def get_schedules() -> list[ScheduleInfo]:
-        if not is_windows():
+        if not is_supported():
             return []
         return list_schedules()
 
     @app.post("/api/schedules", status_code=201)
     async def create_schedule_endpoint(spec: ScheduleSpec) -> ScheduleInfo:
-        if not is_windows():
-            raise HTTPException(status_code=501, detail="scheduling is only supported on Windows")
+        if not is_supported():
+            raise HTTPException(status_code=501, detail=_unsupported)
         try:
             return create_schedule(spec, tasks_dir=tasks_dir, working_dir=demo.repo_root())
         except SchedulerError as exc:
@@ -345,8 +347,8 @@ def create_app(
 
     @app.delete("/api/schedules/{name}")
     async def delete_schedule_endpoint(name: str) -> dict[str, str]:
-        if not is_windows():
-            raise HTTPException(status_code=501, detail="scheduling is only supported on Windows")
+        if not is_supported():
+            raise HTTPException(status_code=501, detail=_unsupported)
         try:
             delete_schedule(name, tasks_dir=tasks_dir)
         except SchedulerError as exc:

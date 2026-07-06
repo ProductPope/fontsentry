@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Cross-platform recurring audits.** The UI's "schedule a recurring audit" now
+  works on **Linux via cron** (one `crontab` line per schedule, tagged
+  `# FontSentry:<name>` so only our own lines are touched), in addition to the
+  Windows Task Scheduler. Per-platform backends sit behind a dispatch; macOS and
+  other platforms still report `501` (schedule with `launchd` by hand). Missing
+  `schtasks`/`crontab` degrades gracefully instead of crashing.
+
 ## [0.5.0] - 2026-07-06
 
 SPA font discovery + verdict validation. Closes the biggest detection-recall gap

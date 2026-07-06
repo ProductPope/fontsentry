@@ -40,7 +40,7 @@ export function AuditsScreen({ runs, selectedId, onOpenRun, notify }: AuditsScre
       .getSchedules()
       .then(setSchedules)
       .catch(() => {
-        // listing is best-effort (empty off Windows)
+        // listing is best-effort (empty on platforms without a scheduler backend)
       });
   }, []);
 

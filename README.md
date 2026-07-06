@@ -67,8 +67,12 @@ uv run fontsentry serve        # → http://127.0.0.1:8000
 ```
 
 - **Start audit** runs a scan (demo or real) and shows the report when it finishes.
-- **Schedule recurring audit** creates a Windows Task Scheduler entry that runs
-  `fontsentry scan` on a cadence — even when the UI is closed (Windows only).
+- **Schedule recurring audit** creates a real OS scheduled task that runs
+  `fontsentry scan` on a cadence — even when the UI is closed. Uses the **Windows
+  Task Scheduler** on Windows and **cron** on Linux (one `crontab` line, tagged
+  `# FontSentry:<name>`). Other platforms (macOS) report `501`; schedule those with
+  `launchd` by hand — e.g. a `~/Library/LaunchAgents/*.plist` whose
+  `ProgramArguments` run `fontsentry scan` on a `StartCalendarInterval`.
 
 Frontend dev mode (hot reload, proxies `/api` to the backend):
 

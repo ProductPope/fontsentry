@@ -1,31 +1,41 @@
-"""Recurring audits via the Windows Task Scheduler (`schtasks`).
+"""Recurring audits via the OS scheduler — Windows Task Scheduler or cron.
 
 The UI's "schedule a recurring audit" maps to a real OS scheduled task, so audits
-run even when the UI is closed. Tasks live under the ``FontSentry\\`` folder and
-invoke a generated ``.bat`` (avoids brittle nested-quote command strings).
+run even when the UI is closed. Two backends, chosen by platform:
 
-This backend is Windows-only by design; the API layer reports that on other
-platforms. The core is a pure arg-builder around an injectable runner, so it is
-testable on any OS.
+* **Windows** (`schtasks`) — tasks live under the ``FontSentry\\`` folder and invoke
+  a generated ``.bat`` (avoids brittle nested-quote command strings).
+* **Linux** (`cron`) — one ``crontab`` line per schedule, tagged with a
+  ``# FontSentry:<name>`` marker so we only ever touch our own lines.
+
+Other platforms (e.g. macOS) are unsupported; the API layer reports that. Each
+backend is a pure arg/text builder around an injectable runner, so both are
+testable on any OS without creating real tasks.
 """
 
 from __future__ import annotations
 
 import subprocess
 import sys
-from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
 _TASK_FOLDER = "FontSentry"
+_CRON_MARKER = "# FontSentry:"
+# cron day-of-week numbers (0 = Sunday).
+_CRON_DOW = {"SUN": 0, "MON": 1, "TUE": 2, "WED": 3, "THU": 4, "FRI": 5, "SAT": 6}
 
-Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
+
+class Runner(Protocol):
+    def __call__(
+        self, args: list[str], *, input: str | None = None
+    ) -> subprocess.CompletedProcess[str]: ...
 
 
 class SchedulerError(Exception):
-    """Raised when a schtasks invocation fails."""
+    """Raised when an OS scheduler invocation fails."""
 
 
 class ScheduleSpec(BaseModel):
@@ -46,8 +56,66 @@ def is_windows() -> bool:
     return sys.platform == "win32"
 
 
-def _default_runner(args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(args, capture_output=True, text=True, check=False)
+def is_linux() -> bool:
+    return sys.platform.startswith("linux")
+
+
+def is_supported() -> bool:
+    return is_windows() or is_linux()
+
+
+def _default_runner(
+    args: list[str], *, input: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(args, input=input, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        # The scheduler binary (schtasks / crontab) isn't installed — degrade to a
+        # non-zero result so listing returns empty and writes surface as an error.
+        return subprocess.CompletedProcess(args, 127, "", f"{args[0]}: not found")
+
+
+# --- dispatch --------------------------------------------------------------
+
+
+def create_schedule(
+    spec: ScheduleSpec,
+    *,
+    tasks_dir: Path,
+    working_dir: Path,
+    python_exe: str | None = None,
+    runner: Runner = _default_runner,
+) -> ScheduleInfo:
+    """Create (or replace) a scheduled task that runs an audit, on the host OS."""
+    if is_windows():
+        return _win_create_schedule(
+            spec, tasks_dir=tasks_dir, working_dir=working_dir, python_exe=python_exe, runner=runner
+        )
+    if is_linux():
+        return _cron_create_schedule(
+            spec, tasks_dir=tasks_dir, working_dir=working_dir, python_exe=python_exe, runner=runner
+        )
+    raise SchedulerError("scheduling is only supported on Windows and Linux")
+
+
+def delete_schedule(name: str, *, tasks_dir: Path, runner: Runner = _default_runner) -> None:
+    if is_windows():
+        _win_delete_schedule(name, tasks_dir=tasks_dir, runner=runner)
+    elif is_linux():
+        _cron_delete_schedule(name, tasks_dir=tasks_dir, runner=runner)
+    else:
+        raise SchedulerError("scheduling is only supported on Windows and Linux")
+
+
+def list_schedules(runner: Runner = _default_runner) -> list[ScheduleInfo]:
+    if is_windows():
+        return _win_list_schedules(runner=runner)
+    if is_linux():
+        return _cron_list_schedules(runner=runner)
+    return []
+
+
+# --- Windows backend (schtasks) --------------------------------------------
 
 
 def _task_name(name: str) -> str:
@@ -69,7 +137,7 @@ def _write_launcher(
     return bat
 
 
-def create_schedule(
+def _win_create_schedule(
     spec: ScheduleSpec,
     *,
     tasks_dir: Path,
@@ -77,8 +145,6 @@ def create_schedule(
     python_exe: str | None = None,
     runner: Runner = _default_runner,
 ) -> ScheduleInfo:
-    """Create (or replace, via /F) a scheduled task that runs an audit."""
-
     python_exe = python_exe or sys.executable
     launcher = _write_launcher(spec, tasks_dir, working_dir, python_exe)
 
@@ -104,17 +170,14 @@ def create_schedule(
     return ScheduleInfo(name=spec.name)
 
 
-def delete_schedule(name: str, *, tasks_dir: Path, runner: Runner = _default_runner) -> None:
+def _win_delete_schedule(name: str, *, tasks_dir: Path, runner: Runner = _default_runner) -> None:
     result = runner(["schtasks", "/Delete", "/TN", _task_name(name), "/F"])
     if result.returncode != 0:
         raise SchedulerError(result.stderr.strip() or "schtasks /Delete failed")
-    launcher = tasks_dir / f"{name}.bat"
-    launcher.unlink(missing_ok=True)
+    (tasks_dir / f"{name}.bat").unlink(missing_ok=True)
 
 
-def list_schedules(runner: Runner = _default_runner) -> list[ScheduleInfo]:
-    """List FontSentry scheduled tasks by parsing schtasks CSV output."""
-
+def _win_list_schedules(runner: Runner = _default_runner) -> list[ScheduleInfo]:
     result = runner(["schtasks", "/Query", "/FO", "CSV", "/NH"])
     if result.returncode != 0:
         return []
@@ -135,4 +198,83 @@ def list_schedules(runner: Runner = _default_runner) -> list[ScheduleInfo]:
                 status=fields[2] if len(fields) > 2 else None,
             )
         )
+    return schedules
+
+
+# --- Linux backend (cron) --------------------------------------------------
+
+
+def _cron_expr(spec: ScheduleSpec) -> str:
+    hour, minute = spec.time.split(":")
+    dow = "*" if spec.frequency == "daily" else str(_CRON_DOW[spec.day_of_week])
+    return f"{int(minute)} {int(hour)} * * {dow}"
+
+
+def _cron_command(spec: ScheduleSpec, working_dir: Path, log_file: Path, python_exe: str) -> str:
+    scan = f"'{python_exe}' -m fontsentry scan"
+    if spec.mode == "demo":
+        scan += " --demo"
+    return f"cd '{working_dir}' && {scan} >> '{log_file}' 2>&1"
+
+
+def _cron_line(spec: ScheduleSpec, working_dir: Path, log_file: Path, python_exe: str) -> str:
+    command = _cron_command(spec, working_dir, log_file, python_exe)
+    return f"{_cron_expr(spec)} {command} {_CRON_MARKER}{spec.name}"
+
+
+def _cron_read(runner: Runner) -> str:
+    """Current crontab text, or empty if the user has no crontab yet."""
+    result = runner(["crontab", "-l"])
+    return result.stdout if result.returncode == 0 else ""
+
+
+def _cron_without(existing: str, name: str) -> list[str]:
+    """Existing crontab lines with our marker for ``name`` removed."""
+    marker = f"{_CRON_MARKER}{name}"
+    return [line for line in existing.splitlines() if not line.rstrip().endswith(marker)]
+
+
+def _cron_install(runner: Runner, lines: list[str]) -> None:
+    text = "\n".join(line for line in lines if line.strip())
+    if text:
+        text += "\n"
+    result = runner(["crontab", "-"], input=text)
+    if result.returncode != 0:
+        raise SchedulerError(result.stderr.strip() or "crontab update failed")
+
+
+def _cron_create_schedule(
+    spec: ScheduleSpec,
+    *,
+    tasks_dir: Path,
+    working_dir: Path,
+    python_exe: str | None = None,
+    runner: Runner = _default_runner,
+) -> ScheduleInfo:
+    python_exe = python_exe or sys.executable
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+    log_file = tasks_dir / f"{spec.name}.log"
+
+    lines = _cron_without(_cron_read(runner), spec.name)
+    lines.append(_cron_line(spec, working_dir, log_file, python_exe))
+    _cron_install(runner, lines)
+    return ScheduleInfo(name=spec.name, status=f"cron {_cron_expr(spec)}")
+
+
+def _cron_delete_schedule(name: str, *, tasks_dir: Path, runner: Runner = _default_runner) -> None:
+    _cron_install(runner, _cron_without(_cron_read(runner), name))
+    (tasks_dir / f"{name}.log").unlink(missing_ok=True)
+
+
+def _cron_list_schedules(runner: Runner = _default_runner) -> list[ScheduleInfo]:
+    schedules: list[ScheduleInfo] = []
+    for line in _cron_read(runner).splitlines():
+        idx = line.rfind(_CRON_MARKER)
+        if idx == -1:
+            continue
+        name = line[idx + len(_CRON_MARKER) :].strip()
+        if not name:
+            continue
+        expr = " ".join(line.split()[:5])
+        schedules.append(ScheduleInfo(name=name, status=f"cron {expr}"))
     return schedules

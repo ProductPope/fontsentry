@@ -30,8 +30,9 @@ web/           React + Vite + Tailwind frontend (separate Node toolchain)
 
 The local UI (`fontsentry serve`, `web` extra) is a thin FastAPI layer over the
 same pipeline: it lists/loads runs, starts scans, diffs, and manages recurring
-audits via the Windows Task Scheduler (`web/scheduler.py`, Windows-only — the API
-returns 501 elsewhere). The server binds 127.0.0.1 only and rejects cross-origin
+audits via the OS scheduler (`web/scheduler.py`: Windows Task Scheduler on Windows,
+cron on Linux; per-platform backends behind a dispatch, the API returns 501 on
+other platforms such as macOS). The server binds 127.0.0.1 only and rejects cross-origin
 state-changing requests. Frontend lives in `web/` with a token-based design system
 (see `web/DESIGN_SYSTEM.md`); the built `web/dist` is served by the backend.
 

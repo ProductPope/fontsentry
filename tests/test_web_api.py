@@ -308,11 +308,14 @@ def test_schedules_list_ok(tmp_path: Path) -> None:
         assert isinstance(resp.json(), list)
 
 
-def test_create_schedule_unsupported_off_windows(tmp_path: Path) -> None:
-    import sys
+def test_create_schedule_unsupported_platform(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # On an unsupported OS (not Windows/Linux) the endpoint reports 501 instead of
+    # touching a real scheduler. Force that path so the test never creates a task.
+    from fontsentry.web import server
 
-    if sys.platform == "win32":
-        pytest.skip("would create a real scheduled task on Windows")
+    monkeypatch.setattr(server, "is_supported", lambda: False)
     with _client(tmp_path) as client:
         resp = client.post("/api/schedules", json={"name": "weekly-audit"})
         assert resp.status_code == 501
