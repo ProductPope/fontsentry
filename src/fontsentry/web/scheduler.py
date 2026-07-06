@@ -15,6 +15,7 @@ testable on any OS without creating real tasks.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -38,8 +39,17 @@ class SchedulerError(Exception):
     """Raised when an OS scheduler invocation fails."""
 
 
+# Schedule names reach schtasks/crontab arguments and log/launcher filenames, so
+# the charset is tight. Shared with the delete path, which receives a raw string.
+_NAME_PATTERN = r"^[A-Za-z0-9 _-]+$"
+
+
+def is_valid_schedule_name(name: str) -> bool:
+    return re.fullmatch(_NAME_PATTERN, name) is not None
+
+
 class ScheduleSpec(BaseModel):
-    name: str = Field(min_length=1, pattern=r"^[A-Za-z0-9 _-]+$")
+    name: str = Field(min_length=1, pattern=_NAME_PATTERN)
     frequency: Literal["daily", "weekly"] = "weekly"
     time: str = Field(default="06:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     day_of_week: Literal["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] = "MON"
@@ -153,8 +163,11 @@ def _win_create_schedule(
         "/Create",
         "/TN",
         _task_name(spec.name),
+        # Task Scheduler runs actions from System32, so the launcher path must be
+        # absolute — a relative path registers fine but the task never starts.
+        # Quote it so a path with spaces survives inside the /TR value.
         "/TR",
-        str(launcher),
+        f'"{launcher.resolve()}"',
         "/SC",
         "DAILY" if spec.frequency == "daily" else "WEEKLY",
         "/ST",

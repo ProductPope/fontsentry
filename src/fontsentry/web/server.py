@@ -44,6 +44,7 @@ from fontsentry.web.scheduler import (
     create_schedule,
     delete_schedule,
     is_supported,
+    is_valid_schedule_name,
     list_schedules,
 )
 from fontsentry.web.schemas import (
@@ -436,6 +437,10 @@ def create_app(
     async def delete_schedule_endpoint(name: str) -> dict[str, str]:
         if not is_supported():
             raise HTTPException(status_code=501, detail=_unsupported)
+        # Same charset ScheduleSpec enforces at create — the name flows into a
+        # schtasks/crontab argument and a log/launcher filename.
+        if not is_valid_schedule_name(name):
+            raise HTTPException(status_code=400, detail="invalid schedule name")
         try:
             delete_schedule(name, tasks_dir=tasks_dir)
         except SchedulerError as exc:
