@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The CI privacy guard now covers every sensitive class, not a subset.**
+  `tests/test_gitignore.py` missed `.env.*` variants, crawl caches, non-JSON
+  report artifacts, extra `validation/` files, and unrecognized `config/*.yaml`;
+  its `demo/` exemption applied to any directory of that name. The guard now
+  mirrors `.gitignore`'s sensitive classes, the demo exemption is anchored to the
+  top-level corpus, and the guard's own regexes are self-tested (every leak class
+  and every committed exception). `.gitignore` widened to match
+  (`config/*.yaml`, `validation/*` with explicit example/README exceptions).
 - **A failing `crontab -l` can no longer wipe the user's other cron jobs.**
   Any read failure (permissions, PAM, transient error) used to be treated as
   "no crontab yet", so the next schedule create/delete installed a crontab

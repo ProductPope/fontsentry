@@ -1,7 +1,6 @@
 # --- Real user data: NEVER commit (only *.example.yaml versions are tracked) ---
-config/targets.yaml
-config/settings.yaml
-config/rules.yaml
+config/*.yaml
+!config/*.example.yaml
 registry/licenses.yaml
 
 # License proofs and invoices: keep the folder, ignore its contents
@@ -24,9 +23,10 @@ backups/
 # Generated scheduled-task launchers
 .fontsentry-tasks/
 
-# Verdict-validation ground truth + output (only the *.example is committed)
-validation/labels.yaml
-validation/result.md
+# Verdict-validation ground truth + output (only the example + README are committed)
+validation/*
+!validation/labels.example.yaml
+!validation/README.md
 
 # Local-only working material — never committed
 external/
