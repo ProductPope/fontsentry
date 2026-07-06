@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-06
+
+Operator quality-of-life, all local-first: cross-platform recurring audits,
+registry import/export, whole-workspace backup, and a CI guard that keeps private
+data off GitHub.
+
 ### Added
 - **Privacy guard in CI** (`tests/test_gitignore.py`). Asserts that every sensitive
   path (real `config/*.yaml`, `registry/licenses.yaml`, `registry/proofs/`,

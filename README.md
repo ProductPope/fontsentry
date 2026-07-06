@@ -101,15 +101,18 @@ templates; copy them to their real (gitignored) names and edit:
 | --- | --- | --- |
 | `config/targets.example.yaml` | `config/targets.yaml` | Domains to scan + subdomain seeds |
 | `config/settings.example.yaml` | `config/settings.yaml` | Crawl depth, limits, rate, output paths |
-| `config/rules.example.yaml` | `config/rules.yaml` | Risk-engine rules, weights, thresholds |
+| `config/rules.example.yaml` | `config/rules.yaml` | Verdict-engine classification lists (open-license patterns, paid tiers, …) |
 | `registry/licenses.example.yaml` | `registry/licenses.yaml` | Your owned-license registry |
 
-License proof PDFs and invoices go in `registry/proofs/` and are never committed.
+License proof PDFs and invoices go in `registry/proofs/`; generated reports in
+`reports/`; workspace snapshots in `backups/`. None are ever committed — enforced
+by `.gitignore` **and** a CI guard (`tests/test_gitignore.py`) that fails the build
+if a sensitive path stops being ignored or real data gets tracked.
 
 ## CLI
 
 ```
-fontsentry scan              crawl + detect + score + report
+fontsentry scan              crawl + detect + verdicts + report
 fontsentry scan-source PATH  audit font files in a local repo (offline)
 fontsentry report            re-render HTML from an existing JSON run
 fontsentry diff              compare two runs
@@ -131,20 +134,24 @@ A live `scan` also reads self-hosted fonts out of a page's own JavaScript bundle
 so it can catch fonts a single-page app injects at runtime (as long as the font URL
 is shipped as a string in a same-site bundle) — no headless browser needed.
 
-Each finding is scored on two independent axes: **license risk** (Low/Medium/High)
-and **delivery/privacy** — a font served from a third party (e.g. the Google Fonts
-API) is flagged for GDPR/RODO even when its license is free. The crawler refuses
-to fetch private/loopback addresses by default (`block_private_hosts`); disable it
-only to audit an internal site.
+Each finding carries two independent **deterministic verdicts**: a **license**
+verdict (`OK` / `NEEDS_CHECK` / `VIOLATION`, each with a reason) and a
+**delivery/privacy** verdict — a font served from a third party (e.g. the Google
+Fonts API) is flagged for GDPR/RODO even when its license is free. There is no
+numeric risk score (see [ADR 0003](docs/adr/0003-deterministic-verdicts.md)). The
+crawler refuses to fetch private/loopback addresses by default
+(`block_private_hosts`); disable it only to audit an internal site.
 
 ## Documentation
 
-- [Risk rules reference](docs/rules.md) — scoring model and how to add a rule
+- [Classification reference](docs/rules.md) — the verdict decision table and how to tune it
 - [Methodology](docs/methodology.md) — how this was built (vibecoding benchmark)
 - [Hardening roadmap](docs/roadmap.md) — phased plan to benchmark grade
 - [ADR 0001 — stack choice](docs/adr/0001-stack-choice.md)
 - [ADR 0002 — risk-scoring model](docs/adr/0002-risk-scoring-model.md) (superseded)
 - [ADR 0003 — deterministic verdicts](docs/adr/0003-deterministic-verdicts.md)
+- [ADR 0004 — SPA font discovery](docs/adr/0004-spa-font-discovery.md)
+- [LIMITATIONS.md](LIMITATIONS.md) — what this is *not*, and known gaps
 - [CLAUDE.md](CLAUDE.md) — working agreement and conventions
 
 ## License

@@ -18,6 +18,12 @@ rendering ("B2") is **deliberately deferred** — the bundle scan covers the com
 case and a browser is a heavyweight, less-deterministic dependency. Decision +
 residue documented in [ADR 0004](adr/0004-spa-font-discovery.md).
 
+Operator quality-of-life shipped alongside (v0.5–v0.6), all local-first: recurring
+audits on Linux via **cron** (not just the Windows Task Scheduler); registry
+**import/export** (JSON + CSV); whole-**workspace backup & restore** to a gitignored
+`backups/` zip; and a **CI privacy guard** (`tests/test_gitignore.py`) that fails
+the build if a user's private data could ever be committed.
+
 ## Current position (2026-07-04)
 
 Phases **1–5 complete** (PRs #59–#64): hygiene, frontend test net + coverage floor,
