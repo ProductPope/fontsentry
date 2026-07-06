@@ -29,6 +29,11 @@ the harness runs a real scan and compares the tool's verdicts to your labels.
   missed problem is worse than a false alarm.
 - **Not detected** — a font you labelled that the tool didn't find (a detection
   gap, distinct from a verdict disagreement).
+- **Coverage gate** — a font can only be a false negative if it was detected, so
+  a broken scan (network down, hosts blocked) would "pass" with zero false
+  negatives. The command therefore exits **2** when nothing was detected or when
+  more than `--max-missing` (default 50%) of the labels went undetected — that
+  run is *inconclusive*, not validated.
 
 Publish the number **and where the tool is wrong** — being honest about the error
 is the point (see `docs/methodology.md`). The label set is the ground truth, so

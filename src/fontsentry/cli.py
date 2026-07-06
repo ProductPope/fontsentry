@@ -218,11 +218,20 @@ def validate(
     config_dir: Path = typer.Option(Path("config"), "--config-dir", help="Config directory."),
     registry_dir: Path = typer.Option(Path("registry"), "--registry-dir", help="Registry dir."),
     out: Path | None = typer.Option(None, "--out", help="Write the markdown summary here."),
+    max_missing: float = typer.Option(
+        0.5,
+        "--max-missing",
+        min=0.0,
+        max=1.0,
+        help="Fail (exit 2) when more than this share of labelled fonts was not detected.",
+    ),
 ) -> None:
     """Validate verdicts against a labelled ground truth (Phase 8). Runs REAL scans.
 
-    Exits non-zero when there is a false negative (the tool said OK where a human
-    did not) — the unsafe direction, useful for gating.
+    Exits 1 when there is a false negative (the tool said OK where a human did
+    not) — the unsafe direction, useful for gating. Exits 2 when detection
+    coverage is too low for the comparison to mean anything (a broken scan
+    detects nothing and would otherwise pass with zero false negatives).
     """
 
     labels = validation.load_labels(labels_file)
@@ -247,6 +256,9 @@ def validate(
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(summary, encoding="utf-8")
         console.print(f"Summary written to [cyan]{out}[/]")
+    if reason := validation.coverage_failure(result, max_missing):
+        err_console.print(f"[red]Validation not conclusive:[/] {reason}")
+        raise typer.Exit(2)
     raise typer.Exit(1 if result.false_negatives else 0)
 
 
