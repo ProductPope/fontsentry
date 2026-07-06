@@ -75,6 +75,12 @@ _background_tasks: set[asyncio.Task[None]] = set()
 _PROOF_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".txt"}
 _MAX_PROOF_BYTES = 10 * 1024 * 1024
 
+# Request bodies are user-supplied files ("a backup someone sent me"), so every
+# state-changing request is size-capped: workspace zips may be large (reports),
+# everything else is small YAML/JSON/CSV.
+_MAX_BODY_BYTES = 10 * 1024 * 1024
+_MAX_IMPORT_BODY_BYTES = 250 * 1024 * 1024
+
 _ALLOWED_HOSTS = {"localhost", "127.0.0.1"}
 _LOCAL_ORIGINS = [
     "http://localhost:5173",
@@ -115,6 +121,31 @@ def create_app(
             if request.headers.get("sec-fetch-site") == "cross-site":
                 return Response("cross-origin request rejected", status_code=403)
         return await call_next(request)
+
+    @app.middleware("http")
+    async def _body_size_guard(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # Fast path on the declared length; the raw-body import endpoints also
+        # enforce the cap while streaming, in case the header lies or is absent.
+        if request.method in {"POST", "PUT", "PATCH"}:
+            limit = (
+                _MAX_IMPORT_BODY_BYTES
+                if request.url.path.startswith("/api/workspace/")
+                else _MAX_BODY_BYTES
+            )
+            length = request.headers.get("content-length")
+            if length and length.isdigit() and int(length) > limit:
+                return Response("request body too large", status_code=413)
+        return await call_next(request)
+
+    async def _read_body(request: Request, limit: int) -> bytes:
+        data = bytearray()
+        async for chunk in request.stream():
+            data.extend(chunk)
+            if len(data) > limit:
+                raise HTTPException(status_code=413, detail="request body too large")
+        return bytes(data)
 
     @app.get("/api/health")
     async def health() -> dict[str, str]:
@@ -256,7 +287,7 @@ def create_app(
         return registry
 
     @app.post("/api/config/registry/import")
-    async def import_registry(incoming: Registry) -> Registry:
+    async def import_registry(incoming: Registry) -> RegistryImportResult:
         # Merge (upsert by owner+family) into the current registry rather than
         # replacing it, so an import never silently drops existing licenses.
         path = registry_dir / "licenses.yaml"
@@ -264,9 +295,9 @@ def create_app(
             current = config.load_registry(path) if path.exists() else Registry()
         except config.ConfigError:
             current = Registry()
-        merged = merge_registries(current, incoming)
+        merged, added, replaced = merge_registries(current, incoming)
         config.save_registry(path, merged)
-        return merged
+        return RegistryImportResult(registry=merged, added=added, replaced=replaced)
 
     def _load_registry_or_empty() -> Registry:
         path = registry_dir / "licenses.yaml"
@@ -287,11 +318,11 @@ def create_app(
     async def import_registry_csv(request: Request) -> RegistryImportResult:
         # Excel writes a UTF-8 BOM; utf-8-sig strips it so the first column header
         # isn't read as "﻿owner".
-        text = (await request.body()).decode("utf-8-sig")
+        text = (await _read_body(request, _MAX_BODY_BYTES)).decode("utf-8-sig")
         incoming, errors = registry_from_csv(text)
-        merged = merge_registries(_load_registry_or_empty(), incoming)
+        merged, added, replaced = merge_registries(_load_registry_or_empty(), incoming)
         config.save_registry(registry_dir / "licenses.yaml", merged)
-        return RegistryImportResult(registry=merged, errors=errors)
+        return RegistryImportResult(registry=merged, errors=errors, added=added, replaced=replaced)
 
     @app.get("/api/config/rules")
     async def get_rules() -> RulesConfig:
@@ -463,7 +494,7 @@ def create_app(
 
     @app.post("/api/workspace/import")
     async def import_workspace(request: Request) -> dict[str, str]:
-        _restore(await request.body())
+        _restore(await _read_body(request, _MAX_IMPORT_BODY_BYTES))
         return {"restored": "upload"}
 
     dist = _web_dist()

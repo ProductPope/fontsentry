@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 
 from fontsentry.models import (
     AggregatedFont,
@@ -112,22 +113,35 @@ def _entry_key(entry: RegistryEntry) -> tuple[str, str]:
     return (entry.owner.strip().lower(), entry.family.strip().lower())
 
 
-def merge_registries(base: Registry, incoming: Registry) -> Registry:
+class MergeResult(NamedTuple):
+    registry: Registry
+    added: int
+    replaced: int
+
+
+def merge_registries(base: Registry, incoming: Registry) -> MergeResult:
     """Upsert ``incoming`` entries into ``base`` by (owner, family), case-insensitively.
 
     Incoming wins on a matching (owner, family); non-matching existing entries are
     kept and nothing is deleted (a safe import: it never silently drops licenses).
     Base order is preserved; genuinely new entries are appended in incoming order.
+    Replacements are counted so the caller can tell the operator: an incoming entry
+    can be *less* strict than the one it overwrites (e.g. no expiry, no domain
+    scope), and that must not happen invisibly.
     """
 
     index = {_entry_key(entry): position for position, entry in enumerate(base.entries)}
     merged = list(base.entries)
+    added = replaced = 0
     for entry in incoming.entries:
         key = _entry_key(entry)
         existing = index.get(key)
         if existing is None:
             index[key] = len(merged)
             merged.append(entry)
+            added += 1
         else:
+            if merged[existing] != entry:
+                replaced += 1
             merged[existing] = entry
-    return Registry(entries=merged)
+    return MergeResult(Registry(entries=merged), added, replaced)

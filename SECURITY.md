@@ -23,7 +23,12 @@ In scope:
   manually and re-checked per hop. Disable only to audit an internal site.
 - **Resource exhaustion.** Fetched bodies are streamed and capped
   (`crawl.max_response_bytes`, default 25 MB), bounding decompressed size; the
-  proof-upload endpoint streams with a hard cap.
+  proof-upload endpoint streams with a hard cap. Every state-changing request
+  body is size-capped (10 MB; workspace imports 250 MB) — declared length is
+  checked up front and the raw-body import endpoints also enforce the cap while
+  streaming. A restored workspace zip is bounded before extraction (entry count
+  and total declared decompressed size — zip-bomb guard), and every entry path
+  is validated before anything is written.
 - **Untrusted parsing.** HTML/CSS/font bytes from the network are parsed; a
   malformed font is caught and surfaced, never crashing the scan. Font name-table
   strings are treated as untrusted (HTML report auto-escapes; CSV neutralizes

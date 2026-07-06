@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Registry imports report what they changed**: the JSON and CSV import results
+  (and the UI toast) now say `N added, M replaced` — a replacement can silently
+  *loosen* an entry (e.g. drop its expiry or domain scope), so overwrites are
+  named, never folded into a total.
+
 ### Changed
 - **The `fsType` Restricted-License check now precedes the open-evidence checks**
   in the verdict decision order. Previously an open-license word in the font's
@@ -17,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Imports are size-bounded.** Workspace and registry import bodies were read
+  unbounded, and a restored zip had no decompression limits — a small crafted
+  "backup from another machine" could exhaust RAM/disk. Every state-changing
+  request body is now capped (10 MB; workspace imports 250 MB, enforced both on
+  the declared length and while streaming), a restore is bounded before
+  extraction (entry count + total declared decompressed size), and entry paths
+  are validated before anything is written (no half-restored workspace).
 - **Bundle scan: relative font URLs now resolve against the bundle's own host**,
   not the page's — a root-relative path inside a bundle served from a declared
   asset domain (`crawl.self_hosted_hosts`) previously 404'd and the font was

@@ -26,6 +26,10 @@ _MANIFEST_VERSION = 1
 # arcname prefix -> which create_app directory it maps to.
 _PREFIXES = ("config", "registry", "reports")
 _NAME_RE = re.compile(r"^fontsentry-workspace-\d{8}T\d{6}Z\.zip$")
+# Zip-bomb guards: a restore payload is user-supplied ("a backup someone sent
+# me"), so bound what it may decompress to before writing anything.
+_MAX_ENTRIES = 10_000
+_MAX_TOTAL_UNCOMPRESSED = 500 * 1024 * 1024  # 500 MB across all entries
 
 
 class WorkspaceError(Exception):
@@ -83,8 +87,22 @@ def restore_workspace_zip(
         if manifest.get("version") != _MANIFEST_VERSION:
             raise WorkspaceError(f"unsupported backup version: {manifest.get('version')!r}")
 
-        for name in names:
-            if name == _MANIFEST or name.endswith("/"):
+        members = [i for i in archive.infolist() if i.filename != _MANIFEST]
+        if len(members) > _MAX_ENTRIES:
+            raise WorkspaceError(f"backup has more than {_MAX_ENTRIES} entries — refusing")
+        declared = sum(info.file_size for info in members)
+        if declared > _MAX_TOTAL_UNCOMPRESSED:
+            raise WorkspaceError(
+                "backup would decompress past the "
+                f"{_MAX_TOTAL_UNCOMPRESSED // (1024 * 1024)} MB limit — refusing"
+            )
+
+        # Validate every destination before writing anything: an unsafe entry
+        # must reject the whole backup, not leave a half-restored workspace.
+        writes: list[tuple[zipfile.ZipInfo, Path]] = []
+        for info in members:
+            name = info.filename
+            if name.endswith("/"):
                 continue
             prefix, _, rel = name.partition("/")
             root = roots.get(prefix)
@@ -93,8 +111,11 @@ def restore_workspace_zip(
             destination = (root / rel).resolve()
             if not destination.is_relative_to(root.resolve()):
                 raise WorkspaceError(f"unsafe path in backup: {name}")
+            writes.append((info, destination))
+
+        for info, destination in writes:
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(archive.read(name))
+            destination.write_bytes(archive.read(info))
 
 
 def snapshot_filename(now: datetime) -> str:

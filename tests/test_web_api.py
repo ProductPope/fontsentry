@@ -217,7 +217,10 @@ def test_registry_import_merges_and_persists(tmp_path: Path) -> None:
             },
         )
         assert resp.status_code == 200
-        assert len(resp.json()["entries"]) == 2  # one upsert, one new
+        body = resp.json()
+        assert len(body["registry"]["entries"]) == 2  # one upsert, one new
+        # The overwrite is reported, not silent — an import can loosen an entry.
+        assert (body["added"], body["replaced"]) == (1, 1)
 
         got = client.get("/api/config/registry").json()["entries"]
         assert {e["owner"] for e in got} == {"alpha", "Gamma"}
@@ -265,6 +268,55 @@ def test_registry_import_csv_merges_and_reports_errors(tmp_path: Path) -> None:
         assert [e["family"] for e in body["registry"]["entries"]] == ["Sans"]
         assert len(body["errors"]) == 1 and body["errors"][0].startswith("row 3:")
         assert (registry_dir / "licenses.yaml").exists()
+
+
+def test_oversized_body_rejected_by_declared_length(tmp_path: Path) -> None:
+    # The middleware rejects on the declared Content-Length before any handler
+    # runs — an import is a user-supplied file and must be bounded.
+    with _client(tmp_path) as client:
+        resp = client.post(
+            "/api/config/registry/import.csv",
+            content=b"owner,family,license_type\n",
+            headers={"content-type": "text/csv", "content-length": str(11 * 1024 * 1024)},
+        )
+        assert resp.status_code == 413
+
+
+def test_oversized_csv_body_rejected_while_streaming(tmp_path: Path) -> None:
+    # Without any Content-Length (chunked upload) the raw-body endpoints enforce
+    # the cap while reading, so a lying client cannot buffer past the limit.
+
+    from fontsentry.web import server
+
+    def _chunks() -> Iterator[bytes]:
+        yield b"owner,family,license_type\n"
+        for _ in range(32):
+            yield b"A,B,Web\n"
+
+    with _client(tmp_path) as client, pytest.MonkeyPatch.context() as mp:
+        mp.setattr(server, "_MAX_BODY_BYTES", 64)
+        resp = client.post(
+            "/api/config/registry/import.csv",
+            content=_chunks(),
+            headers={"content-type": "text/csv"},
+        )
+        assert resp.status_code == 413
+
+
+def test_csv_import_reports_added_and_replaced(tmp_path: Path) -> None:
+    with _client(tmp_path, registry_dir=tmp_path / "registry") as client:
+        first = client.post(
+            "/api/config/registry/import.csv",
+            content="owner,family,license_type\nAcme,Sans,Web\n",
+            headers={"content-type": "text/csv"},
+        )
+        assert (first.json()["added"], first.json()["replaced"]) == (1, 0)
+        second = client.post(
+            "/api/config/registry/import.csv",
+            content="owner,family,license_type\nAcme,Sans,Renewed\nBeta,Serif,Web\n",
+            headers={"content-type": "text/csv"},
+        )
+        assert (second.json()["added"], second.json()["replaced"]) == (1, 1)
 
 
 def test_workspace_snapshot_export_and_list(tmp_path: Path) -> None:
