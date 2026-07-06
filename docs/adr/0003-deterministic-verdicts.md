@@ -108,3 +108,10 @@ your license vs provably open vs system font) is carried in the verdict's
 unchanged. This keeps the operator-facing model to three legible outcomes while
 preserving the deterministic decision order above. The **privacy verdict** is
 unchanged (`self_hosted` / `third_party_api` / `mixed` / `not_applicable`).
+
+One `VIOLATION` source was added after this ADR was written (still pre-freeze,
+found by the Phase-7 human review): a self-hosted font whose OS/2 `fsType`
+**Restricted-License bit** forbids embedding, with no registry cover. It sits in
+step 3 with the other definite violations; the weaker Preview & Print bit is
+deliberately not a violation (see `LIMITATIONS.md`). The decision table in
+`docs/rules.md` is the maintained reference.

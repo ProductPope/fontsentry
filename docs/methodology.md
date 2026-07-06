@@ -132,6 +132,9 @@ Set: **30 labelled fonts** across a spread of real sites.
 
 What the numbers mean:
 
+- **The denominators, stated plainly:** 88% is agreement over the **detected set**
+  (23 of 26). Counted over **all 30 labels** — detection misses included —
+  agreement is 23/30 = **77%**. Both are given so neither denominator is hidden.
 - **Zero false negatives.** The tool never cleared a commercial / licence-unverified
   font as `OK`. Every commercial family in the set (self-hosted, no readable
   open-licence, not in the registry) was correctly returned as `NEEDS_CHECK`.

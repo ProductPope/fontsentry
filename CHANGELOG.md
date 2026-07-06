@@ -427,5 +427,8 @@ Verdicts release. Human-reviewed core; verdict rules frozen (see
   baseline. "Start audit" runs scans; "Schedule recurring audit" creates Windows
   Task Scheduler entries that run even when the UI is closed.
 
-[Unreleased]: https://github.com/ProductPope/fontsentry/compare/v0.2.0...main
+[Unreleased]: https://github.com/ProductPope/fontsentry/compare/v0.6.0...main
+[0.6.0]: https://github.com/ProductPope/fontsentry/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/ProductPope/fontsentry/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/ProductPope/fontsentry/compare/v0.2.0...v0.4.0
 [0.2.0]: https://github.com/ProductPope/fontsentry/releases/tag/v0.2.0

@@ -1,7 +1,8 @@
 # FontSentry
 
-Audit and monitor the fonts used across many web domains, and estimate the
-probability that each detected font is being used **in violation of its license**.
+Audit and monitor the fonts used across many web domains, and give each detected
+font a deterministic **license verdict** — is it covered, provably open, a
+definite **violation**, or something a human needs to check?
 
 FontSentry crawls a configurable list of domains, detects every web font and how
 it is embedded, downloads reachable font files to read their metadata, and gives
@@ -118,6 +119,8 @@ fontsentry report            re-render HTML from an existing JSON run
 fontsentry diff              compare two runs
 fontsentry registry validate check the registry file and proof paths
 fontsentry rules validate    sanity-check the rule file
+fontsentry validate          compare verdicts against a human-labelled ground truth
+fontsentry serve             run the local web UI + API (127.0.0.1, `web` extra)
 ```
 
 `scan` options: `--demo` (offline dataset), `--discover-subdomains` (opt-in

@@ -1,10 +1,10 @@
 """Documentation-freshness guard.
 
 These tests fail in CI when code and the committed docs drift apart, so the docs
-can't silently go stale: a new rule predicate, a new crawl setting, or a new
-default rule id must be documented (and the CHANGELOG must carry an Unreleased
-section). Matching is by identifier presence, not exact wording — so rephrasing
-docs is fine; only *adding a feature without documenting it* fails.
+can't silently go stale: a new classification config key or a new crawl setting
+must be documented (and the CHANGELOG must carry an Unreleased section).
+Matching is by identifier presence, not exact wording — so rephrasing docs is
+fine; only *adding a feature without documenting it* fails.
 """
 
 from __future__ import annotations

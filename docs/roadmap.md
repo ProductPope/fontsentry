@@ -24,25 +24,26 @@ audits on Linux via **cron** (not just the Windows Task Scheduler); registry
 `backups/` zip; and a **CI privacy guard** (`tests/test_gitignore.py`) that fails
 the build if a user's private data could ever be committed.
 
-## Current position (2026-07-04)
+## Current position (2026-07-06)
 
-Phases **1–5 complete** (PRs #59–#64): hygiene, frontend test net + coverage floor,
-god-file refactors, crawler-reality/perf/threat-model, and detection accuracy
-(100%/100% precision-recall on the demo corpus). All gates green; 263 backend +
-25 frontend tests. **Next: Phase 6** — deterministic verdicts (ADR 0003), the one
-core/judgement-layer change; start it fresh, semantics first, then a focused PR,
-then the Phase-7 human-review gate.
+**All phases 1–8 complete.** Phases 1–5 (PRs #59–#64): hygiene, frontend test
+net + coverage floor, god-file refactors, crawler-reality/perf/threat-model, and
+detection accuracy. Phase 6 (ADR 0003): deterministic verdicts, the one
+core/judgement-layer change. Phase 7: human review of the frozen core, tagged
+`v0.4.0`. Phase 8: verdict rules validated against a human-labelled ground truth
+(see below). All gates green.
 
-## What is already proven vs unproven
+## What is proven, and how
 
 - **Detection (proven):** the crawl → detect → aggregate pipeline surfaces web
   fonts and their delivery method — audits have already revealed fonts the owner
   did not know were served. This is the tool's load-bearing, verifiable value.
-  Lead with it. It still needs its *accuracy* measured (Phase 5).
-- **Judgement layer (deterministic, rules to be validated):** per ADR 0003 the
+  Accuracy measured in Phase 5 (demo corpus) and exercised against a labelled
+  ground-truth page in Phase 7.
+- **Judgement layer (deterministic, rules validated):** per ADR 0003 the
   weighted risk score is retired for deterministic verdicts (privacy + licence,
-  `UNKNOWN` first-class). Defensible by construction; the *rules* still get
-  validated (Phase 8).
+  `NEEDS_CHECK` first-class). Defensible by construction; the *rules* were
+  validated against ground truth in Phase 8.
 
 ## Guardrails (hold for the whole roadmap)
 
@@ -98,8 +99,9 @@ a number. Independent of the judgement layer, so it runs here.
 
 ### 6 — Deterministic verdicts (ADR 0003)  · L · risk: medium (core change)  · ✅ DONE
 The one judgement-layer change. Replace the weighted engine with the decision
-table: privacy verdict + licence verdict (`COVERED` / `VIOLATION` / `OPEN` /
-`UNKNOWN` / `SYSTEM`) with explicit reasons; soft signals become evidence notes.
+table: privacy verdict + licence verdict (surfaced as `OK` / `NEEDS_CHECK` /
+`VIOLATION` — see the ADR 0003 amendment) with explicit reasons; soft signals
+become evidence notes.
 Migrate `rules.yaml` (drop `scoring:`/weights), report schema, and UI (band →
 verdict + reason). Deterministic → unit-testable: known input → expected verdict,
 pinned in the suite.
@@ -140,7 +142,8 @@ corpus.
 - "Does the judgement mean anything?" → ADR 0003 + Phases 6/8 (deterministic +
   validated, `UNKNOWN` owned).
 - "Architecture?" → Phase 3 (split + ADRs).
-- "Reproducible?" → Phase 8 (one command).
+- "Reproducible?" → the *harness* is (`fontsentry validate`, one command); the
+  published Phase-8 figure is not — the labelled ground truth is private.
 - "Over-engineered?" → guardrail: no new features, no speculative abstraction.
 
 ## Rough effort

@@ -35,7 +35,7 @@ stylesheets, and font preloads. Consequences:
   headless browser would close this last gap, but that is **deliberately not
   built** — the static bundle scan already covers the common case, and a headless
   browser is a heavyweight, less-deterministic dependency we don't add until it's
-  shown necessary (see [ADR 0004](adr/0004-spa-font-discovery.md); the `browser`
+  shown necessary (see [ADR 0004](docs/adr/0004-spa-font-discovery.md); the `browser`
   extra is a placeholder seam only). When you have the site's source,
   `fontsentry scan-source PATH` sidesteps rendering entirely: it reads the font
   files straight from a checked-out repo, so it finds self-hosted fonts regardless
@@ -73,15 +73,18 @@ stylesheets, and font preloads. Consequences:
 ## Verdict-rule validation
 
 The decision table is deterministic and unit-tested (known input → expected
-verdict). Whether the *rules themselves* match real-world licensing across a broad,
-labelled sample is a separate question, validated against ground truth (roadmap
-Phase 8). Treat the verdicts as a triage signal, not ground truth, until then.
+verdict). Whether the *rules themselves* match real-world licensing is a separate
+question, checked against a human-labelled ground truth in roadmap Phase 8 — see
+the aggregate result in [docs/methodology.md](docs/methodology.md#verdict-validation-phase-8).
+It is a modest, private, single-estate sample that confirms the *direction* of the
+rules (no false clears); treat the verdicts as a triage signal, not ground truth.
 
 ## Scope
 
 - **Local, single-user.** Not designed for multi-user or networked deployment; the
   web UI binds to `127.0.0.1` only and has no authentication (see `SECURITY.md`).
-- **Recurring scheduling is Windows-only** (Task Scheduler); other platforms would
-  need cron/launchd.
+- **Recurring scheduling is supported on Windows (Task Scheduler) and Linux
+  (cron) only.** On other platforms (macOS) the API returns `501`; schedule with
+  `launchd` by hand.
 - FontSentry audits **fonts**. It does not assess other asset licensing (images,
   icons-as-images, video) or non-font web compliance.
