@@ -45,10 +45,17 @@ class FakeRunner:
 class CronRunner:
     """cron runner: returns `existing` for `crontab -l`, captures `crontab -` input."""
 
-    def __init__(self, existing: str = "", list_rc: int = 0, install_rc: int = 0) -> None:
+    def __init__(
+        self,
+        existing: str = "",
+        list_rc: int = 0,
+        install_rc: int = 0,
+        list_stderr: str = "",
+    ) -> None:
         self.existing = existing
         self.list_rc = list_rc
         self.install_rc = install_rc
+        self.list_stderr = list_stderr
         self.installed: str | None = None
         self.calls: list[list[str]] = []
 
@@ -57,7 +64,7 @@ class CronRunner:
     ) -> subprocess.CompletedProcess[str]:
         self.calls.append(args)
         if args[:2] == ["crontab", "-l"]:
-            return subprocess.CompletedProcess(args, self.list_rc, self.existing, "")
+            return subprocess.CompletedProcess(args, self.list_rc, self.existing, self.list_stderr)
         if args == ["crontab", "-"]:
             self.installed = input
             return subprocess.CompletedProcess(args, self.install_rc, "", "cron write failed")
@@ -175,7 +182,7 @@ def test_cron_create_replaces_own_prior_line(tmp_path: Path) -> None:
 
 
 def test_cron_create_no_existing_crontab(tmp_path: Path) -> None:
-    runner = CronRunner(list_rc=1)  # "no crontab for user"
+    runner = CronRunner(list_rc=1, list_stderr="no crontab for user")
     _cron_create_schedule(
         ScheduleSpec(name="w", frequency="weekly", time="06:00", day_of_week="FRI"),
         tasks_dir=tmp_path,
@@ -183,6 +190,22 @@ def test_cron_create_no_existing_crontab(tmp_path: Path) -> None:
         runner=runner,
     )
     assert (runner.installed or "").strip().endswith("# FontSentry:w")
+
+
+@pytest.mark.parametrize("stderr", ["permission denied", ""])
+def test_cron_read_failure_refuses_to_write(tmp_path: Path, stderr: str) -> None:
+    # Regression: a failing `crontab -l` (permissions, PAM, transient) used to
+    # read as "no crontab yet", so the next install replaced the user's whole
+    # crontab with only FontSentry lines. Only "no crontab for <user>" may be
+    # treated as empty; anything else must refuse to touch the crontab at all.
+    runner = CronRunner(existing="0 1 * * * someone-elses-job\n", list_rc=1, list_stderr=stderr)
+    with pytest.raises(SchedulerError, match="refusing"):
+        _cron_create_schedule(
+            ScheduleSpec(name="w"), tasks_dir=tmp_path, working_dir=tmp_path, runner=runner
+        )
+    with pytest.raises(SchedulerError, match="refusing"):
+        _cron_delete_schedule("w", tasks_dir=tmp_path, runner=runner)
+    assert runner.installed is None  # `crontab -` was never invoked
 
 
 def test_cron_demo_mode_in_command(tmp_path: Path) -> None:

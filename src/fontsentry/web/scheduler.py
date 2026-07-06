@@ -223,9 +223,22 @@ def _cron_line(spec: ScheduleSpec, working_dir: Path, log_file: Path, python_exe
 
 
 def _cron_read(runner: Runner) -> str:
-    """Current crontab text, or empty if the user has no crontab yet."""
+    """Current crontab text, or empty if the user has no crontab yet.
+
+    Only the specific "no crontab for <user>" case may read as empty. Any other
+    ``crontab -l`` failure (permissions, PAM, transient) must raise: treating it
+    as empty would make the next install replace the user's entire crontab with
+    only FontSentry lines.
+    """
     result = runner(["crontab", "-l"])
-    return result.stdout if result.returncode == 0 else ""
+    if result.returncode == 0:
+        return result.stdout
+    if "no crontab" in (result.stderr or "").lower():
+        return ""
+    raise SchedulerError(
+        "could not read the current crontab; refusing to modify it: "
+        + (result.stderr.strip() or "unknown error")
+    )
 
 
 def _cron_without(existing: str, name: str) -> list[str]:

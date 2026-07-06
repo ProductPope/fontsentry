@@ -387,7 +387,10 @@ def create_app(
     async def get_schedules() -> list[ScheduleInfo]:
         if not is_supported():
             return []
-        return list_schedules()
+        try:
+            return list_schedules()
+        except SchedulerError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/schedules", status_code=201)
     async def create_schedule_endpoint(spec: ScheduleSpec) -> ScheduleInfo:

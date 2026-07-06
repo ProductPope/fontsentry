@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **A failing `crontab -l` can no longer wipe the user's other cron jobs.**
+  Any read failure (permissions, PAM, transient error) used to be treated as
+  "no crontab yet", so the next schedule create/delete installed a crontab
+  containing only FontSentry lines. Now only the specific "no crontab for
+  user" answer reads as empty; any other failure refuses to modify the
+  crontab and surfaces the error (API returns it as a 500 detail).
 - **Registry CSV export now neutralizes formula-looking cells** (CSV-injection /
   DDE defense), matching what `SECURITY.md` already promised and what the findings
   CSV already did. Free-text registry fields can be fed from crawled font
