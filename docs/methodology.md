@@ -1,4 +1,4 @@
-# Methodology: a vibecoding benchmark
+# Methodology: vibecoding real problem solution
 
 FontSentry was built as a public benchmark of what can be produced with Claude
 Code when both the **artifact** (a working tool) and the **process** (clean
