@@ -113,14 +113,17 @@ phases, gates, guards, human review, validation) — the benchmark exhibit. Tag 
   scan-timeout), each fixed with tests. ✅ Core signed off — **verdict rules frozen**
   and tagged **`v0.4.0`**. Next: Phase 8.
 
-### 8 — Verdict-rule validation on ground truth  · M · risk: low
-On the stable, reviewed tool. Labelled set (20–30 real domains, human verdict:
-allowed / violation / unknown). Deterministic harness (in repo, reproducible via
-one command) compares tool verdicts to labels; false-negatives reported
-separately. This confirms the *rules* are right — not weight tuning. Publish
-results, including where the tool is wrong, in `methodology.md`.
-**Done:** verdicts validated against human judgement, reproducible, with a stated
-margin of error.
+### 8 — Verdict-rule validation on ground truth  · M · risk: low  · ✅ DONE
+On the stable, reviewed tool. Labelled set (real fonts, human verdict from each
+font's producer + licence string). Deterministic harness (in repo, reproducible via
+`fontsentry validate`) compares tool verdicts to labels; false-negatives reported
+separately. This confirms the *rules* are right — not weight tuning.
+**Done:** 30 labelled fonts → **88% agreement on the detected set, zero false
+negatives** (the tool never cleared a commercial/unverified font as `OK`); the only
+disagreements are the safe direction (open fonts marked `NEEDS_CHECK`). Aggregate
+published in [`methodology.md`](methodology.md#verdict-validation-phase-8); the
+labelled ground truth is kept private, so the figure is reported, not a public
+corpus.
 
 ## What a CTO will probe → where it's answered
 

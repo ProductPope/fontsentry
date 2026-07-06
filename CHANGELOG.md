@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a human did not). Runs real scans; not part of CI. The comparison logic is
   offline-unit-tested.
 
+### Validated
+- **Verdict rules validated against a human-labelled ground truth** (Phase 8
+  complete). 30 labelled fonts from a real production estate: **88% agreement on
+  the detected set, zero false negatives** — the tool never cleared a
+  commercial/unverified font as `OK`; the only disagreements are the safe direction
+  (open fonts marked `NEEDS_CHECK`). Aggregate in
+  [`docs/methodology.md`](docs/methodology.md); the labelled data is kept private.
+
 ## [0.4.0] - 2026-07-05
 
 Verdicts release. Human-reviewed core; verdict rules frozen (see

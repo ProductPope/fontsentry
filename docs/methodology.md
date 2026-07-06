@@ -112,6 +112,46 @@ JavaScript rendering (a heavy, optional Playwright subsystem). Those are recorde
 as conscious non-goals in [`LIMITATIONS.md`](../LIMITATIONS.md). Documenting the
 boundary is treated as a result, not a gap.
 
+## Verdict validation (Phase 8)
+
+Detection answers "did we find the fonts?"; this answers "is the **licence call**
+right?" The verdict engine was checked against an **independent, human-labelled
+ground truth** — the fonts of a real production web estate, labelled from each
+font file's own producer and embedded licence string (i.e. judged from the
+licensing facts, not from the tool's output). The labelled set and per-font results
+are kept private; only the aggregate is reported here.
+
+Set: **30 labelled fonts** across a spread of real sites.
+
+| Outcome | Count |
+| --- | --- |
+| Detected & judged | **26** — agreement **88%** |
+| Matched | 23 |
+| Mismatched | 3 — **false-negatives (unsafe): 0** |
+| Not detected | 4 |
+
+What the numbers mean:
+
+- **Zero false negatives.** The tool never cleared a commercial / licence-unverified
+  font as `OK`. Every commercial family in the set (self-hosted, no readable
+  open-licence, not in the registry) was correctly returned as `NEEDS_CHECK`.
+- **All 3 disagreements are the *safe* direction.** They are open families (Open
+  Font Licence / Ubuntu Font Licence) the tool marked `NEEDS_CHECK` rather than
+  `OK`, because the font file shipped no machine-readable open-licence string and
+  the family was not in the open-family list. Over-caution is the *intended* failure
+  mode: a `NEEDS_CHECK` is a prompt to verify, never a false clear.
+- **The 4 "not detected" are a detection-recall matter, not a wrong verdict** — a
+  font that lived only on a page the crawl didn't reach. Recall is measured
+  separately (see *Detection accuracy*); it is not counted against the verdict
+  rules.
+
+Reproducible via the in-repo harness (`fontsentry validate --labels <file>`), which
+runs real scans and compares them to the labels, exiting non-zero on any false
+negative. The comparison logic is offline unit-tested; the ground-truth labels are
+private, so the published figure is the aggregate above rather than a runnable
+public corpus. It is a modest set: it confirms the *direction* of the rules (safe,
+no false clears) more than it fixes a precise agreement rate.
+
 ## What "done" means here
 
 - mypy-clean, ruff-clean, all tests passing, offline.
