@@ -319,6 +319,15 @@ def test_csv_import_reports_added_and_replaced(tmp_path: Path) -> None:
         assert (second.json()["added"], second.json()["replaced"]) == (1, 1)
 
 
+def test_delete_schedule_rejects_invalid_name(tmp_path: Path) -> None:
+    # The name flows into a schtasks/crontab argument and a log/launcher filename;
+    # the delete path must enforce the same charset ScheduleSpec does at create.
+    with _client(tmp_path) as client:
+        for bad in ("evil%0Aname", "dollar%24(reboot)", "semi%3Brm"):
+            resp = client.delete(f"/api/schedules/{bad}")
+            assert resp.status_code == 400, bad
+
+
 def test_workspace_snapshot_export_and_list(tmp_path: Path) -> None:
     registry_dir, backups_dir = tmp_path / "registry", tmp_path / "backups"
     with _client(tmp_path, registry_dir=registry_dir, backups_dir=backups_dir) as client:
