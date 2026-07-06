@@ -111,7 +111,10 @@ unchanged (`self_hosted` / `third_party_api` / `mixed` / `not_applicable`).
 
 One `VIOLATION` source was added after this ADR was written (still pre-freeze,
 found by the Phase-7 human review): a self-hosted font whose OS/2 `fsType`
-**Restricted-License bit** forbids embedding, with no registry cover. It sits in
-step 3 with the other definite violations; the weaker Preview & Print bit is
-deliberately not a violation (see `LIMITATIONS.md`). The decision table in
-`docs/rules.md` is the maintained reference.
+**Restricted-License bit** forbids embedding, with no registry cover. It sits
+directly after the registry step and **before** the open-evidence checks — the
+file's own machine-readable bit outranks self-reported name-table text, while a
+valid registry cover still wins (a purchased license is the permission the bit
+demands). The weaker Preview & Print bit is deliberately not a violation (see
+`LIMITATIONS.md`). The decision table in `docs/rules.md` is the maintained
+reference; the order is pinned by tests.

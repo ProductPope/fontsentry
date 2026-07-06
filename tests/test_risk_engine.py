@@ -160,6 +160,79 @@ def test_installable_fstype_not_flagged(rules: RulesConfig) -> None:
     assert finding.license_verdict is not LicenseVerdict.VIOLATION
 
 
+# --- Decision-order pins (ADR 0003): conflicting signals across steps. Each of
+# these fails if two adjacent steps of classify_license are swapped. -----------
+
+
+def test_order_expired_registry_beats_open_license_string(rules: RulesConfig) -> None:
+    # The registry step precedes the open-evidence step: a font you declared and
+    # let lapse is a VIOLATION even if its metadata carries an open-license string.
+    registry = Registry(
+        entries=[
+            RegistryEntry(
+                owner="Acme Type",
+                family="Commercial Sans",
+                license_type="Web",
+                allowed_domains=["example.com"],
+                valid_until=date(2025, 1, 1),  # expired vs NOW
+            )
+        ]
+    )
+    fonts = [_font(license_desc="Licensed under the SIL Open Font License 1.1")]
+    finding = evaluate(fonts, rules, registry, NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.VIOLATION
+    assert "expired" in finding.license_reason
+
+
+def test_order_registry_cover_beats_restricted_fstype(rules: RulesConfig) -> None:
+    # A purchased license IS the permission the fsType bit demands: valid registry
+    # cover wins over the Restricted-License bit.
+    registry = Registry(
+        entries=[
+            RegistryEntry(
+                owner="Acme Type",
+                family="Commercial Sans",
+                license_type="Web",
+                allowed_domains=["example.com"],
+                valid_until=date(2030, 1, 1),
+            )
+        ]
+    )
+    finding = evaluate([_font(fs_type=0x0002)], rules, registry, NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.OK
+    assert "covered by your license" in finding.license_reason
+
+
+def test_order_restricted_fstype_beats_open_license_string(rules: RulesConfig) -> None:
+    # The fsType Restricted-License bit is the foundry's definitive machine-readable
+    # signal; a self-reported name-table string (which anyone can edit) must not
+    # clear a font the file itself forbids.
+    fonts = [
+        _font(
+            fs_type=0x0002,
+            license_desc="Licensed under the Apache License, Version 2.0",
+        )
+    ]
+    finding = evaluate(fonts, rules, Registry(), NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.VIOLATION
+    assert "fsType" in finding.license_reason
+
+
+def test_order_open_license_string_beats_paid_tier_name(rules: RulesConfig) -> None:
+    # Provably-open evidence precedes the paid-tier-by-name heuristic: a real
+    # license string in the file outranks a guess derived from the family name.
+    fonts = [
+        _font(
+            family="Font Awesome 6 Pro",
+            owner=None,
+            license_desc="Licensed under the SIL Open Font License 1.1",
+            fmt=FontFormat.WOFF2,
+        )
+    ]
+    finding = evaluate(fonts, rules, Registry(), NOW)[0]
+    assert finding.license_verdict is LicenseVerdict.OK
+
+
 def test_missing_license_string_adds_evidence(rules: RulesConfig) -> None:
     finding = evaluate([_font(copyright=None, license_desc=None)], rules, Registry(), NOW)[0]
     assert finding.license_verdict is LicenseVerdict.NEEDS_CHECK
