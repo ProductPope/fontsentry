@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **The verdict no longer depends on crawl order.** When one font identity ships
+  as several files with different name tables (one stripped, one carrying an
+  open-license string, one with the restricted-embedding bit), aggregation used
+  to keep whichever file the crawl met first — the verdict could flip between
+  runs. The canonical metadata is now chosen by content: restricted-embedding
+  bit first (safe direction), then a license/copyright-bearing file over a
+  stripped one, then a deterministic tie-break. An empty embeddings list also no
+  longer classifies as a system font (`OK`) — it falls through to `NEEDS_CHECK`.
 - **Windows scheduled audits actually start.** The Task Scheduler action was
   registered with a *relative* launcher path; Task Scheduler runs actions from
   `System32`, so the schedule was created successfully but never ran. The
