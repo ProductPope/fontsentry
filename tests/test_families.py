@@ -19,7 +19,7 @@ from fontsentry.families import base_family, group_key
         ("Roboto-Black", "Roboto"),
         ("Montserrat thin", "Montserrat"),
         ("Lato-Regular", "Lato"),
-        ("Graphik Cond Web", "Graphik Cond"),  # width kept, "web" dropped
+        ("Barlow Cond Web", "Barlow Cond"),  # width kept, "web" dropped
         ("ArialRoundedMTBold", "Arial Rounded"),
         ("Noto Sans", "Noto Sans"),  # "sans" is part of the name, not a weight
     ],
@@ -39,7 +39,7 @@ def test_spacing_differences_collapse() -> None:
 
 
 def test_width_stays_distinct() -> None:
-    assert group_key("Graphik Cond") != group_key("Graphik")
+    assert group_key("Barlow Cond") != group_key("Barlow")
 
 
 def test_empty_strip_falls_back_to_input() -> None:
@@ -49,7 +49,7 @@ def test_empty_strip_falls_back_to_input() -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["metropolis-bold", "OpenSans-Regular", "Roboto Black", "Graphik Cond Web", "Noto Sans"],
+    ["metropolis-bold", "OpenSans-Regular", "Roboto Black", "Barlow Cond Web", "Noto Sans"],
 )
 def test_base_family_is_idempotent(name: str) -> None:
     once = base_family(name)

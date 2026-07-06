@@ -5,7 +5,7 @@ style variants folded away, so `metropolis`, `metropolis-bold`, and
 Width (Condensed / Narrow / Expanded) is deliberately kept: it marks a
 genuinely different, often separately-licensed design, not just a weight.
 
-This is a heuristic — it won't tame every vendor's naming (`apds2 ABC Whyte`),
+This is a heuristic — it won't tame every vendor's naming (`apds2 XYZ Sans`),
 but it collapses the common `Family-Weight` / `FamilyWeight` shapes.
 """
 
@@ -54,7 +54,7 @@ _VARIANT_TOKENS = frozenset(
 )
 
 # Insert a space at: lower/digit -> upper, letter <-> digit, and the end of a
-# run of capitals before a capitalized word (so "ABCWhyte" -> "ABC Whyte").
+# run of capitals before a capitalized word (so "XYZSans" -> "XYZ Sans").
 _CAMEL = re.compile(
     r"(?<=[a-z0-9])(?=[A-Z])"
     r"|(?<=[A-Za-z])(?=[0-9])"
