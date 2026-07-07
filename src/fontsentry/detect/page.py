@@ -160,6 +160,16 @@ async def _collect_css(
         blocks.append((text, url))
         queue.extend(parse_imports(text, base_url=url))
 
+    remaining = [u for u in queue if u not in seen]
+    if remaining:
+        # Not silent: truncated coverage must be visible to the operator.
+        logger.warning(
+            "%s: stylesheet cap reached (%d), %d linked/imported sheet(s) not fetched",
+            page_url,
+            _MAX_STYLESHEETS,
+            len(remaining),
+        )
+
     return blocks, assets
 
 

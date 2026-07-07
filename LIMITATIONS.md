@@ -41,6 +41,12 @@ stylesheets, and font preloads. Consequences:
   files straight from a checked-out repo, so it finds self-hosted fonts regardless
   of how the app loads them at runtime.
 
+- **`@import` conditions are ignored.** An imported stylesheet is fetched and its
+  fonts reported even when the `@import` carries a media/supports condition
+  (`@import url(print.css) print`). This is deliberate for licensing: browsers
+  download non-matching-media imports anyway, so the font is served regardless
+  of whether it renders on screen.
+
 - **Loader scripts name the provider, not the fonts.** For a recognized loader
   script we surface the third-party provider (a GDPR/privacy fact) but cannot
   enumerate the individual fonts it injects at runtime without a browser.

@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Detection caps no longer truncate coverage silently.** The stylesheet cap
+  (40 per page) and the bundle caps (20 bundles / 50 font URLs) dropped the
+  overflow without a trace, so a truncated scan read as full coverage; each cap
+  now logs what it skipped, like the preload cap already did. `LIMITATIONS.md`
+  also documents that `@import` media/supports conditions are deliberately
+  ignored (browsers download non-matching imports anyway), and an `@import`
+  cycle now has a dedicated regression test.
 - **`backups/` no longer grows without bound, and junk uploads leave no trace.**
   Every restore writes a full pre-restore workspace snapshot; the newest 10 are
   now kept and older ones pruned automatically (noted on the Backup screen).
