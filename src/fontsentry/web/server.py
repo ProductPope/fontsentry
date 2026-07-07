@@ -64,6 +64,7 @@ from fontsentry.web.workspace import (
     read_backup,
     restore_workspace_zip,
     snapshot_filename,
+    validate_backup,
     write_snapshot,
 )
 
@@ -487,10 +488,13 @@ def create_app(
         )
 
     def _restore(data: bytes) -> None:
-        # Always snapshot the current state before overwriting, so a restore is
-        # itself undoable.
-        write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
         try:
+            # Cheap manifest check first: a garbage upload must be rejected
+            # without leaving a pre-restore snapshot behind.
+            validate_backup(data).close()
+            # Snapshot the current state before overwriting, so a restore of a
+            # valid backup is itself undoable.
+            write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
             restore_workspace_zip(data, config_dir, registry_dir, reports_dir)
         except WorkspaceError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
