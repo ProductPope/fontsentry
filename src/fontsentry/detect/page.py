@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from urllib.parse import unquote_to_bytes, urlsplit
 
 from fontsentry.crawl.fetcher import Fetcher
-from fontsentry.detect.bundle import detect_bundle_fonts
+from fontsentry.detect.bundle import BundleCache, detect_bundle_fonts
 from fontsentry.detect.css import (
     FontFaceRule,
     FontSource,
@@ -189,11 +189,21 @@ async def _font_bytes(fetcher: Fetcher, url: str) -> bytes | None:
 
 
 async def detect_page(
-    fetcher: Fetcher, page_url: str, *, own_hosts: Iterable[str] = ()
+    fetcher: Fetcher,
+    page_url: str,
+    *,
+    own_hosts: Iterable[str] = (),
+    bundle_cache: BundleCache | None = None,
 ) -> list[DetectedFont]:
-    """Detect all fonts referenced by a single page."""
+    """Detect all fonts referenced by a single page.
 
-    page_host = urlsplit(page_url).netloc
+    ``bundle_cache`` (one per crawl) dedupes bundle/font fetches across pages —
+    a SPA references the same ``main.js`` from every page.
+    """
+
+    # hostname, not netloc: a ":port" suffix would fail the dot-bounded same-site
+    # comparison and silently skip every same-origin bundle on non-default ports.
+    page_host = urlsplit(page_url).hostname or ""
     own = tuple(own_hosts)
     blocks, assets = await _collect_css(fetcher, page_url)
 
@@ -256,7 +266,7 @@ async def detect_page(
         # Client-rendered (SPA) fonts leave no static @font-face; recover them from
         # the font URLs shipped inside the page's own JS bundles.
         bundle_fonts = await detect_bundle_fonts(
-            fetcher, assets, page_url, page_host, own, seen_urls
+            fetcher, assets, page_url, page_host, own, seen_urls, cache=bundle_cache
         )
         detected.extend(bundle_fonts)
 
