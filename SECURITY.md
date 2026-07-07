@@ -37,6 +37,9 @@ In scope:
   their directory.
 - **Cross-origin state change.** The API rejects requests whose `Origin` is not
   localhost, and `Sec-Fetch-Site: cross-site`.
+- **DNS rebinding.** Every request must carry a localhost `Host` header — after
+  an attacker's domain re-resolves to 127.0.0.1, its page would otherwise be
+  same-origin and could read GET responses (including the workspace export).
 
 Out of scope:
 
