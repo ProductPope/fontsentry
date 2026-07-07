@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **DNS rebinding can no longer read the API.** The server validated `Origin`
+  only for state-changing requests; after an attacker's domain re-resolved to
+  127.0.0.1, its page became same-origin and could read every GET response —
+  including `GET /api/workspace/export`, the whole registry with proofs and all
+  reports in one zip. Every request must now carry a localhost `Host` header.
 - **Registry matching edge cases.** Duplicate (owner, family) entries are now a
   `registry validate` error — matching takes the first hit, so a renewal
   *appended* below an expired entry silently lost and the verdict depended on

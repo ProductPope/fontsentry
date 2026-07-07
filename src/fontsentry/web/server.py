@@ -112,6 +112,13 @@ def create_app(
     async def _origin_guard(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        # DNS-rebinding defense: after an attacker's domain re-resolves to
+        # 127.0.0.1, the browser sends `Host: attacker.example` and same-origin
+        # GETs could read the API — including the whole-workspace export. Only
+        # localhost Hosts are served: every request, not just state changes.
+        host = urlparse(f"//{request.headers.get('host', '')}").hostname
+        if host not in _ALLOWED_HOSTS:
+            return Response("invalid Host header", status_code=400)
         if request.method in {"POST", "PUT", "DELETE", "PATCH"}:
             origin = request.headers.get("origin")
             if origin and urlparse(origin).hostname not in _ALLOWED_HOSTS:

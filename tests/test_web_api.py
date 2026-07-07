@@ -36,7 +36,10 @@ def _client(
         extra["registry_dir"] = registry_dir
     if backups_dir is not None:
         extra["backups_dir"] = backups_dir
-    with TestClient(create_app(reports_dir=tmp_path, **extra)) as client:
+    # base_url matters: the app rejects non-localhost Host headers (DNS-rebinding
+    # defense), and TestClient's default base_url would send "Host: testserver".
+    app = create_app(reports_dir=tmp_path, **extra)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         yield client
 
 
@@ -326,6 +329,18 @@ def test_delete_schedule_rejects_invalid_name(tmp_path: Path) -> None:
         for bad in ("evil%0Aname", "dollar%24(reboot)", "semi%3Brm"):
             resp = client.delete(f"/api/schedules/{bad}")
             assert resp.status_code == 400, bad
+
+
+def test_non_localhost_host_header_rejected(tmp_path: Path) -> None:
+    # DNS-rebinding defense: after attacker.example re-resolves to 127.0.0.1 the
+    # browser's requests carry that Host and would be same-origin — every route
+    # (GET included, e.g. the whole-workspace export) must refuse to serve it.
+    with _client(tmp_path) as client:
+        for path in ("/api/health", "/api/workspace/export"):
+            resp = client.get(path, headers={"host": "attacker.example"})
+            assert resp.status_code == 400, path
+        assert client.get("/api/health", headers={"host": "localhost"}).status_code == 200
+        assert client.get("/api/health", headers={"host": "127.0.0.1:8000"}).status_code == 200
 
 
 def test_workspace_snapshot_export_and_list(tmp_path: Path) -> None:
