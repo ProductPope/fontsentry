@@ -66,6 +66,9 @@ class PrivacyClass(StrEnum):
     THIRD_PARTY_API = "third_party_api"  # served from a third party (Google/Adobe/CDN)
     MIXED = "mixed"  # both self-hosted and third-party across pages
     NOT_APPLICABLE = "not_applicable"  # system/fallback font — nothing is downloaded
+    # Delivery was never observed (likely wired up by JavaScript): no privacy
+    # claim either way — "unknown" is honest, "nothing is downloaded" is not.
+    UNKNOWN = "unknown"
 
 
 class FindingStatus(StrEnum):
@@ -231,7 +234,7 @@ class RunReport(BaseModel):
 
     model_config = _REPORT_MODEL_CONFIG
 
-    schema_version: int = 9
+    schema_version: int = 10
     generated_at: datetime
     duration_seconds: float = 0.0  # wall-clock scan time; powers ETA estimates
     summary: RunSummary

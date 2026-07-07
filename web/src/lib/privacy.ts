@@ -26,6 +26,9 @@ export function delivery(f: Finding): Delivery {
       return { label: provider(f), flagged: true };
     case "mixed":
       return { label: `${provider(f)} + self-hosted`, flagged: true };
+    case "unknown":
+      // Delivery never observed (likely JS-injected): no leak claim either way.
+      return { label: "Unknown delivery", flagged: false };
     default:
       return { label: "System", flagged: false };
   }
@@ -38,6 +41,12 @@ export function isPrivacyFlagged(f: Finding): boolean {
 
 // Plain-language GDPR/RODO recommendation, or null when delivery is clean.
 export function privacyAdvice(f: Finding): string | null {
+  if (f.privacy === "unknown") {
+    return (
+      "Delivery was not observed (the font is likely loaded by JavaScript), so no " +
+      "privacy conclusion is drawn. Check in DevTools where this font actually loads from."
+    );
+  }
   if (!isPrivacyFlagged(f)) return null;
   if (f.embeddings.includes("google_fonts")) {
     return (

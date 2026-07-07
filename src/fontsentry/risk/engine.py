@@ -43,8 +43,9 @@ _VERDICT_RANK = {
 _PRIVACY_RANK = {
     PrivacyClass.THIRD_PARTY_API: 0,
     PrivacyClass.MIXED: 0,
-    PrivacyClass.SELF_HOSTED: 1,
-    PrivacyClass.NOT_APPLICABLE: 1,
+    PrivacyClass.UNKNOWN: 1,  # unobserved delivery: worth a look, not a proven leak
+    PrivacyClass.SELF_HOSTED: 2,
+    PrivacyClass.NOT_APPLICABLE: 2,
 }
 
 
@@ -112,6 +113,10 @@ def _classify_privacy(embeddings: set[EmbeddingMethod]) -> PrivacyClass:
         return PrivacyClass.THIRD_PARTY_API
     if has_self_hosted:
         return PrivacyClass.SELF_HOSTED
+    if EmbeddingMethod.UNKNOWN in embeddings:
+        # Delivery was never observed — asserting "nothing is downloaded" would
+        # be a no-leak claim drawn from absence of observation.
+        return PrivacyClass.UNKNOWN
     return PrivacyClass.NOT_APPLICABLE
 
 

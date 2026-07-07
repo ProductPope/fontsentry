@@ -1,7 +1,12 @@
 // Typed client for the FontSentry backend. Mirrors the pydantic models.
 
 export type LicenseVerdict = "ok" | "needs_check" | "violation";
-export type PrivacyClass = "self_hosted" | "third_party_api" | "mixed" | "not_applicable";
+export type PrivacyClass =
+  | "self_hosted"
+  | "third_party_api"
+  | "mixed"
+  | "not_applicable"
+  | "unknown";
 
 export interface FontMetadata {
   family_name: string | null;
