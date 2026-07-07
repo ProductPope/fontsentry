@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Bundle scan works on non-default ports and stops re-fetching per page.**
+  The same-site gate compared a host that kept its `:port` suffix, so on e.g.
+  `https://staging.example.com:8443/` every same-origin bundle was silently
+  skipped and its fonts misread as third-party. And bundle/font fetches are now
+  memoized per crawl — a SPA references the same `main.js` from every page, which
+  used to re-download it (and its fonts) once per page; each page still reports
+  its own detections, so attribution and cross-domain verdicts are unchanged.
 - **Provider hosts are matched exact-or-subdomain, not by substring.** A
   lookalike host such as `use.typekit.net.evil.example` used to read as a known
   provider (both in embedding classification and in the loader-script privacy
