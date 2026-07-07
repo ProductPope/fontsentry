@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Registry matching edge cases.** Duplicate (owner, family) entries are now a
+  `registry validate` error — matching takes the first hit, so a renewal
+  *appended* below an expired entry silently lost and the verdict depended on
+  file order. And a wildcard (`*`) license now folds `www` with its apex when
+  counting toward `max_domains`, consistent with the documented counting rule
+  (raw hostnames used to burn two slots for one site).
 - **Validation labels can no longer silently vanish into "not detected".**
   Label↔finding matching now folds weight/style variants (label "Open Sans"
   matches a detected "OpenSans-Regular"), strips PDF-style subset prefixes,
