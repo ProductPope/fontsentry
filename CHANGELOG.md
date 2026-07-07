@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Validation labels can no longer silently vanish into "not detected".**
+  Label↔finding matching now folds weight/style variants (label "Open Sans"
+  matches a detected "OpenSans-Regular"), strips PDF-style subset prefixes,
+  tolerates scheme/`www.` in label domains, and — critically — a family match
+  with a differing or stripped owner is **judged** (with an owner note) instead
+  of being reclassified as a detection gap, which used to remove it from both
+  the agreement denominator and the false-negative gate. Labelled domains with
+  no scan result at all are called out separately in the summary.
 - **The verdict no longer depends on crawl order.** When one font identity ships
   as several files with different name tables (one stripped, one carrying an
   open-license string, one with the restricted-embedding bit), aggregation used

@@ -21,6 +21,17 @@ the harness runs a real scan and compares the tool's verdicts to your labels.
    uv run fontsentry validate --labels validation/labels.yaml --out validation/result.md
    ```
 
+## How labels are matched
+
+- **Family**: case/punctuation-insensitive, weight/style variants folded (label
+  "Open Sans" matches a detected "OpenSans-Regular"), PDF-style subset prefixes
+  (`ABCDEF+Name`) stripped.
+- **Owner**: when a label sets `owner`, an exact owner match is preferred — but a
+  family match with a differing or stripped owner is still **judged** (with an
+  owner note), never counted as "not detected".
+- **Domain**: scheme, path, and a leading `www.` are ignored. A labelled domain
+  that produced no scan result at all is called out separately in the summary.
+
 ## Reading the result
 
 - **Agreement** — share of *detected* labelled fonts whose verdict the tool got right.

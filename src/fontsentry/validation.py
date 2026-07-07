@@ -12,11 +12,13 @@ direction: the tool said OK where a human said otherwise).
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from fontsentry.families import group_key
 from fontsentry.models import DomainFont, LicenseVerdict, RunReport
 
 
@@ -59,6 +61,10 @@ class ValidationResult(BaseModel):
     matched: int = 0
     mismatched: list[Mismatch] = Field(default_factory=list)
     missing: list[Mismatch] = Field(default_factory=list)
+    # Labelled domains the scan produced no report for at all — usually a typo
+    # in the label file or a fully blocked host; called out so a whole domain
+    # can't silently drain into `missing`.
+    unmatched_domains: list[str] = Field(default_factory=list)
 
     @property
     def agreement_rate(self) -> float:
@@ -82,31 +88,64 @@ def load_labels(path: Path) -> Labels:
 
 
 def _norm(value: str | None) -> str:
-    return (value or "").strip().lower()
+    return " ".join((value or "").split()).lower()
 
 
-def _find(fonts: list[DomainFont], label: FontLabel) -> DomainFont | None:
-    for f in fonts:
-        if _norm(f.family) != _norm(label.family):
-            continue
-        if label.owner is not None and _norm(f.owner) != _norm(label.owner):
-            continue
-        return f
-    return None
+# PDF-style subset tag prefix (ABCDEF+FontName) — strip it before matching.
+_SUBSET_PREFIX = re.compile(r"^[A-Z]{6}\+")
+
+
+def _family_key(value: str) -> str:
+    """Match key for family names: subset prefix stripped, weight/style variants
+    folded (the pipeline's own grouping), punctuation/case-insensitive — so a
+    label "Open Sans" matches a detected "OpenSans-Regular"."""
+
+    return group_key(_SUBSET_PREFIX.sub("", value.strip()))
+
+
+def _domain_key(value: str) -> str:
+    v = value.strip().lower()
+    for prefix in ("https://", "http://"):
+        if v.startswith(prefix):
+            v = v[len(prefix) :]
+    v = v.split("/", 1)[0]
+    return v.removeprefix("www.")
+
+
+def _find(fonts: list[DomainFont], label: FontLabel) -> tuple[DomainFont | None, str]:
+    """Return (match, owner_note). A label that names a family the tool detected
+    is a *judged* comparison even when the owner differs or the file's owner is
+    stripped — silently reclassifying it as "not detected" would remove it from
+    the agreement denominator and from the false-negative gate."""
+
+    key = _family_key(label.family)
+    same_family = [f for f in fonts if _family_key(f.family) == key]
+    if not same_family:
+        return None, ""
+    if label.owner is None:
+        return same_family[0], ""
+    for f in same_family:
+        if _norm(f.owner) == _norm(label.owner):
+            return f, ""
+    file_owner = same_family[0].owner or "none in the font file"
+    return same_family[0], f"owner differs (label: {label.owner!r}, file: {file_owner!r})"
 
 
 def compare(report: RunReport, labels: Labels) -> ValidationResult:
     """Compare a run's per-domain verdicts against the human labels."""
 
-    by_domain = {_norm(d.domain): d for d in report.domains}
+    by_domain = {_domain_key(d.domain): d for d in report.domains}
     result = ValidationResult()
 
     for domain_label in labels.entries:
-        domain_report = by_domain.get(_norm(domain_label.domain))
+        domain_report = by_domain.get(_domain_key(domain_label.domain))
+        if domain_report is None and domain_label.fonts:
+            result.unmatched_domains.append(domain_label.domain)
         fonts = domain_report.fonts if domain_report else []
         for font_label in domain_label.fonts:
             result.total += 1
-            found = _find(fonts, font_label)
+            found, owner_note = _find(fonts, font_label)
+            note = "; ".join(n for n in (font_label.note, owner_note) if n)
             if found is None:
                 result.missing.append(
                     Mismatch(
@@ -114,7 +153,7 @@ def compare(report: RunReport, labels: Labels) -> ValidationResult:
                         family=font_label.family,
                         expected=font_label.expected,
                         actual=None,
-                        note=font_label.note,
+                        note=note,
                     )
                 )
             elif found.license_verdict is font_label.expected:
@@ -126,7 +165,7 @@ def compare(report: RunReport, labels: Labels) -> ValidationResult:
                         family=font_label.family,
                         expected=font_label.expected,
                         actual=found.license_verdict,
-                        note=font_label.note,
+                        note=note,
                     )
                 )
 
@@ -186,4 +225,8 @@ def render_summary(result: ValidationResult) -> str:
     _rows("False negatives (tool said OK, human did not)", result.false_negatives)
     _rows("Other mismatches", [m for m in result.mismatched if m not in result.false_negatives])
     _rows("Not detected", result.missing)
+    if result.unmatched_domains:
+        lines.append("")
+        lines.append("## Labelled domains with no scan result (typo? blocked host?)")
+        lines.extend(f"- `{d}`" for d in result.unmatched_domains)
     return "\n".join(lines) + "\n"

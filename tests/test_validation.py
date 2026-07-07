@@ -70,21 +70,87 @@ def test_compare_categorises_every_label() -> None:
     assert result.agreement_rate == 1 / 3  # matched / (matched + mismatched)
 
 
-def test_owner_mismatch_is_not_found() -> None:
+def test_owner_mismatch_is_still_judged() -> None:
+    # Regression: a detected family whose owner differs (or is stripped from the
+    # name table) used to be reclassified as "not detected" — removing it from
+    # the agreement denominator AND from the false-negative gate.
     report = _report()
     fonts = [FontLabel(family="Alpha", owner="Other", expected=OK)]
     labels = Labels(entries=[DomainLabel(domain="a.com", fonts=fonts)])
     result = compare(report, labels)
-    assert [m.family for m in result.missing] == ["Alpha"]  # owner didn't match -> not detected
+    assert result.missing == []
+    assert result.matched == 1  # judged on the family match; owner noted, not fatal
 
 
-def test_unlabelled_domain_yields_missing() -> None:
+def test_stripped_owner_cannot_hide_a_false_negative() -> None:
+    # The unsafe case the old behavior masked: label says violation, the tool
+    # cleared the font OK, and the file's owner is stripped (None). This must be
+    # a false negative, not a detection gap.
+    report = RunReport(
+        generated_at=datetime(2026, 7, 5, 12, 0, 0),
+        summary=RunSummary(),
+        domains=[
+            DomainReport(domain="a.com", fonts=[DomainFont(family="Alpha", license_verdict=OK)])
+        ],
+    )
+    fonts = [FontLabel(family="Alpha", owner="Foundry", expected=VIOLATION)]
+    labels = Labels(entries=[DomainLabel(domain="a.com", fonts=fonts)])
+    result = compare(report, labels)
+    assert [m.family for m in result.false_negatives] == ["Alpha"]
+    assert "owner differs" in result.mismatched[0].note
+
+
+def test_family_variants_and_subset_prefixes_match() -> None:
+    # Label written the human way ("Open Sans") must match the pipeline's file
+    # naming ("OpenSans-Regular"), and a PDF-style subset tag must not hide it.
+    report = RunReport(
+        generated_at=datetime(2026, 7, 5, 12, 0, 0),
+        summary=RunSummary(),
+        domains=[
+            DomainReport(
+                domain="a.com",
+                fonts=[
+                    DomainFont(family="OpenSans-Regular", license_verdict=OK),
+                    DomainFont(family="ABCDEF+Atlas Grotesk", license_verdict=NEEDS_CHECK),
+                ],
+            )
+        ],
+    )
+    labels = Labels(
+        entries=[
+            DomainLabel(
+                domain="a.com",
+                fonts=[
+                    FontLabel(family="Open Sans", expected=OK),
+                    FontLabel(family="Atlas Grotesk", expected=NEEDS_CHECK),
+                ],
+            )
+        ]
+    )
+    result = compare(report, labels)
+    assert result.missing == []
+    assert result.matched == 2
+
+
+def test_domain_labels_tolerate_scheme_and_www() -> None:
+    labels = Labels(
+        entries=[
+            DomainLabel(domain="https://www.a.com/", fonts=[FontLabel(family="Alpha", expected=OK)])
+        ]
+    )
+    result = compare(_report(), labels)
+    assert result.matched == 1
+
+
+def test_unlabelled_domain_yields_missing_and_is_called_out() -> None:
     labels = Labels(
         entries=[DomainLabel(domain="unscanned.com", fonts=[FontLabel(family="X", expected=OK)])]
     )
     result = compare(_report(), labels)
     assert result.total == 1
     assert len(result.missing) == 1
+    assert result.unmatched_domains == ["unscanned.com"]
+    assert "no scan result" in render_summary(result)
 
 
 def test_render_summary_flags_false_negatives() -> None:
