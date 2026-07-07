@@ -22,7 +22,7 @@ from fontsentry.detect.css import (
     parse_font_families,
     parse_imports,
 )
-from fontsentry.detect.embedding import classify_embedding
+from fontsentry.detect.embedding import classify_embedding, host_matches
 from fontsentry.detect.fontfile import FontReadError, read_font_metadata
 from fontsentry.detect.html import HtmlAssets, parse_html
 from fontsentry.models import DetectedFont, EmbeddingMethod, FontFormat
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 # Third-party font-loader scripts: a <script> from one of these delivers fonts at
 # runtime (the @font-face is not statically visible), which is a third-party
-# privacy fact even when we can't enumerate the individual fonts. host substring
-# -> (label, method).
+# privacy fact even when we can't enumerate the individual fonts. Loader host
+# (matched exact-or-subdomain, dot-bounded) -> (label, method).
 _FONT_LOADERS: tuple[tuple[str, str, EmbeddingMethod], ...] = (
     ("use.typekit.net", "Adobe Fonts (Typekit)", EmbeddingMethod.ADOBE_FONTS),
     ("use.typekit.com", "Adobe Fonts (Typekit)", EmbeddingMethod.ADOBE_FONTS),
@@ -326,9 +326,9 @@ def _detect_loaders(assets: HtmlAssets, page_url: str) -> list[DetectedFont]:
     out: list[DetectedFont] = []
     seen: set[str] = set()
     for src in assets.script_srcs:
-        host = urlsplit(src).hostname or ""
+        host = (urlsplit(src).hostname or "").lower()
         for marker, label, method in _FONT_LOADERS:
-            if marker in host.lower() and label not in seen:
+            if host_matches(host, marker) and label not in seen:
                 seen.add(label)
                 out.append(
                     DetectedFont(
