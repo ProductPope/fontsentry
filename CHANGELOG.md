@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Provider hosts are matched exact-or-subdomain, not by substring.** A
+  lookalike host such as `use.typekit.net.evil.example` used to read as a known
+  provider (both in embedding classification and in the loader-script privacy
+  finding); a provider mislabel changes the privacy verdict and the license
+  evidence. Matching is now dot-bounded, the same rule the same-site check and
+  the registry's domain covering already use.
 - **DNS rebinding can no longer read the API.** The server validated `Origin`
   only for state-changing requests; after an attacker's domain re-resolved to
   127.0.0.1, its page became same-origin and could read every GET response —

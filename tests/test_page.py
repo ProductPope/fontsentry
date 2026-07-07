@@ -119,6 +119,16 @@ async def test_detect_page_flags_font_loader_script() -> None:
     assert loader.embedding is EmbeddingMethod.ADOBE_FONTS
 
 
+async def test_loader_lookalike_host_not_flagged() -> None:
+    # Regression: substring matching flagged use.typekit.net.evil.example as an
+    # Adobe Fonts finding; only the exact host or a dot-bounded subdomain counts.
+    stub = _StubFetcher(
+        {PAGE: _page('<script src="https://use.typekit.net.evil.example/abc.js"></script>')}
+    )
+    dets = await detect_page(stub, PAGE)  # type: ignore[arg-type]
+    assert not any("Adobe" in d.family for d in dets)
+
+
 async def test_detect_page_own_hosts_are_first_party() -> None:
     # A font on a separate domain the operator declares as their own is self-hosted,
     # not a third-party privacy leak.
