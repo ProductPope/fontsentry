@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **`scan-source` walks safely and frugally.** The tree walk materialized every
+  path (descending into `node_modules`/`.git` before filtering), followed
+  directory symlinks (a `loop -> ..` link recursed until error and links could
+  pull in files outside the scanned root), and read whole files before applying
+  the size cap. It now prunes skip-dirs before descending, never follows
+  symlinks, and checks `stat().st_size` before reading.
 - **Bundle scan works on non-default ports and stops re-fetching per page.**
   The same-site gate compared a host that kept its `:port` suffix, so on e.g.
   `https://staging.example.com:8443/` every same-origin bundle was silently
