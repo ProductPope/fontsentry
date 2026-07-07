@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **`backups/` no longer grows without bound, and junk uploads leave no trace.**
+  Every restore writes a full pre-restore workspace snapshot; the newest 10 are
+  now kept and older ones pruned automatically (noted on the Backup screen).
+  The restore payload is also validated *before* that snapshot is taken, so an
+  invalid upload no longer leaves a stray workspace copy behind. (The Backup
+  screen source also had a literal NUL byte in a string sentinel, which made
+  git treat the file as unreviewable binary — replaced with a plain space.)
 - **`scan-source` walks safely and frugally.** The tree walk materialized every
   path (descending into `node_modules`/`.git` before filtering), followed
   directory symlinks (a `loop -> ..` link recursed until error and links could

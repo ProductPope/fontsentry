@@ -66,27 +66,35 @@ def build_workspace_zip(config_dir: Path, registry_dir: Path, reports_dir: Path)
     return buffer.getvalue()
 
 
+def validate_backup(data: bytes) -> zipfile.ZipFile:
+    """Open ``data`` as a FontSentry backup, raising ``WorkspaceError`` if it
+    isn't one. Cheap (no extraction), so callers can validate an upload *before*
+    taking the pre-restore snapshot — a garbage payload must not leave one."""
+
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as exc:
+        raise WorkspaceError("not a valid zip archive") from exc
+    if _MANIFEST not in archive.namelist():
+        archive.close()
+        raise WorkspaceError("missing manifest — not a FontSentry workspace backup")
+    try:
+        manifest = json.loads(archive.read(_MANIFEST))
+    except ValueError as exc:
+        archive.close()
+        raise WorkspaceError("unreadable manifest") from exc
+    if manifest.get("version") != _MANIFEST_VERSION:
+        archive.close()
+        raise WorkspaceError(f"unsupported backup version: {manifest.get('version')!r}")
+    return archive
+
+
 def restore_workspace_zip(
     data: bytes, config_dir: Path, registry_dir: Path, reports_dir: Path
 ) -> None:
     """Extract a workspace backup over the three roots, guarding against zip-slip."""
     roots = _roots(config_dir, registry_dir, reports_dir)
-    try:
-        archive = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile as exc:
-        raise WorkspaceError("not a valid zip archive") from exc
-
-    with archive:
-        names = archive.namelist()
-        if _MANIFEST not in names:
-            raise WorkspaceError("missing manifest — not a FontSentry workspace backup")
-        try:
-            manifest = json.loads(archive.read(_MANIFEST))
-        except ValueError as exc:
-            raise WorkspaceError("unreadable manifest") from exc
-        if manifest.get("version") != _MANIFEST_VERSION:
-            raise WorkspaceError(f"unsupported backup version: {manifest.get('version')!r}")
-
+    with validate_backup(data) as archive:
         members = [i for i in archive.infolist() if i.filename != _MANIFEST]
         if len(members) > _MAX_ENTRIES:
             raise WorkspaceError(f"backup has more than {_MAX_ENTRIES} entries — refusing")
@@ -128,10 +136,20 @@ def _backup_info(path: Path) -> BackupInfo:
     return BackupInfo(name=path.name, size_bytes=stat.st_size, created_at=created)
 
 
-def write_snapshot(backups_dir: Path, data: bytes, now: datetime) -> BackupInfo:
+# Snapshots are full workspace copies (reports included), so an unbounded
+# backups/ directory silently eats disk — keep the newest N and prune the rest.
+_MAX_BACKUPS = 10
+
+
+def write_snapshot(
+    backups_dir: Path, data: bytes, now: datetime, *, keep: int = _MAX_BACKUPS
+) -> BackupInfo:
     backups_dir.mkdir(parents=True, exist_ok=True)
     path = backups_dir / snapshot_filename(now)
     path.write_bytes(data)
+    # Timestamped names sort chronologically, so "newest first" is a name sort.
+    for stale in sorted(backups_dir.glob("fontsentry-workspace-*.zip"), reverse=True)[keep:]:
+        stale.unlink(missing_ok=True)
     return _backup_info(path)
 
 

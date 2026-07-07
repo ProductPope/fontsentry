@@ -343,6 +343,16 @@ def test_non_localhost_host_header_rejected(tmp_path: Path) -> None:
         assert client.get("/api/health", headers={"host": "127.0.0.1:8000"}).status_code == 200
 
 
+def test_garbage_import_leaves_no_snapshot(tmp_path: Path) -> None:
+    # Regression: the pre-restore snapshot was written BEFORE the payload was
+    # validated, so every junk upload left a full workspace copy behind.
+    backups_dir = tmp_path / "backups"
+    with _client(tmp_path, backups_dir=backups_dir) as client:
+        resp = client.post("/api/workspace/import", content=b"not a zip at all")
+        assert resp.status_code == 400
+        assert client.get("/api/workspace/backups").json() == []
+
+
 def test_workspace_snapshot_export_and_list(tmp_path: Path) -> None:
     registry_dir, backups_dir = tmp_path / "registry", tmp_path / "backups"
     with _client(tmp_path, registry_dir=registry_dir, backups_dir=backups_dir) as client:
