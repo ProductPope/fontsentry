@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-07
+
+Hardening release: the complete fix backlog from the 2026-07-06 critical review
+(public issues #1–#24). Verdicts become crawl-order-independent and gain an
+honest `unknown` privacy state; the false-negative gate, the privacy CI guard,
+and every import path get real teeth; Windows scheduling actually runs.
+
 ### Added
 - **Registry imports report what they changed**: the JSON and CSV import results
   (and the UI toast) now say `N added, M replaced` — a replacement can silently
@@ -543,7 +550,8 @@ Verdicts release. Human-reviewed core; verdict rules frozen (see
   baseline. "Start audit" runs scans; "Schedule recurring audit" creates Windows
   Task Scheduler entries that run even when the UI is closed.
 
-[Unreleased]: https://github.com/ProductPope/fontsentry/compare/v0.6.0...main
+[Unreleased]: https://github.com/ProductPope/fontsentry/compare/v0.7.0...main
+[0.7.0]: https://github.com/ProductPope/fontsentry/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ProductPope/fontsentry/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ProductPope/fontsentry/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ProductPope/fontsentry/compare/v0.2.0...v0.4.0
