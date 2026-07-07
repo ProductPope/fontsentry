@@ -106,8 +106,11 @@ your license vs provably open vs system font) is carried in the verdict's
 **reason** string, not a separate enum value. `UNKNOWN` is renamed **NEEDS_CHECK**
 (the same first-class honest default, with evidence notes). `VIOLATION` is
 unchanged. This keeps the operator-facing model to three legible outcomes while
-preserving the deterministic decision order above. The **privacy verdict** is
-unchanged (`self_hosted` / `third_party_api` / `mixed` / `not_applicable`).
+preserving the deterministic decision order above. The **privacy verdict** kept
+its four delivery-derived states (`self_hosted` / `third_party_api` / `mixed` /
+`not_applicable`) and later gained a fifth, `unknown`, for fonts whose delivery
+was never observed (likely JS-injected) — the axis makes no claim either way
+there, mirroring how `NEEDS_CHECK` owns uncertainty on the license axis.
 
 One `VIOLATION` source was added after this ADR was written (still pre-freeze,
 found by the Phase-7 human review): a self-hosted font whose OS/2 `fsType`

@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named, never folded into a total.
 
 ### Changed
+- **Unobserved delivery gets an honest privacy verdict: `unknown`.** A font
+  referenced in CSS but never observed loading (likely wired up by JavaScript)
+  used to be reported as `not_applicable` — "nothing is downloaded", a no-leak
+  claim drawn from absence of observation. A fifth privacy state `unknown` now
+  makes no claim either way (mirroring `NEEDS_CHECK` on the license axis); any
+  actually observed delivery still decides. Report schema bumped to 10 (older
+  reports load unchanged); UI badge, detail advice, and "How it works" updated.
 - **The `fsType` Restricted-License check now precedes the open-evidence checks**
   in the verdict decision order. Previously an open-license word in the font's
   self-reported name-table text (which anyone can edit) cleared a font whose own

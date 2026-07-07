@@ -337,6 +337,20 @@ def test_unknown_delivery_is_needs_check(rules: RulesConfig) -> None:
     finding = evaluate([font], rules, Registry(), NOW)[0]
     assert finding.license_verdict is LicenseVerdict.NEEDS_CHECK
     assert any("delivery was not observed" in n for n in finding.evidence_notes)
+    # Regression: the privacy axis used to assert NOT_APPLICABLE ("nothing is
+    # downloaded") here — a no-leak claim drawn from absence of observation.
+    assert finding.privacy is PrivacyClass.UNKNOWN
+
+
+def test_observed_delivery_beats_unknown_on_privacy(rules: RulesConfig) -> None:
+    # When the same identity is also seen with a real delivery, that observation
+    # decides the privacy axis; UNKNOWN only fills a total absence of evidence.
+    fonts = [
+        _font(embedding=EmbeddingMethod.UNKNOWN, fmt=FontFormat.UNKNOWN),
+        _font(embedding=EmbeddingMethod.GOOGLE_FONTS, fmt=FontFormat.WOFF2),
+    ]
+    finding = evaluate(fonts, rules, Registry(), NOW)[0]
+    assert finding.privacy is PrivacyClass.THIRD_PARTY_API
 
 
 def test_system_font_is_ok(rules: RulesConfig) -> None:
