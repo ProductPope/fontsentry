@@ -155,6 +155,16 @@ private, so the published figure is the aggregate above rather than a runnable
 public corpus. It is a modest set: it confirms the *direction* of the rules (safe,
 no false clears) more than it fixes a precise agreement rate.
 
+One honest caveat about the ground truth itself: the labels were judged largely
+from each font file's producer and embedded licence string — **the same
+name-table fields the verdict engine reads** — so for the agreeing cases the
+human is not a fully independent oracle, and the agreement rate partly measures
+parser fidelity rather than rule correctness. The genuinely independent signal
+is the *disagreements* (where the human used knowledge the file didn't carry —
+all safe-direction here) and the zero-false-negative direction. A fully
+independent label source would be foundry records or the actual EULAs, not the
+files.
+
 ## What "done" means here
 
 - mypy-clean, ruff-clean, all tests passing, offline.
