@@ -12,6 +12,7 @@ rests on the font's own metadata — exactly as for a statically-declared font.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
@@ -21,6 +22,8 @@ from fontsentry.detect.embedding import _host, _same_site, classify_embedding
 from fontsentry.detect.fontfile import FontReadError, read_font_metadata
 from fontsentry.detect.html import HtmlAssets
 from fontsentry.models import DetectedFont, FontFormat, FontMetadata
+
+logger = logging.getLogger(__name__)
 
 # Font-file URLs as they appear in a bundle: an absolute http(s) URL, or a
 # root-relative path (e.g. ``/assets/fonts/x.woff2``). Bare relative paths are
@@ -108,17 +111,33 @@ async def detect_bundle_fonts(
 
     cache = cache if cache is not None else BundleCache()
     bundles = [s for s in assets.script_srcs if _is_bundle(s) and _is_own(s, page_host, own)]
+    if len(bundles) > _MAX_BUNDLES:
+        # Not silent: truncated coverage must be visible to the operator.
+        logger.warning(
+            "%s: bundle cap reached (%d), %d same-site bundle(s) not scanned",
+            page_url,
+            _MAX_BUNDLES,
+            len(bundles) - _MAX_BUNDLES,
+        )
 
     font_urls: list[str] = []
+    capped = False
     for src in bundles[:_MAX_BUNDLES]:
         for url in await _bundle_font_urls(fetcher, src, cache):
             if url in seen_urls or url in font_urls:
                 continue
             font_urls.append(url)
             if len(font_urls) >= _MAX_FONT_URLS:
+                capped = True
                 break
-        if len(font_urls) >= _MAX_FONT_URLS:
+        if capped:
             break
+    if capped:
+        logger.warning(
+            "%s: bundle font-URL cap reached (%d), further font URLs not fetched",
+            page_url,
+            _MAX_FONT_URLS,
+        )
 
     out: list[DetectedFont] = []
     for url in font_urls:
