@@ -395,8 +395,6 @@ def create_app(
 
     @app.post("/api/scan")
     async def start_scan(request: ScanRequest) -> ScanStarted:
-        if request.mode not in {"demo", "real"}:
-            raise HTTPException(status_code=400, detail="mode must be 'demo' or 'real'")
         # One scan at a time: two would crawl the same sites twice and race on
         # the report files. The UI re-attaches to the running one instead.
         if jobs.active():

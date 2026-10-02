@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import uuid
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel
+
+# Which data set a scan runs on: the user's own targets or the offline demo.
+ScanMode = Literal["real", "demo"]
 
 
 class JobStatus(StrEnum):
@@ -22,7 +26,7 @@ class JobStatus(StrEnum):
 class Job(BaseModel):
     id: str
     status: JobStatus = JobStatus.RUNNING
-    mode: str = "real"  # "real" | "demo" — which data set the scan ran on
+    mode: ScanMode = "real"
     run_id: str | None = None
     error: str | None = None
     # Live progress, updated as the scan moves through its phases.
@@ -36,7 +40,7 @@ class JobManager:
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
 
-    def create(self, mode: str = "real") -> Job:
+    def create(self, mode: ScanMode = "real") -> Job:
         job = Job(id=uuid.uuid4().hex, mode=mode)
         self._jobs[job.id] = job
         return job

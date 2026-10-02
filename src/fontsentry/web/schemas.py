@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from fontsentry.models import Registry, RunSummary
+from fontsentry.web.jobs import ScanMode
 
 
 class RunMeta(BaseModel):
@@ -35,11 +37,12 @@ class FirstSeen(BaseModel):
 class KnownFont(BaseModel):
     family: str
     owner: str | None = None
-    source: str  # "detected" (seen in an audit) | "catalog" (bundled suggestion)
+    # "detected" (seen in an audit) | "catalog" (bundled suggestion)
+    source: Literal["detected", "catalog"]
 
 
 class ScanRequest(BaseModel):
-    mode: str = "demo"  # "demo" | "real"
+    mode: ScanMode = "demo"
     # Opt-in: also find public subdomains via Certificate Transparency logs and
     # crawl each as its own host (queries an external service; real mode only).
     discover_subdomains: bool = False

@@ -15,7 +15,7 @@ import httpx
 
 from fontsentry import config, demo
 from fontsentry.scan import scan_and_write
-from fontsentry.web.jobs import JobManager
+from fontsentry.web.jobs import JobManager, ScanMode
 from fontsentry.web.paths import _reports_for
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 async def _run_scan_job(
     jobs: JobManager,
     job_id: str,
-    mode: str,
+    mode: ScanMode,
     reports_dir: Path,
     config_dir: Path,
     registry_dir: Path,

@@ -479,7 +479,8 @@ def test_scan_bad_config_marks_job_error_not_zombie(tmp_path: Path) -> None:
 
 def test_invalid_mode_rejected(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
-        assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 400
+        # Validated by the ScanMode literal on the request model.
+        assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 422
 
 
 def test_scan_accepts_discover_subdomains_flag(tmp_path: Path) -> None:
