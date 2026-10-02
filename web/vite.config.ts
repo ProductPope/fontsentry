@@ -37,6 +37,7 @@ export default defineConfig({
         "src/lib/registryForm.ts",
         "src/lib/overview.ts",
         "src/lib/pollJob.ts",
+        "src/lib/targets.ts",
         // api.ts is deliberately absent: its request/error logic is tested in
         // api.test.ts, but the bulk is one-line endpoint wrappers where a % floor
         // would only reward boilerplate tests.
