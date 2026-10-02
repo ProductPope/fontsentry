@@ -34,6 +34,7 @@ export default defineConfig({
         "src/lib/findings.ts",
         "src/lib/importSummary.ts",
         "src/lib/useHashRoute.ts",
+        "src/lib/registryForm.ts",
         // api.ts is deliberately absent: its request/error logic is tested in
         // api.test.ts, but the bulk is one-line endpoint wrappers where a % floor
         // would only reward boilerplate tests.
