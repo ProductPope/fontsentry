@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Rules screen: new list items can be typed.** Each classification list
+  re-rendered from its parsed items on every keystroke, which swallowed the
+  empty line a fresh Enter creates, so items could only be pasted in. The
+  field now keeps the text as typed.
 - **Uploading a license proof never overwrites an existing one.** A second
   `invoice.pdf` used to replace the first, silently swapping the proof behind
   another registry entry. It is now stored as `invoice-1.pdf` (and so on); the
