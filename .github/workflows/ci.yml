@@ -12,6 +12,14 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # requires-python is ">=3.12": test the floor and the newest supported release.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    env:
+      # Overrides the .python-version pin for uv sync / uv run.
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v5
 
@@ -21,7 +29,7 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.12
+        run: uv python install ${{ matrix.python }}
 
       - name: Install dependencies
         run: uv sync --dev

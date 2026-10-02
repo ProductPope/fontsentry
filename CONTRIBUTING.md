@@ -23,7 +23,19 @@ uv run mypy
 uv run pytest
 ```
 
-All four must pass.
+All four must pass. CI runs them on Python 3.12 and 3.13.
+
+If you changed the web UI (`web/`), also run what the `web` CI job runs:
+
+```bash
+cd web
+npm run lint            # accessibility lint (jsx-a11y)
+npm run test:coverage   # unit tests + coverage floor
+npm run build           # type check + production build
+```
+
+Dependency updates arrive as grouped weekly Dependabot PRs (Python, npm,
+GitHub Actions).
 
 ## Conventions
 

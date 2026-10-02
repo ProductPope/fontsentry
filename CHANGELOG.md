@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named, never folded into a total.
 
 ### Changed
+- **CI tests on Python 3.12 and 3.13** (the declared `>=3.12` range), and
+  Dependabot now proposes grouped weekly updates for Python, npm and GitHub
+  Actions dependencies. `CONTRIBUTING.md` lists the web UI checks too.
 - **The `fsType` Restricted-License check now precedes the open-evidence checks**
   in the verdict decision order. Previously an open-license word in the font's
   self-reported name-table text (which anyone can edit) cleared a font whose own
