@@ -266,6 +266,30 @@ def test_registry_export_csv(tmp_path: Path) -> None:
         assert "Acme,Sans,Web,a.com|b.com" in resp.text
 
 
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("post", "/api/config/registry/import", {"json": {"entries": []}}),
+        ("post", "/api/config/registry/import.csv", {"content": b"owner,family\n"}),
+        ("get", "/api/config/registry/export.csv", {}),
+    ],
+)
+def test_registry_import_export_refuse_unreadable_registry(
+    tmp_path: Path, method: str, path: str, body: dict[str, object]
+) -> None:
+    # A broken licenses.yaml must never be treated as empty: importing would
+    # overwrite it with only the incoming entries.
+    registry_dir = tmp_path / "registry"
+    registry_dir.mkdir()
+    licenses = registry_dir / "licenses.yaml"
+    licenses.write_text("entries: [unclosed\n", encoding="utf-8")
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        resp = getattr(client, method)(path, **body)
+        assert resp.status_code == 409
+        assert "unreadable" in resp.json()["detail"]
+    assert licenses.read_text(encoding="utf-8") == "entries: [unclosed\n"  # untouched
+
+
 def test_registry_import_csv_merges_and_reports_errors(tmp_path: Path) -> None:
     registry_dir = tmp_path / "registry"
     csv_text = "owner,family,license_type,max_domains\nAcme,Sans,Web,2\nBad,Serif,Web,notanumber\n"

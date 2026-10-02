@@ -296,26 +296,27 @@ def create_app(
     async def import_registry(incoming: Registry) -> RegistryImportResult:
         # Merge (upsert by owner+family) into the current registry rather than
         # replacing it, so an import never silently drops existing licenses.
-        path = registry_dir / "licenses.yaml"
-        try:
-            current = config.load_registry(path) if path.exists() else Registry()
-        except config.ConfigError:
-            current = Registry()
-        merged, added, replaced = merge_registries(current, incoming)
-        config.save_registry(path, merged)
+        merged, added, replaced = merge_registries(_load_current_registry(), incoming)
+        config.save_registry(registry_dir / "licenses.yaml", merged)
         return RegistryImportResult(registry=merged, added=added, replaced=replaced)
 
-    def _load_registry_or_empty() -> Registry:
+    def _load_current_registry() -> Registry:
+        # An unreadable licenses.yaml must not read as "empty": an import would
+        # then overwrite it with only the incoming entries (silent data loss),
+        # and an export would hand out an empty file as if it were a backup.
         path = registry_dir / "licenses.yaml"
         try:
             return config.load_registry(path) if path.exists() else Registry()
-        except config.ConfigError:
-            return Registry()
+        except config.ConfigError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"current registry is unreadable — fix or restore it first: {exc}",
+            ) from exc
 
     @app.get("/api/config/registry/export.csv")
     async def export_registry_csv() -> Response:
         return Response(
-            content=registry_to_csv(_load_registry_or_empty()),
+            content=registry_to_csv(_load_current_registry()),
             media_type="text/csv",
             headers={"Content-Disposition": 'attachment; filename="fontsentry-registry.csv"'},
         )
@@ -326,7 +327,7 @@ def create_app(
         # isn't read as "﻿owner".
         text = (await _read_body(request, _MAX_BODY_BYTES)).decode("utf-8-sig")
         incoming, errors = registry_from_csv(text)
-        merged, added, replaced = merge_registries(_load_registry_or_empty(), incoming)
+        merged, added, replaced = merge_registries(_load_current_registry(), incoming)
         config.save_registry(registry_dir / "licenses.yaml", merged)
         return RegistryImportResult(registry=merged, errors=errors, added=added, replaced=replaced)
 

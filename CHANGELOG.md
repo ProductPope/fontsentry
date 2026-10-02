@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Registry import no longer overwrites an unreadable `licenses.yaml`.** A file
+  that failed to parse was treated as empty, so a JSON/CSV import replaced it
+  with only the imported entries (silent data loss) and a CSV export handed out
+  an empty file. Both now return `409` with the parse error and leave the file
+  untouched.
 - **Monitor workflow can no longer publish findings from a public repository.**
   Its issue body and artifacts contain the audited domains. The job is now
   opt-in (repository variable `FONTSENTRY_MONITOR=true`) and refuses to run
