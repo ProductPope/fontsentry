@@ -14,9 +14,14 @@ import httpx
 from fontsentry.models import (
     CacheSettings,
     CrawlSettings,
+    OutputSettings,
     Settings,
     Target,
 )
+
+# Demo runs are kept apart from real ones: <reports_dir>/demo/. Shared by the CLI
+# (via demo_settings) and the web UI, so a demo scan never lands in "your data".
+DEMO_REPORTS_SUBDIR = "demo"
 
 _CONTENT_TYPES = {
     ".html": "text/html",
@@ -61,6 +66,7 @@ def demo_settings() -> Settings:
             block_private_hosts=False,  # offline demo hosts don't resolve; no SSRF risk
         ),
         cache=CacheSettings(enabled=False),
+        output=OutputSettings(reports_dir=Path("reports") / DEMO_REPORTS_SUBDIR),
     )
 
 

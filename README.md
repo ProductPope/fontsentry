@@ -53,6 +53,9 @@ crafted fonts, a matching registry). No internet or private data required:
 uv run fontsentry scan --demo
 ```
 
+Demo reports are written to `reports/demo/`, kept apart from your real runs
+(the web UI shows them under the demo data set).
+
 ## Local web UI
 
 A local dashboard to run audits, browse findings, diff runs, and schedule recurring

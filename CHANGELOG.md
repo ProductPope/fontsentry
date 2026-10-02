@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **`fontsentry scan --demo` now writes to `reports/demo/`**, like a demo scan
+  started from the UI. It previously wrote to `reports/`, so a CLI or scheduled
+  demo audit showed up among the real runs (and in their diffs).
 - **Registry import no longer overwrites an unreadable `licenses.yaml`.** A file
   that failed to parse was treated as empty, so a JSON/CSV import replaced it
   with only the imported entries (silent data loss) and a CSV export handed out

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fontsentry.cli import app
@@ -18,6 +19,18 @@ def test_scan_demo_writes_reports(tmp_path: Path) -> None:
     htmls = list(tmp_path.glob("*.report.html"))
     assert len(jsons) == 1
     assert len(htmls) == 1
+
+
+def test_scan_demo_defaults_to_demo_reports_dir(
+    tmp_path: Path, repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Without --output a demo scan (e.g. a scheduled demo audit) must land in
+    # reports/demo/, like a UI demo scan — never among the real runs.
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["scan", "--demo", "--config-dir", str(repo_root / "config")])
+    assert result.exit_code == 0, result.output
+    assert len(list((tmp_path / "reports" / "demo").glob("*.report.json"))) == 1
+    assert not list((tmp_path / "reports").glob("*.report.json"))
 
 
 def test_scan_demo_csv_and_max_pages(tmp_path: Path) -> None:
