@@ -533,8 +533,9 @@ def create_app(
     if dist.is_dir():
         app.mount("/", StaticFiles(directory=str(dist), html=True), name="ui")
     else:
-
-        @app.get("/")
+        # Not part of the API: kept out of the OpenAPI schema so the committed
+        # contract doesn't depend on whether the UI happens to be built.
+        @app.get("/", include_in_schema=False)
         async def _no_ui() -> Response:
             return Response(
                 "UI not built yet. Run: cd web && npm install && npm run build",
