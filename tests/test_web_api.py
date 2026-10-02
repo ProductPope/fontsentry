@@ -36,7 +36,10 @@ def _client(
         extra["registry_dir"] = registry_dir
     if backups_dir is not None:
         extra["backups_dir"] = backups_dir
-    with TestClient(create_app(reports_dir=tmp_path, **extra)) as client:
+    # The app only answers localhost Hosts (DNS-rebinding guard); TestClient's
+    # default "testserver" Host would be refused.
+    app = create_app(reports_dir=tmp_path, **extra)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         yield client
 
 
@@ -59,6 +62,15 @@ def _run_demo_scan(client: TestClient) -> str:
 def test_health(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/health").json() == {"status": "ok"}
+
+
+@pytest.mark.parametrize("path", ["/api/config/registry", "/api/workspace/export"])
+def test_rejects_foreign_host_header(tmp_path: Path, path: str) -> None:
+    # DNS rebinding: attacker.example resolved to 127.0.0.1 makes the browser
+    # treat the API as same-origin; the Host header still names the attacker.
+    with _client(tmp_path, registry_dir=tmp_path / "registry") as client:
+        assert client.get(path, headers={"Host": "attacker.example:8000"}).status_code == 400
+        assert client.get(path, headers={"Host": "localhost:5173"}).status_code == 200
 
 
 def test_scan_then_list_and_fetch(tmp_path: Path) -> None:

@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Local API: DNS-rebinding guard.** The server now answers only requests
+  addressed to `localhost` / `127.0.0.1`. Previously a hostile web page could
+  rebind its own domain to `127.0.0.1` and read the API as same-origin —
+  including `/api/workspace/export` (targets, registry, proofs, reports). The
+  existing `Origin` check only covered state-changing requests.
 - **Font-preload fetches are now capped per page** (50), like every other fetch
   path (stylesheets, bundles, bundle font URLs) — a hostile or broken page with
   thousands of `<link rel="preload" as="font">` could previously drive a fetch

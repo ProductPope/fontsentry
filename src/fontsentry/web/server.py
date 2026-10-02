@@ -1,6 +1,7 @@
 """FastAPI app for the local UI: list runs, fetch a run, diff, and start scans.
 
-Security model (local, single-user): the server binds to 127.0.0.1 only and
+Security model (local, single-user): the server binds to 127.0.0.1 only,
+answers only requests addressed to a localhost Host (blocks DNS rebinding), and
 rejects state-changing requests whose Origin is not localhost. No auth token —
 only processes on this machine can reach it.
 """
@@ -17,6 +18,7 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -106,6 +108,10 @@ def create_app(
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
+    # DNS rebinding: a hostile page can point its own domain at 127.0.0.1 and
+    # then read the API as "same-origin" (the Origin guard below only covers
+    # writes). Requests addressed to any Host other than localhost are refused.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(_ALLOWED_HOSTS))
 
     @app.middleware("http")
     async def _origin_guard(
