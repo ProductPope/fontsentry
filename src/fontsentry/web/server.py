@@ -372,8 +372,15 @@ def create_app(
                 raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
         proofs = registry_dir / "proofs"
         proofs.mkdir(parents=True, exist_ok=True)
-        (proofs / safe).write_bytes(data)
-        return {"name": safe}
+        # Never overwrite: another registry entry may already point at a proof
+        # with this name ("invoice.pdf"). Pick the first free "<stem>-N<ext>".
+        target = proofs / safe
+        n = 1
+        while target.exists():
+            target = proofs / f"{Path(safe).stem}-{n}{Path(safe).suffix}"
+            n += 1
+        target.write_bytes(data)
+        return {"name": target.name}
 
     @app.get("/api/registry/proof/{name}")
     async def get_proof(name: str) -> FileResponse:

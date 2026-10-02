@@ -659,6 +659,22 @@ def test_proof_upload_roundtrip(tmp_path: Path) -> None:
         assert got.content == b"%PDF-1.4 hi"
 
 
+def test_proof_upload_never_overwrites_existing_proof(tmp_path: Path) -> None:
+    # Two licenses, two different invoices, same filename: both must survive.
+    registry_dir = tmp_path / "registry"
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        names = [
+            client.post(
+                "/api/registry/proof",
+                files={"file": ("invoice.pdf", body, "application/pdf")},
+            ).json()["name"]
+            for body in (b"%PDF first", b"%PDF second", b"%PDF third")
+        ]
+        assert names == ["invoice.pdf", "invoice-1.pdf", "invoice-2.pdf"]
+        assert client.get("/api/registry/proof/invoice.pdf").content == b"%PDF first"
+        assert client.get("/api/registry/proof/invoice-1.pdf").content == b"%PDF second"
+
+
 def test_proof_upload_rejects_bad_type(tmp_path: Path) -> None:
     with _client(tmp_path, registry_dir=tmp_path / "registry") as client:
         r = client.post(

@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Uploading a license proof never overwrites an existing one.** A second
+  `invoice.pdf` used to replace the first, silently swapping the proof behind
+  another registry entry. It is now stored as `invoice-1.pdf` (and so on); the
+  UI already uses the name the server returns.
 - **A failed UI scan now logs its traceback** to the server console. The UI
   still shows the one-line error; previously that line was all there was.
 - **Scheduled audits on Windows now keep a log.** The generated launcher
