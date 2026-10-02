@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Scheduled audits on Windows now keep a log.** The generated launcher
+  discarded all output, so a failing unattended audit left no trace (the cron
+  backend already logged). Each run now appends to
+  `.fontsentry-tasks/<name>.log`; both backends use an absolute log path, and
+  deleting a schedule removes its log.
 - **Only one audit runs at a time from the UI.** Starting a second while one is
   in progress (another tab, a double click) now returns `409 an audit is
   already running` instead of crawling the same sites twice and racing on the
