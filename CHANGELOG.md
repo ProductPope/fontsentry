@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named, never folded into a total.
 
 ### Changed
+- **The web UI's API types are generated from the server's OpenAPI schema**
+  instead of being maintained by hand, so the UI can no longer drift from the
+  backend models. The contract is committed as `web/openapi.json`; a test and
+  the `web` CI job fail when it or the generated types are stale (see
+  `CONTRIBUTING.md`). Scan modes and known-font sources are now typed literals
+  in the API, so `POST /api/scan` with an unknown `mode` returns the standard
+  validation error `422` (was `400`).
 - **CI tests on Python 3.12 and 3.13** (the declared `>=3.12` range), and
   Dependabot now proposes grouped weekly updates for Python, npm and GitHub
   Actions dependencies. `CONTRIBUTING.md` lists the web UI checks too.

@@ -122,6 +122,11 @@ if real user data ever becomes tracked. Keep both tight.
   **floor** on the pure-logic modules in `web/src/lib` (a ratchet — widen
   `coverage.include` in `vite.config.ts` as more modules get unit tests).
   Components are tested behaviourally (RTL), where line % is a weak metric.
+- **API contract:** the UI's types in `web/src/lib/api.ts` are aliases over
+  `api-schema.d.ts`, generated from `web/openapi.json`. After any API model
+  change run `uv run python -m fontsentry.web.openapi > web/openapi.json` and
+  `cd web && npm run gen:api`; `tests/test_openapi.py` and the `web` CI job
+  fail on a stale contract. Never hand-edit either generated file.
 
 ## Docs stay current (enforced)
 

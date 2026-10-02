@@ -34,6 +34,16 @@ npm run test:coverage   # unit tests + coverage floor
 npm run build           # type check + production build
 ```
 
+If you changed an API model or endpoint (`src/fontsentry/web/`, or a model it
+returns), regenerate the contract and the UI types — never edit them by hand:
+
+```bash
+uv run python -m fontsentry.web.openapi > web/openapi.json
+cd web && npm run gen:api   # → src/lib/api-schema.d.ts
+```
+
+`tests/test_openapi.py` and the `web` CI job fail if either is stale.
+
 Dependency updates arrive as grouped weekly Dependabot PRs (Python, npm,
 GitHub Actions).
 
