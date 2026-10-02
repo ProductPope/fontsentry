@@ -5,13 +5,7 @@ import { TextInput } from "../components/TextInput";
 import type { ToastKind } from "../components/Toast";
 import { api } from "../lib/api";
 import type { RulesConfig } from "../lib/api";
-
-const toLines = (xs: string[]) => xs.join("\n");
-const fromLines = (s: string) =>
-  s
-    .split("\n")
-    .map((x) => x.trim())
-    .filter(Boolean);
+import { ListField } from "./ListField";
 
 // Editable classification data (ADR 0003): the deterministic engine reads these
 // lists — no weights or thresholds. Structured lists (open_families,
@@ -130,30 +124,5 @@ export function RulesScreen({ notify }: { notify: (message: string, kind: ToastK
         </>
       )}
     </section>
-  );
-}
-
-function ListField({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint: string;
-  value: string[];
-  onChange: (value: string[]) => void;
-}) {
-  return (
-    <label className="block text-sm">
-      <span className="mb-1 block font-medium">{label}</span>
-      <textarea
-        value={toLines(value)}
-        onChange={(e) => onChange(fromLines(e.target.value))}
-        rows={4}
-        className="w-full rounded-tk border border-stroke bg-surface px-3 py-2 font-mono text-xs text-ink"
-      />
-      <span className="mt-1 block text-xs text-faint">{hint} · one per line</span>
-    </label>
   );
 }
