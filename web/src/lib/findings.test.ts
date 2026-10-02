@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Finding } from "./api";
 import {
   actionText,
+  filterFindings,
   findingKey,
   groupFindings,
   groupKeyOf,
@@ -88,5 +89,32 @@ describe("groupFindings", () => {
     expect(groups[0]!.findings).toHaveLength(2);
     // ascending flips the order (Roboto needs_check vs Metropolis violation)
     expect(groupFindings(rows, false).map((g) => g.label)).toEqual(["Roboto", "Metropolis"]);
+  });
+});
+
+describe("filterFindings", () => {
+  const rows = [
+    f({ family: "Okay", license_verdict: "ok" }),
+    f({ family: "Bad", license_verdict: "violation", owner: "Acme Type" }),
+    f({ family: "Cdn", license_verdict: "ok", privacy: "third_party_api" }),
+    f({ family: "Check", license_verdict: "needs_check" }),
+  ];
+  const all = { focus: "all", verdict: "all", search: "", desc: true } as const;
+  const families = (out: Finding[]) => out.map((x) => x.family);
+
+  it("sorts by severity in either direction", () => {
+    expect(families(filterFindings(rows, all)).slice(0, 2)).toEqual(["Bad", "Check"]);
+    expect(families(filterFindings(rows, { ...all, desc: false })).at(-1)).toBe("Bad");
+  });
+
+  it("focuses on findings needing action or flagged for privacy", () => {
+    expect(families(filterFindings(rows, { ...all, focus: "privacy" }))).toEqual(["Cdn"]);
+    expect(families(filterFindings(rows, { ...all, focus: "action" }))).not.toContain("Okay");
+  });
+
+  it("filters by verdict and by family or owner text", () => {
+    expect(families(filterFindings(rows, { ...all, verdict: "ok" }))).toEqual(["Okay", "Cdn"]);
+    expect(families(filterFindings(rows, { ...all, search: " acme " }))).toEqual(["Bad"]);
+    expect(families(filterFindings(rows, { ...all, search: "CHE" }))).toEqual(["Check"]);
   });
 });
