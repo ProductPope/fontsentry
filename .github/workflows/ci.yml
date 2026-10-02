@@ -12,6 +12,14 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # requires-python is ">=3.12": test the floor and the newest supported release.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    env:
+      # Overrides the .python-version pin for uv sync / uv run.
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v5
 
@@ -21,7 +29,7 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.12
+        run: uv python install ${{ matrix.python }}
 
       - name: Install dependencies
         run: uv sync --dev
@@ -55,6 +63,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # The UI's API types are generated from web/openapi.json (itself pinned to
+      # the backend by tests/test_openapi.py); fail if they weren't regenerated.
+      - name: API types match openapi.json
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/lib/api-schema.d.ts
 
       - name: Accessibility lint (jsx-a11y)
         run: npm run lint

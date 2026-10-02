@@ -1,206 +1,62 @@
-// Typed client for the FontSentry backend. Mirrors the pydantic models.
+// Typed client for the FontSentry backend.
+//
+// The types are generated from the server's OpenAPI schema (api-schema.d.ts,
+// via `npm run gen:api`), never written by hand, so the UI cannot drift from the
+// pydantic models. Regenerate after any backend model change; CI fails otherwise.
 
-export type LicenseVerdict = "ok" | "needs_check" | "violation";
-export type PrivacyClass =
-  | "self_hosted"
-  | "third_party_api"
-  | "mixed"
-  | "not_applicable"
-  | "unknown";
+import type { components } from "./api-schema";
 
-export interface FontMetadata {
-  family_name: string | null;
-  owner: string | null;
-  designer: string | null;
-  copyright: string | null;
-  license_description: string | null;
-  license_url: string | null;
-  unique_id: string | null;
-  num_glyphs: number | null;
-  fs_type: number | null;
-}
+type Schemas = components["schemas"];
 
-export interface Finding {
-  family: string;
-  family_group: string;
-  owner: string | null;
-  domains: string[];
-  formats: string[];
-  embeddings: string[];
-  metadata: FontMetadata | null;
-  license_verdict: LicenseVerdict;
-  license_reason: string;
-  evidence_notes: string[];
-  privacy: PrivacyClass;
-  registry_match: boolean;
-  example_urls: string[];
-  page_count: number;
-  applied: boolean;
-}
+// The schema marks every field with a default as optional (it doubles as the
+// request shape), but responses always carry every field. `Served` removes
+// the `?` — nullability (`| null`) is kept exactly as the server declares it.
+type Served<T> = T extends (infer U)[]
+  ? Served<U>[]
+  : T extends object
+    ? { [K in keyof T]-?: Served<Exclude<T[K], undefined>> }
+    : T;
 
-export interface RunSummary {
-  total_findings: number;
-  needs_action: number;
-  by_verdict: Partial<Record<LicenseVerdict, number>>;
-  by_privacy: Partial<Record<PrivacyClass, number>>;
-}
+export type LicenseVerdict = Schemas["LicenseVerdict"];
+export type PrivacyClass = Schemas["PrivacyClass"];
 
-export interface HostAsset {
-  host: string;
-  urls: string[];
-}
+export type FontMetadata = Served<Schemas["FontMetadata"]>;
+export type Finding = Served<Schemas["Finding"]>;
+export type RunSummary = Served<Schemas["RunSummary"]>;
+export type HostAsset = Served<Schemas["HostAsset"]>;
+export type DomainFont = Served<Schemas["DomainFont"]>;
+export type DomainReport = Served<Schemas["DomainReport"]>;
+export type RunReport = Served<Schemas["RunReport"]>;
+export type FindingDelta = Served<Schemas["FindingDelta"]>;
+export type DiffResult = Served<Schemas["DiffResult"]>;
+export type RunMeta = Served<Schemas["RunMeta"]>;
+export type FirstSeen = Served<Schemas["FirstSeen"]>;
+export type KnownFont = Served<Schemas["KnownFont"]>;
+export type ScanEstimate = Served<Schemas["ScanEstimate"]>;
+export type ScheduleInfo = Served<Schemas["ScheduleInfo"]>;
+export type ScheduleSpec = Served<Schemas["ScheduleSpec"]>;
+export type Job = Served<Schemas["Job"]>;
+export type Target = Served<Schemas["Target"]>;
+export type TargetsConfig = Served<Schemas["TargetsConfig"]>;
+export type RegistryEntry = Served<Schemas["RegistryEntry"]>;
+export type RegistryConfig = Served<Schemas["Registry"]>;
+export type RegistryImportResult = Served<Schemas["RegistryImportResult"]>;
+export type BackupInfo = Served<Schemas["BackupInfo"]>;
+export type FamilySpec = Served<Schemas["FamilySpec"]>;
+export type SelfHostProhibited = Served<Schemas["SelfHostProhibited"]>;
+export type RulesConfig = Served<Schemas["RulesConfig"]>;
 
-export interface DomainFont {
-  family: string;
-  owner: string | null;
-  license_verdict: LicenseVerdict;
-  license_reason: string;
-  privacy: PrivacyClass;
-  embeddings: string[];
-  formats: string[];
-  hosts: string[];
-  assets: HostAsset[];
-}
-
-export interface DomainReport {
-  domain: string;
-  is_live: boolean;
-  pages_scanned: number;
-  live_hosts: string[];
-  subdomains: string[];
-  fonts: DomainFont[];
-}
-
-export interface RunReport {
-  schema_version: number;
-  generated_at: string;
-  summary: RunSummary;
-  findings: Finding[];
-  domains: DomainReport[];
-}
-
-export interface FindingDelta {
-  family: string;
-  owner: string | null;
-  old_verdict: LicenseVerdict;
-  new_verdict: LicenseVerdict;
-  old_domains: string[];
-  new_domains: string[];
-}
-
-export interface DiffResult {
-  new_findings: Finding[];
-  resolved_findings: Finding[];
-  changed: FindingDelta[];
-  unchanged_count: number;
-}
-
-export interface RunMeta {
-  id: string;
-  generated_at: string;
-  summary: RunSummary;
-}
-
-export interface FirstSeen {
-  domain: string;
-  family: string;
-  first_seen: string; // ISO datetime
-}
-
-export interface KnownFont {
-  family: string;
-  owner: string | null;
-  source: "detected" | "catalog";
-}
-
-export interface ScanEstimate {
-  eta_seconds: number | null;
-  based_on_runs: number;
-}
-
-export interface ScheduleInfo {
-  name: string;
-  next_run: string | null;
-  status: string | null;
-}
-
-export interface ScheduleSpec {
-  name: string;
-  frequency: "daily" | "weekly";
-  time: string;
-  day_of_week: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
-  mode: "demo" | "real";
-}
-
-export interface Job {
-  id: string;
-  status: "running" | "done" | "error";
-  mode: "real" | "demo";
-  run_id: string | null;
-  error: string | null;
-  phase: string; // "" | "discover" | "detect" | "score" | "report"
-  message: string;
-  current: number;
-  total: number; // 0 = indeterminate
-}
-
-export interface Target {
-  domain: string;
-  subdomain_seeds: string[];
-}
-
-export interface TargetsConfig {
-  targets: Target[];
-}
-
-export interface RegistryEntry {
-  owner: string;
-  family: string;
-  license_type: string;
-  allowed_domains: string[];
-  max_domains: number | null;
-  proof_path: string | null;
-  invoice_path: string | null;
-  valid_until: string | null; // ISO date (YYYY-MM-DD)
-  notes: string | null;
-}
-
-export interface RegistryConfig {
-  entries: RegistryEntry[];
-}
-
-export interface RegistryImportResult {
-  registry: RegistryConfig;
-  errors: string[];
-  added: number;
-  replaced: number;
-}
-
-export interface BackupInfo {
-  name: string;
-  size_bytes: number;
-  created_at: string;
-}
-
-export interface FamilySpec {
-  contains_all: string[];
-  excludes: string[];
-}
-
-export interface SelfHostProhibited {
-  owners: string[];
-  families: string[];
-}
-
-export interface RulesConfig {
-  open_license_patterns: string[];
-  free_owners: string[];
-  open_families: FamilySpec[];
-  paid_tier_families: FamilySpec[];
-  self_host_prohibited: SelfHostProhibited;
-  paid_cdns: string[];
-  desktop_formats: string[];
-  subset_max_glyphs: number;
+// The server's own explanation (FastAPI's `detail`) when there is one, so the
+// UI can show "an audit is already running" rather than "Conflict".
+async function errorFrom(res: Response): Promise<Error> {
+  let detail = res.statusText;
+  try {
+    const body = (await res.json()) as { detail?: string };
+    if (body.detail) detail = body.detail;
+  } catch {
+    // non-JSON error body; keep statusText
+  }
+  return new Error(detail);
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -208,16 +64,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // non-JSON error body; keep statusText
-    }
-    throw new Error(detail);
-  }
+  if (!res.ok) throw await errorFrom(res);
   return (await res.json()) as T;
 }
 
@@ -304,16 +151,7 @@ export const api = {
     const body = new FormData();
     body.append("file", file);
     const res = await fetch("/api/registry/proof", { method: "POST", body });
-    if (!res.ok) {
-      let detail = res.statusText;
-      try {
-        const b = (await res.json()) as { detail?: string };
-        if (b.detail) detail = b.detail;
-      } catch {
-        // non-JSON error body; keep statusText
-      }
-      throw new Error(detail);
-    }
+    if (!res.ok) throw await errorFrom(res);
     return (await res.json()) as { name: string };
   },
   proofUrl: (name: string) => `/api/registry/proof/${encodeURIComponent(name)}`,

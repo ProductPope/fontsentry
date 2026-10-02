@@ -3,6 +3,11 @@ name: Monitor
 # Scheduled scan of a private target list. Targets and the license registry are
 # provided via repository secrets and written at runtime — never committed.
 # New findings are surfaced as a build artifact and (optionally) a GitHub issue.
+#
+# PRIVATE REPOSITORIES ONLY. The issue body and the uploaded artifacts contain
+# the audited domains and findings; on a public repository both are readable by
+# anyone. So the job is opt-in (repository variable FONTSENTRY_MONITOR=true) and
+# its first step refuses to run when the repository is public.
 
 on:
   schedule:
@@ -15,8 +20,20 @@ permissions:
 
 jobs:
   monitor:
+    if: vars.FONTSENTRY_MONITOR == 'true'
     runs-on: ubuntu-latest
     steps:
+      # Hard stop before any private input is materialized: findings published
+      # from a public repo would leak the audited domains.
+      - name: Refuse to run on a public repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh api "repos/${{ github.repository }}" --jq .private)" != "true" ]; then
+            echo "::error::Monitor publishes findings; run it from a private repository only."
+            exit 1
+          fi
+
       - uses: actions/checkout@v5
 
       - name: Install uv

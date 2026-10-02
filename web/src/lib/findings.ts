@@ -1,6 +1,7 @@
 // Pure logic for the findings view — extracted from FindingsTable so it can be
 // unit-tested without rendering. No React here.
 import type { Finding, LicenseVerdict } from "./api";
+import { isPrivacyFlagged } from "./privacy";
 
 // Most-attention-worthy first.
 const VERDICT_ORDER: Record<LicenseVerdict, number> = { violation: 2, needs_check: 1, ok: 0 };
@@ -70,4 +71,34 @@ export function groupFindings(rows: Finding[], desc: boolean): Group[] {
   }
   const rankOf = (g: Group) => VERDICT_ORDER[worstVerdict(g.findings)];
   return [...map.values()].sort((a, b) => (desc ? rankOf(b) - rankOf(a) : rankOf(a) - rankOf(b)));
+}
+
+/** Which findings the table shows first: needing action, privacy-flagged, or all. */
+export type Focus = "action" | "privacy" | "all";
+
+export interface FindingFilters {
+  focus: Focus;
+  verdict: LicenseVerdict | "all";
+  search: string; // matched case-insensitively against family and owner
+  desc: boolean; // most severe first
+}
+
+/** The table's rows: filtered by focus, verdict and search, sorted by severity. */
+export function filterFindings(findings: Finding[], filters: FindingFilters): Finding[] {
+  const { focus, verdict, desc } = filters;
+  const q = filters.search.trim().toLowerCase();
+  return findings
+    .filter((f) =>
+      focus === "action" ? needsAction(f) : focus === "privacy" ? isPrivacyFlagged(f) : true,
+    )
+    .filter((f) => (verdict === "all" ? true : f.license_verdict === verdict))
+    .filter(
+      (f) =>
+        q === "" || f.family.toLowerCase().includes(q) || (f.owner ?? "").toLowerCase().includes(q),
+    )
+    .sort((a, b) =>
+      desc
+        ? VERDICT_ORDER[b.license_verdict] - VERDICT_ORDER[a.license_verdict]
+        : VERDICT_ORDER[a.license_verdict] - VERDICT_ORDER[b.license_verdict],
+    );
 }

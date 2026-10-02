@@ -119,6 +119,20 @@ def test_win_demo_mode_launcher_has_flag(tmp_path: Path) -> None:
     assert "scan --demo" in (tmp_path / "demo-run.bat").read_text()
 
 
+def test_win_launcher_appends_output_to_absolute_log(tmp_path: Path) -> None:
+    # An unattended run must leave a trace; the path is absolute because the
+    # launcher cd's into working_dir first.
+    _win_create_schedule(
+        ScheduleSpec(name="logged"),
+        tasks_dir=tmp_path / "tasks",
+        working_dir=tmp_path,
+        runner=FakeRunner(),
+    )
+    bat = (tmp_path / "tasks" / "logged.bat").read_text(encoding="utf-8")
+    log_file = (tmp_path / "tasks" / "logged.log").resolve()
+    assert f'>> "{log_file}" 2>&1' in bat
+
+
 def test_win_create_failure_raises(tmp_path: Path) -> None:
     runner = FakeRunner(returncode=1, stderr="access denied")
     with pytest.raises(SchedulerError, match="access denied"):
@@ -130,8 +144,11 @@ def test_win_create_failure_raises(tmp_path: Path) -> None:
 def test_win_delete_removes_task_and_launcher(tmp_path: Path) -> None:
     bat = tmp_path / "gone.bat"
     bat.write_text("@echo off", encoding="utf-8")
+    log = tmp_path / "gone.log"
+    log.write_text("previous run output", encoding="utf-8")
     runner = FakeRunner()
     _win_delete_schedule("gone", tasks_dir=tmp_path, runner=runner)
+    assert not log.exists()
     assert runner.calls[0] == ["schtasks", "/Delete", "/TN", "FontSentry\\gone", "/F"]
     assert not bat.exists()
 

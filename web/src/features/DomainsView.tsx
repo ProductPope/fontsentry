@@ -1,63 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { PrivacyText, VerdictBadge } from "../components/Badge";
 import { Select } from "../components/Select";
 import { api } from "../lib/api";
-import { safeHref } from "../lib/url";
-import type { DomainReport, LicenseVerdict, PrivacyClass } from "../lib/api";
+import type { DomainReport, LicenseVerdict } from "../lib/api";
+import { firstSeenKey, toRows } from "../lib/domains";
+import { HostFontRow } from "./HostFontRow";
 
 // Comp table-header cell: small uppercase, wide tracking.
 const TH = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.05em]";
 
-// Map key for (domain, family). A NUL separator can't collide with a family
-// name (which may contain spaces) or a domain.
-const key = (domain: string, family: string) => `${domain}\u0000${family}`;
-
-interface HostRow {
-  host: string;
-  domain: string;
-  isSubdomain: boolean;
-  family: string;
-  owner: string | null;
-  embeddings: string[];
-  formats: string[];
-  verdict: LicenseVerdict;
-  privacy: PrivacyClass;
-  assetUrls: string[];
-}
-
-// Short label for a font-file URL column: the filename, plus "+N" when a host
-// served more than one file for the same font. Full URLs go in the title.
-function assetLabel(urls: string[]): string {
-  if (urls.length === 0) return "—";
-  const first = urls[0]!.split("?")[0]!.split("/").pop() || urls[0]!;
-  return urls.length > 1 ? `${first} +${urls.length - 1}` : first;
-}
-
-// One row per (host, font): subdomains become their own rows.
-function toRows(domains: DomainReport[]): HostRow[] {
-  const rows: HostRow[] = [];
-  for (const d of domains) {
-    for (const f of d.fonts) {
-      for (const host of f.hosts) {
-        rows.push({
-          host,
-          domain: d.domain,
-          isSubdomain: d.subdomains.includes(host),
-          family: f.family,
-          owner: f.owner,
-          embeddings: f.embeddings,
-          formats: f.formats,
-          verdict: f.license_verdict,
-          privacy: f.privacy,
-          assetUrls: f.assets.find((a) => a.host === host)?.urls ?? [],
-        });
-      }
-    }
-  }
-  return rows.sort(
-    (a, b) => a.host.localeCompare(b.host) || a.family.localeCompare(b.family),
-  );
-}
+const COLUMNS = [
+  "Host",
+  "Font",
+  "Owner",
+  "Embedding",
+  "Format",
+  "Source",
+  "License",
+  "Privacy",
+  "First seen",
+];
 
 export function DomainsView({
   domains,
@@ -75,7 +36,9 @@ export function DomainsView({
     api
       .getFirstSeen(source)
       .then((entries) =>
-        setFirstSeen(new Map(entries.map((r) => [key(r.domain, r.family), r.first_seen]))),
+        setFirstSeen(
+          new Map(entries.map((r) => [firstSeenKey(r.domain, r.family), r.first_seen])),
+        ),
       )
       .catch(() => {
         // first-seen is a nice-to-have; ignore failures
@@ -125,77 +88,24 @@ export function DomainsView({
           <caption className="sr-only">Fonts by host</caption>
           <thead>
             <tr className="bg-surface2 text-left text-muted">
-              <th scope="col" className={TH}>
-                Host
-              </th>
-              <th scope="col" className={TH}>
-                Font
-              </th>
-              <th scope="col" className={TH}>
-                Owner
-              </th>
-              <th scope="col" className={TH}>
-                Embedding
-              </th>
-              <th scope="col" className={TH}>
-                Format
-              </th>
-              <th scope="col" className={TH}>
-                Source
-              </th>
-              <th scope="col" className={TH}>
-                License
-              </th>
-              <th scope="col" className={TH}>
-                Privacy
-              </th>
-              <th scope="col" className={TH}>
-                First seen
-              </th>
+              {COLUMNS.map((c) => (
+                <th key={c} scope="col" className={TH}>
+                  {c}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={`${r.host}:${r.family}:${i}`} className="border-t border-stroke">
-                <td className="px-4 py-2">
-                  <span className="font-mono text-xs">{r.host}</span>
-                  {r.isSubdomain && <span className="ml-1 text-faint">(subdomain)</span>}
-                </td>
-                <td className="px-4 py-2 font-medium">{r.family}</td>
-                <td className="px-4 py-2">{r.owner ?? "—"}</td>
-                <td className="px-4 py-2 font-mono text-xs">{r.embeddings.join(", ") || "—"}</td>
-                <td className="px-4 py-2 font-mono text-xs">{r.formats.join(", ") || "—"}</td>
-                <td className="max-w-[16rem] truncate px-4 py-2 font-mono text-xs text-muted">
-                  {r.assetUrls.length === 0 ? (
-                    "—"
-                  ) : safeHref(r.assetUrls[0]) ? (
-                    <a
-                      href={safeHref(r.assetUrls[0]) ?? undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={r.assetUrls.join("\n")}
-                      className="text-accent underline"
-                    >
-                      {assetLabel(r.assetUrls)}
-                    </a>
-                  ) : (
-                    <span title={r.assetUrls.join("\n")}>{assetLabel(r.assetUrls)}</span>
-                  )}
-                </td>
-                <td className="px-4 py-2">
-                  <VerdictBadge verdict={r.verdict} />
-                </td>
-                <td className="px-4 py-2">
-                  <PrivacyText privacy={r.privacy} />
-                </td>
-                <td className="px-4 py-2 font-mono text-xs text-muted">
-                  {firstSeen.get(key(r.domain, r.family))?.slice(0, 10) ?? "—"}
-                </td>
-              </tr>
+              <HostFontRow
+                key={`${r.host}:${r.family}:${i}`}
+                row={r}
+                firstSeen={firstSeen.get(firstSeenKey(r.domain, r.family))}
+              />
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-muted">
+                <td colSpan={COLUMNS.length} className="px-4 py-6 text-center text-muted">
                   No fonts match the filters.
                 </td>
               </tr>

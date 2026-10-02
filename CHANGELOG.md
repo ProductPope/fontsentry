@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Web UI split into smaller, tested parts.** The nine components over ~150
+  lines (`RegistrySetup`, `OverviewScreen`, `FindingsTable`, `App`,
+  `TargetsSetup`, `DomainsView`, `BackupScreen`, `RulesScreen`, `AuditsScreen`)
+  were split into focused components, hooks and pure `lib/` functions. Each was
+  first pinned by behavioural tests that pass unchanged before and after; the
+  frontend suite grew from 25 to 107 tests. Conventions are in
+  `web/DESIGN_SYSTEM.md` ("Screens and their parts"). No behaviour change.
+- **The web UI's API types are generated from the server's OpenAPI schema**
+  instead of being maintained by hand, so the UI can no longer drift from the
+  backend models. The contract is committed as `web/openapi.json`; a test and
+  the `web` CI job fail when it or the generated types are stale (see
+  `CONTRIBUTING.md`). Scan modes and known-font sources are now typed literals
+  in the API, so `POST /api/scan` with an unknown `mode` returns the standard
+  validation error `422` (was `400`).
+- **CI tests on Python 3.12 and 3.13** (the declared `>=3.12` range), and
+  Dependabot now proposes grouped weekly updates for Python, npm and GitHub
+  Actions dependencies. `CONTRIBUTING.md` lists the web UI checks too.
+
+### Fixed
+- **Rules screen: new list items can be typed.** Each classification list
+  re-rendered from its parsed items on every keystroke, which swallowed the
+  empty line a fresh Enter creates, so items could only be pasted in. The
+  field now keeps the text as typed.
+- **Uploading a license proof never overwrites an existing one.** A second
+  `invoice.pdf` used to replace the first, silently swapping the proof behind
+  another registry entry. It is now stored as `invoice-1.pdf` (and so on); the
+  UI already uses the name the server returns.
+- **A failed UI scan now logs its traceback** to the server console. The UI
+  still shows the one-line error; previously that line was all there was.
+- **Scheduled audits on Windows now keep a log.** The generated launcher
+  discarded all output, so a failing unattended audit left no trace (the cron
+  backend already logged). Each run now appends to
+  `.fontsentry-tasks/<name>.log`; both backends use an absolute log path, and
+  deleting a schedule removes its log.
+- **Only one audit runs at a time from the UI.** Starting a second while one is
+  in progress (another tab, a double click) now returns `409 an audit is
+  already running` instead of crawling the same sites twice and racing on the
+  report files.
+- **The local UI stays responsive during a scan.** The crawler's SSRF check
+  resolved DNS synchronously on the event loop, and report/backup endpoints
+  read and zipped files there too, so a slow lookup or a large report froze
+  every request (including scan-progress polling). DNS now resolves in a worker
+  thread and the file-heavy endpoints run in FastAPI's threadpool.
+- **`fontsentry scan --demo` now writes to `reports/demo/`**, like a demo scan
+  started from the UI. It previously wrote to `reports/`, so a CLI or scheduled
+  demo audit showed up among the real runs (and in their diffs).
+- **Registry import no longer overwrites an unreadable `licenses.yaml`.** A file
+  that failed to parse was treated as empty, so a JSON/CSV import replaced it
+  with only the imported entries (silent data loss) and a CSV export handed out
+  an empty file. Both now return `409` with the parse error and leave the file
+  untouched.
+- **Monitor workflow can no longer publish findings from a public repository.**
+  Its issue body and artifacts contain the audited domains. The job is now
+  opt-in (repository variable `FONTSENTRY_MONITOR=true`) and refuses to run
+  unless the repository is private. Setup is documented in the README.
+
 ## [0.7.0] - 2026-07-07
 
 Hardening release: the complete fix backlog from the 2026-07-06 critical review

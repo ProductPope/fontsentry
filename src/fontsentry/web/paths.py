@@ -19,7 +19,7 @@ def _reports_for(reports_dir: Path, source: str) -> Path:
     Keeps demo audits out of "your data" — they're a separate, isolated set.
     """
 
-    return reports_dir / "demo" if source == "demo" else reports_dir
+    return reports_dir / demo.DEMO_REPORTS_SUBDIR if source == "demo" else reports_dir
 
 
 def _safe_run_path(reports_dir: Path, run_id: str) -> Path:

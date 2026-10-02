@@ -1,24 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../components/Button";
-import { Card } from "../components/Card";
-import { Modal } from "../components/Modal";
 import type { ToastKind } from "../components/Toast";
 import { api } from "../lib/api";
 import type { BackupInfo } from "../lib/api";
+import { BackupList, download } from "./BackupList";
+import { RestoreConfirm } from "./RestoreConfirm";
 
 const UPLOAD = " upload"; // sentinel for the "restore from file" confirm
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function download(url: string) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.click();
-}
 
 export function BackupScreen({ notify }: { notify: (message: string, kind: ToastKind) => void }) {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
@@ -124,52 +112,10 @@ export function BackupScreen({ notify }: { notify: (message: string, kind: Toast
         />
       </div>
 
-      {backups.length === 0 ? (
-        <Card>
-          <p className="text-sm text-muted">No snapshots yet. Save one above.</p>
-        </Card>
-      ) : (
-        <ul className="space-y-2">
-          {backups.map((b) => (
-            <li key={b.name}>
-              <Card className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{b.name}</p>
-                  <p className="text-sm text-muted">
-                    {new Date(b.created_at).toLocaleString()} · {formatSize(b.size_bytes)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => download(api.backupDownloadUrl(b.name))}
-                  >
-                    Download
-                  </Button>
-                  <Button variant="secondary" disabled={busy} onClick={() => setConfirming(b.name)}>
-                    Restore
-                  </Button>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+      <BackupList backups={backups} busy={busy} onRestore={setConfirming} />
 
       {confirming !== null && (
-        <Modal title="Restore this backup?" onClose={() => setConfirming(null)}>
-          <p className="text-sm text-muted">
-            This overwrites your current targets, licenses, and audits with the backup. Your current
-            state is snapshotted first, so you can restore back to it.
-          </p>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setConfirming(null)}>
-              Cancel
-            </Button>
-            <Button onClick={confirmRestore}>Restore</Button>
-          </div>
-        </Modal>
+        <RestoreConfirm onCancel={() => setConfirming(null)} onConfirm={confirmRestore} />
       )}
     </section>
   );

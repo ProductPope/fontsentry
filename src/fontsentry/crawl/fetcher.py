@@ -69,10 +69,13 @@ class Fetcher:
                 await asyncio.sleep(wait)
             self._host_last[host] = loop.time()
 
-    def _host_safe(self, url: str) -> bool:
+    async def _host_safe(self, url: str) -> bool:
         if not self._settings.block_private_hosts:
             return True
-        return is_safe_host(urlsplit(url).hostname or "", resolver=self._resolver)
+        # DNS resolution is blocking; run it off the event loop so a slow lookup
+        # doesn't stall every other fetch (and the web UI sharing the loop).
+        host = urlsplit(url).hostname or ""
+        return await asyncio.to_thread(is_safe_host, host, resolver=self._resolver)
 
     async def _read_capped(self, response: httpx.Response) -> bytes | None:
         # Reject on a declared over-cap Content-Length, then enforce the cap while
@@ -96,7 +99,7 @@ class Fetcher:
         # the cache entry stay keyed on the original url (only sent on the 1st hop).
         current = url
         for hop in range(self._settings.max_redirects + 1):
-            if not self._host_safe(current):
+            if not await self._host_safe(current):
                 return None
             if self._settings.respect_robots and self._robots is not None:
                 if not await self._robots.allowed(current):

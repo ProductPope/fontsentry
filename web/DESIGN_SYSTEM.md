@@ -84,6 +84,21 @@ extends it through `cn()`; props extend native HTML element types.
 3. Extend the relevant native HTML type; keep it under ~150 lines.
 4. Prefer native elements over ARIA (`<button>`, `<label>`, `<table>`).
 
+## Screens and their parts
+
+`src/features/` holds the screens (`OverviewScreen`, `RegistrySetup`, …) and the
+parts they are built from (`LicenseCard`, `FindingRows`, …). `src/lib/` holds
+what has no markup: pure logic (`findings.ts`, `registryForm.ts`, `targets.ts`, …)
+and hooks (`useScan`, `useRunData`, …).
+
+- **A screen owns state and API calls; its parts take props.** Keep data fetching
+  and persistence in the screen or a `lib/use*` hook, not in a presentational part.
+- **Logic goes to `lib/` as pure functions** with a co-located `*.test.ts`, and is
+  added to the coverage floor (`coverage.include` in `vite.config.ts`).
+- **Every file stays under ~150 lines.** When a screen outgrows that, first pin
+  its behaviour with an RTL test (`<Screen>.test.tsx`), then split it; the same
+  test must pass before and after.
+
 ## Accessibility (WCAG 2.2)
 
 - Native semantic HTML; labels tied to inputs; tables use `<th scope>`.

@@ -33,6 +33,15 @@ export default defineConfig({
         "src/lib/cn.ts",
         "src/lib/findings.ts",
         "src/lib/importSummary.ts",
+        "src/lib/useHashRoute.ts",
+        "src/lib/registryForm.ts",
+        "src/lib/overview.ts",
+        "src/lib/pollJob.ts",
+        "src/lib/targets.ts",
+        "src/lib/domains.ts",
+        // api.ts is deliberately absent: its request/error logic is tested in
+        // api.test.ts, but the bulk is one-line endpoint wrappers where a % floor
+        // would only reward boilerplate tests.
       ],
       thresholds: { lines: 90, functions: 90, branches: 85, statements: 90 },
     },

@@ -59,6 +59,23 @@ def _run_demo_scan(client: TestClient) -> str:
     raise AssertionError("scan job did not finish in time")
 
 
+def test_second_scan_is_refused_while_one_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A scan job that never reports back keeps the first job "running"
+    # deterministically, whatever the timing.
+    async def _never_finishes(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("fontsentry.web.server._run_scan_job", _never_finishes)
+    with _client(tmp_path) as client:
+        first = client.post("/api/scan", json={"mode": "demo"})
+        assert first.status_code == 200
+        second = client.post("/api/scan", json={"mode": "demo"})
+        assert second.status_code == 409
+        assert "already running" in second.json()["detail"]
+
+
 def test_health(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/health").json() == {"status": "ok"}
@@ -255,6 +272,30 @@ def test_registry_export_csv(tmp_path: Path) -> None:
         lines = resp.text.splitlines()
         assert lines[0].startswith("owner,family,license_type,allowed_domains")
         assert "Acme,Sans,Web,a.com|b.com" in resp.text
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("post", "/api/config/registry/import", {"json": {"entries": []}}),
+        ("post", "/api/config/registry/import.csv", {"content": b"owner,family\n"}),
+        ("get", "/api/config/registry/export.csv", {}),
+    ],
+)
+def test_registry_import_export_refuse_unreadable_registry(
+    tmp_path: Path, method: str, path: str, body: dict[str, object]
+) -> None:
+    # A broken licenses.yaml must never be treated as empty: importing would
+    # overwrite it with only the incoming entries.
+    registry_dir = tmp_path / "registry"
+    registry_dir.mkdir()
+    licenses = registry_dir / "licenses.yaml"
+    licenses.write_text("entries: [unclosed\n", encoding="utf-8")
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        resp = getattr(client, method)(path, **body)
+        assert resp.status_code == 409
+        assert "unreadable" in resp.json()["detail"]
+    assert licenses.read_text(encoding="utf-8") == "entries: [unclosed\n"  # untouched
 
 
 def test_registry_import_csv_merges_and_reports_errors(tmp_path: Path) -> None:
@@ -460,7 +501,8 @@ def test_scan_bad_config_marks_job_error_not_zombie(tmp_path: Path) -> None:
 
 def test_invalid_mode_rejected(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
-        assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 400
+        # Validated by the ScanMode literal on the request model.
+        assert client.post("/api/scan", json={"mode": "bogus"}).status_code == 422
 
 
 def test_scan_accepts_discover_subdomains_flag(tmp_path: Path) -> None:
@@ -480,30 +522,21 @@ def test_scan_accepts_discover_subdomains_flag(tmp_path: Path) -> None:
         raise AssertionError("scan did not finish in time")
 
 
-def test_active_jobs_lists_running_scan(tmp_path: Path) -> None:
-    # A freshly-loaded UI re-attaches via GET /api/jobs. Once the scan finishes
-    # the job is no longer "running", so it drops off the active list.
+def test_active_jobs_lists_running_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A freshly-loaded UI re-attaches via GET /api/jobs. The scan job is stubbed
+    # so it stays "running": the real demo scan can finish before the GET (a
+    # race that failed on faster interpreters). Dropping off the list once done
+    # is covered by test_jobs.py::test_job_lifecycle.
+    async def _never_finishes(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("fontsentry.web.server._run_scan_job", _never_finishes)
     with _client(tmp_path) as client:
         started = client.post("/api/scan", json={"mode": "demo"})
         job_id = started.json()["job_id"]
 
         active = client.get("/api/jobs").json()
         assert any(j["id"] == job_id and j["mode"] == "demo" for j in active)
-
-        run_id = _run_demo_scan_wait(client, job_id)
-        assert run_id
-        assert all(j["id"] != job_id for j in client.get("/api/jobs").json())
-
-
-def _run_demo_scan_wait(client: TestClient, job_id: str) -> str:
-    deadline = time.time() + 20
-    while time.time() < deadline:
-        job = client.get(f"/api/jobs/{job_id}").json()
-        if job["status"] == "done":
-            return str(job["run_id"])
-        assert job["status"] != "error", job.get("error")
-        time.sleep(0.05)
-    raise AssertionError("scan job did not finish in time")
 
 
 def test_schedules_list_ok(tmp_path: Path) -> None:
@@ -638,6 +671,22 @@ def test_proof_upload_roundtrip(tmp_path: Path) -> None:
         got = client.get(f"/api/registry/proof/{name}")
         assert got.status_code == 200
         assert got.content == b"%PDF-1.4 hi"
+
+
+def test_proof_upload_never_overwrites_existing_proof(tmp_path: Path) -> None:
+    # Two licenses, two different invoices, same filename: both must survive.
+    registry_dir = tmp_path / "registry"
+    with _client(tmp_path, registry_dir=registry_dir) as client:
+        names = [
+            client.post(
+                "/api/registry/proof",
+                files={"file": ("invoice.pdf", body, "application/pdf")},
+            ).json()["name"]
+            for body in (b"%PDF first", b"%PDF second", b"%PDF third")
+        ]
+        assert names == ["invoice.pdf", "invoice-1.pdf", "invoice-2.pdf"]
+        assert client.get("/api/registry/proof/invoice.pdf").content == b"%PDF first"
+        assert client.get("/api/registry/proof/invoice-1.pdf").content == b"%PDF second"
 
 
 def test_proof_upload_rejects_bad_type(tmp_path: Path) -> None:

@@ -8,6 +8,9 @@ run even when the UI is closed. Two backends, chosen by platform:
 * **Linux** (`cron`) — one ``crontab`` line per schedule, tagged with a
   ``# FontSentry:<name>`` marker so we only ever touch our own lines.
 
+Both backends append each run's output to ``<tasks_dir>/<name>.log`` so a failed
+unattended audit leaves a trace.
+
 Other platforms (e.g. macOS) are unsupported; the API layer reports that. Each
 backend is a pure arg/text builder around an injectable runner, so both are
 testable on any OS without creating real tasks.
@@ -137,9 +140,12 @@ def _write_launcher(
 ) -> Path:
     tasks_dir.mkdir(parents=True, exist_ok=True)
     bat = tasks_dir / f"{spec.name}.bat"
+    # Absolute: the launcher cd's into working_dir before running.
+    log_file = (tasks_dir / f"{spec.name}.log").resolve()
     scan_cmd = f'"{python_exe}" -m fontsentry scan'
     if spec.mode == "demo":
         scan_cmd += " --demo"
+    scan_cmd += f' >> "{log_file}" 2>&1'
     bat.write_text(
         f'@echo off\r\ncd /d "{working_dir}"\r\n{scan_cmd}\r\n',
         encoding="utf-8",
@@ -188,6 +194,7 @@ def _win_delete_schedule(name: str, *, tasks_dir: Path, runner: Runner = _defaul
     if result.returncode != 0:
         raise SchedulerError(result.stderr.strip() or "schtasks /Delete failed")
     (tasks_dir / f"{name}.bat").unlink(missing_ok=True)
+    (tasks_dir / f"{name}.log").unlink(missing_ok=True)
 
 
 def _win_list_schedules(runner: Runner = _default_runner) -> list[ScheduleInfo]:
@@ -279,7 +286,8 @@ def _cron_create_schedule(
 ) -> ScheduleInfo:
     python_exe = python_exe or sys.executable
     tasks_dir.mkdir(parents=True, exist_ok=True)
-    log_file = tasks_dir / f"{spec.name}.log"
+    # Absolute: the cron command cd's into working_dir before running.
+    log_file = (tasks_dir / f"{spec.name}.log").resolve()
 
     lines = _cron_without(_cron_read(runner), spec.name)
     lines.append(_cron_line(spec, working_dir, log_file, python_exe))

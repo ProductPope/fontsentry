@@ -1,6 +1,7 @@
 """FastAPI app for the local UI: list runs, fetch a run, diff, and start scans.
 
-Security model (local, single-user): the server binds to 127.0.0.1 only and
+Security model (local, single-user): the server binds to 127.0.0.1 only,
+answers only requests addressed to a localhost Host (blocks DNS rebinding), and
 rejects state-changing requests whose Origin is not localhost. No auth token —
 only processes on this machine can reach it.
 """
@@ -16,6 +17,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -160,8 +162,11 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    # Handlers that read or write many/large files (reports, zips) are plain
+    # `def`: FastAPI runs them in a worker thread, so disk I/O never stalls the
+    # event loop that also drives an in-flight scan and its progress polling.
     @app.get("/api/runs")
-    async def list_runs(source: str = "real") -> list[RunMeta]:
+    def list_runs(source: str = "real") -> list[RunMeta]:
         metas: list[RunMeta] = []
         for path in sorted(
             _reports_for(reports_dir, source).glob("fontsentry-*.report.json"), reverse=True
@@ -177,7 +182,7 @@ def create_app(
         return metas
 
     @app.get("/api/scan/estimate")
-    async def scan_estimate(hosts: int, max_pages: int) -> ScanEstimate:
+    def scan_estimate(hosts: int, max_pages: int) -> ScanEstimate:
         # Estimate from recent runs' throughput (pages / wall-clock second).
         rates: list[float] = []
         for path in sorted(reports_dir.glob("fontsentry-*.report.json"), reverse=True)[:5]:
@@ -196,7 +201,7 @@ def create_app(
         return ScanEstimate(eta_seconds=round(planned / rate, 0), based_on_runs=len(rates))
 
     @app.get("/api/first-seen")
-    async def get_first_seen(source: str = "real") -> list[FirstSeen]:
+    def get_first_seen(source: str = "real") -> list[FirstSeen]:
         # Computed from the report files on disk; no stored per-font history.
         return [
             FirstSeen(domain=domain, family=family, first_seen=ts)
@@ -204,7 +209,7 @@ def create_app(
         ]
 
     @app.get("/api/known-fonts")
-    async def known_fonts() -> list[KnownFont]:
+    def known_fonts() -> list[KnownFont]:
         # Suggestions for the registry form: fonts actually detected in the most
         # recent real audit (with any owner from metadata), plus a bundled catalog
         # of common families so there are suggestions before the first audit.
@@ -232,14 +237,14 @@ def create_app(
         return sorted(by_key.values(), key=lambda k: k.family.lower())
 
     @app.get("/api/runs/{run_id}")
-    async def get_run(run_id: str, source: str = "real") -> RunReport:
+    def get_run(run_id: str, source: str = "real") -> RunReport:
         path = _safe_run_path(_reports_for(reports_dir, source), run_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return load_run(path)
 
     @app.get("/api/runs/{run_id}/export.csv")
-    async def export_run_csv(run_id: str, source: str = "real") -> Response:
+    def export_run_csv(run_id: str, source: str = "real") -> Response:
         path = _safe_run_path(_reports_for(reports_dir, source), run_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
@@ -251,7 +256,7 @@ def create_app(
         )
 
     @app.get("/api/runs/{run_id}/diff")
-    async def get_run_diff(run_id: str, source: str = "real") -> DiffResult:
+    def get_run_diff(run_id: str, source: str = "real") -> DiffResult:
         # Diff a run against the one chronologically before it. An empty result
         # means either no earlier run exists or nothing changed.
         base = _reports_for(reports_dir, source)
@@ -299,26 +304,27 @@ def create_app(
     async def import_registry(incoming: Registry) -> RegistryImportResult:
         # Merge (upsert by owner+family) into the current registry rather than
         # replacing it, so an import never silently drops existing licenses.
-        path = registry_dir / "licenses.yaml"
-        try:
-            current = config.load_registry(path) if path.exists() else Registry()
-        except config.ConfigError:
-            current = Registry()
-        merged, added, replaced = merge_registries(current, incoming)
-        config.save_registry(path, merged)
+        merged, added, replaced = merge_registries(_load_current_registry(), incoming)
+        config.save_registry(registry_dir / "licenses.yaml", merged)
         return RegistryImportResult(registry=merged, added=added, replaced=replaced)
 
-    def _load_registry_or_empty() -> Registry:
+    def _load_current_registry() -> Registry:
+        # An unreadable licenses.yaml must not read as "empty": an import would
+        # then overwrite it with only the incoming entries (silent data loss),
+        # and an export would hand out an empty file as if it were a backup.
         path = registry_dir / "licenses.yaml"
         try:
             return config.load_registry(path) if path.exists() else Registry()
-        except config.ConfigError:
-            return Registry()
+        except config.ConfigError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"current registry is unreadable — fix or restore it first: {exc}",
+            ) from exc
 
     @app.get("/api/config/registry/export.csv")
     async def export_registry_csv() -> Response:
         return Response(
-            content=registry_to_csv(_load_registry_or_empty()),
+            content=registry_to_csv(_load_current_registry()),
             media_type="text/csv",
             headers={"Content-Disposition": 'attachment; filename="fontsentry-registry.csv"'},
         )
@@ -329,7 +335,7 @@ def create_app(
         # isn't read as "﻿owner".
         text = (await _read_body(request, _MAX_BODY_BYTES)).decode("utf-8-sig")
         incoming, errors = registry_from_csv(text)
-        merged, added, replaced = merge_registries(_load_registry_or_empty(), incoming)
+        merged, added, replaced = merge_registries(_load_current_registry(), incoming)
         config.save_registry(registry_dir / "licenses.yaml", merged)
         return RegistryImportResult(registry=merged, errors=errors, added=added, replaced=replaced)
 
@@ -370,8 +376,15 @@ def create_app(
                 raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
         proofs = registry_dir / "proofs"
         proofs.mkdir(parents=True, exist_ok=True)
-        (proofs / safe).write_bytes(data)
-        return {"name": safe}
+        # Never overwrite: another registry entry may already point at a proof
+        # with this name ("invoice.pdf"). Pick the first free "<stem>-N<ext>".
+        target = proofs / safe
+        n = 1
+        while target.exists():
+            target = proofs / f"{Path(safe).stem}-{n}{Path(safe).suffix}"
+            n += 1
+        target.write_bytes(data)
+        return {"name": target.name}
 
     @app.get("/api/registry/proof/{name}")
     async def get_proof(name: str) -> FileResponse:
@@ -386,8 +399,10 @@ def create_app(
 
     @app.post("/api/scan")
     async def start_scan(request: ScanRequest) -> ScanStarted:
-        if request.mode not in {"demo", "real"}:
-            raise HTTPException(status_code=400, detail="mode must be 'demo' or 'real'")
+        # One scan at a time: two would crawl the same sites twice and race on
+        # the report files. The UI re-attaches to the running one instead.
+        if jobs.active():
+            raise HTTPException(status_code=409, detail="an audit is already running")
         job = jobs.create(request.mode)
         # Fire-and-forget; status is polled via /api/jobs/{id}.
         task = asyncio.create_task(
@@ -459,15 +474,15 @@ def create_app(
         return build_workspace_zip(config_dir, registry_dir, reports_dir)
 
     @app.get("/api/workspace/backups")
-    async def list_workspace_backups() -> list[BackupInfo]:
+    def list_workspace_backups() -> list[BackupInfo]:
         return list_backups(backups_dir)
 
     @app.post("/api/workspace/snapshot", status_code=201)
-    async def snapshot_workspace() -> BackupInfo:
+    def snapshot_workspace() -> BackupInfo:
         return write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
 
     @app.get("/api/workspace/export")
-    async def export_workspace() -> Response:
+    def export_workspace() -> Response:
         filename = snapshot_filename(datetime.now(UTC))
         return Response(
             content=_workspace_zip(),
@@ -476,7 +491,7 @@ def create_app(
         )
 
     @app.get("/api/workspace/backups/{name}")
-    async def download_backup(name: str) -> Response:
+    def download_backup(name: str) -> Response:
         try:
             data = read_backup(backups_dir, name)
         except WorkspaceError as exc:
@@ -500,7 +515,7 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/workspace/restore/{name}")
-    async def restore_backup(name: str) -> dict[str, str]:
+    def restore_backup(name: str) -> dict[str, str]:
         try:
             data = read_backup(backups_dir, name)
         except WorkspaceError as exc:
@@ -510,15 +525,17 @@ def create_app(
 
     @app.post("/api/workspace/import")
     async def import_workspace(request: Request) -> dict[str, str]:
-        _restore(await _read_body(request, _MAX_IMPORT_BODY_BYTES))
+        data = await _read_body(request, _MAX_IMPORT_BODY_BYTES)
+        await run_in_threadpool(_restore, data)
         return {"restored": "upload"}
 
     dist = _web_dist()
     if dist.is_dir():
         app.mount("/", StaticFiles(directory=str(dist), html=True), name="ui")
     else:
-
-        @app.get("/")
+        # Not part of the API: kept out of the OpenAPI schema so the committed
+        # contract doesn't depend on whether the UI happens to be built.
+        @app.get("/", include_in_schema=False)
         async def _no_ui() -> Response:
             return Response(
                 "UI not built yet. Run: cd web && npm install && npm run build",
