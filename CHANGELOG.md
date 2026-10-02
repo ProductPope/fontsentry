@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Monitor workflow can no longer publish findings from a public repository.**
+  Its issue body and artifacts contain the audited domains. The job is now
+  opt-in (repository variable `FONTSENTRY_MONITOR=true`) and refuses to run
+  unless the repository is private. Setup is documented in the README.
 - **Local API: DNS-rebinding guard.** The server now answers only requests
   addressed to `localhost` / `127.0.0.1`. Previously a hostile web page could
   rebind its own domain to `127.0.0.1` and read the API as same-origin —

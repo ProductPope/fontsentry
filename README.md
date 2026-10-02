@@ -145,6 +145,21 @@ numeric risk score (see [ADR 0003](docs/adr/0003-deterministic-verdicts.md)). Th
 crawler refuses to fetch private/loopback addresses by default
 (`block_private_hosts`); disable it only to audit an internal site.
 
+## Scheduled monitoring (GitHub Actions)
+
+`.github/workflows/monitor.yml` runs a weekly scan, diffs it against the previous
+run, uploads the reports as an artifact and opens an issue on new findings.
+Those outputs contain your audited domains, so the workflow **only runs from a
+private repository** (it checks and refuses otherwise) and is **opt-in**:
+
+1. Use a private copy of this repository (not a public fork).
+2. Add secrets `FONTSENTRY_TARGETS` (your `targets.yaml`) and
+   `FONTSENTRY_REGISTRY` (your `licenses.yaml`).
+3. Set the repository variable `FONTSENTRY_MONITOR` to `true`.
+
+For scheduling on your own machine instead, use **Audits → Schedules** in the
+local UI.
+
 ## Documentation
 
 - [Classification reference](docs/rules.md) — the verdict decision table and how to tune it
