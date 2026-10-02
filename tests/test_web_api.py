@@ -36,8 +36,8 @@ def _client(
         extra["registry_dir"] = registry_dir
     if backups_dir is not None:
         extra["backups_dir"] = backups_dir
-    # The app only answers localhost Hosts (DNS-rebinding guard); TestClient's
-    # default "testserver" Host would be refused.
+    # base_url matters: the app rejects non-localhost Host headers (DNS-rebinding
+    # defense), and TestClient's default base_url would send "Host: testserver".
     app = create_app(reports_dir=tmp_path, **extra)
     with TestClient(app, base_url="http://127.0.0.1") as client:
         yield client
@@ -79,15 +79,6 @@ def test_second_scan_is_refused_while_one_runs(
 def test_health(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/health").json() == {"status": "ok"}
-
-
-@pytest.mark.parametrize("path", ["/api/config/registry", "/api/workspace/export"])
-def test_rejects_foreign_host_header(tmp_path: Path, path: str) -> None:
-    # DNS rebinding: attacker.example resolved to 127.0.0.1 makes the browser
-    # treat the API as same-origin; the Host header still names the attacker.
-    with _client(tmp_path, registry_dir=tmp_path / "registry") as client:
-        assert client.get(path, headers={"Host": "attacker.example:8000"}).status_code == 400
-        assert client.get(path, headers={"Host": "localhost:5173"}).status_code == 200
 
 
 def test_scan_then_list_and_fetch(tmp_path: Path) -> None:
@@ -370,6 +361,37 @@ def test_csv_import_reports_added_and_replaced(tmp_path: Path) -> None:
             headers={"content-type": "text/csv"},
         )
         assert (second.json()["added"], second.json()["replaced"]) == (1, 1)
+
+
+def test_delete_schedule_rejects_invalid_name(tmp_path: Path) -> None:
+    # The name flows into a schtasks/crontab argument and a log/launcher filename;
+    # the delete path must enforce the same charset ScheduleSpec does at create.
+    with _client(tmp_path) as client:
+        for bad in ("evil%0Aname", "dollar%24(reboot)", "semi%3Brm"):
+            resp = client.delete(f"/api/schedules/{bad}")
+            assert resp.status_code == 400, bad
+
+
+def test_non_localhost_host_header_rejected(tmp_path: Path) -> None:
+    # DNS-rebinding defense: after attacker.example re-resolves to 127.0.0.1 the
+    # browser's requests carry that Host and would be same-origin — every route
+    # (GET included, e.g. the whole-workspace export) must refuse to serve it.
+    with _client(tmp_path) as client:
+        for path in ("/api/health", "/api/workspace/export"):
+            resp = client.get(path, headers={"host": "attacker.example"})
+            assert resp.status_code == 400, path
+        assert client.get("/api/health", headers={"host": "localhost"}).status_code == 200
+        assert client.get("/api/health", headers={"host": "127.0.0.1:8000"}).status_code == 200
+
+
+def test_garbage_import_leaves_no_snapshot(tmp_path: Path) -> None:
+    # Regression: the pre-restore snapshot was written BEFORE the payload was
+    # validated, so every junk upload left a full workspace copy behind.
+    backups_dir = tmp_path / "backups"
+    with _client(tmp_path, backups_dir=backups_dir) as client:
+        resp = client.post("/api/workspace/import", content=b"not a zip at all")
+        assert resp.status_code == 400
+        assert client.get("/api/workspace/backups").json() == []
 
 
 def test_workspace_snapshot_export_and_list(tmp_path: Path) -> None:

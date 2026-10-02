@@ -84,7 +84,14 @@ def evaluate_suppression(agg: AggregatedFont, registry: Registry, now: date) -> 
 
     # Count distinct licensed domains in use (subdomains of one allowed domain
     # count once), not raw hostnames, so www + apex under one license == 1 domain.
-    effective = observed if wildcard else {_covering_domain(h, allowed) for h in observed}
+    # A wildcard license has no domain list to fold under, so only the unambiguous
+    # www+apex pair folds there (deeper subdomain folding would need a public-
+    # suffix list to avoid miscounting the likes of example.co.uk).
+    effective = (
+        {h.removeprefix("www.") for h in observed}
+        if wildcard
+        else {_covering_domain(h, allowed) for h in observed}
+    )
     if entry.max_domains is not None and len(effective) > entry.max_domains:
         return Suppression(
             FindingStatus.OPEN,
@@ -96,11 +103,23 @@ def evaluate_suppression(agg: AggregatedFont, registry: Registry, now: date) -> 
 
 
 def validate_registry(registry: Registry, proofs_dir: Path) -> list[str]:
-    """Return problems with the registry: referenced proof/invoice files that are missing."""
+    """Return problems with the registry: missing proof/invoice files and
+    duplicate (owner, family) entries."""
 
     errors: list[str] = []
+    seen: set[tuple[str, str]] = set()
     for entry in registry.entries:
         label = f"{entry.owner} / {entry.family}"
+        # Matching takes the FIRST (owner, family) hit, so a renewal appended
+        # below an expired entry silently loses — the verdict would depend on
+        # file order. Duplicates are therefore a validation error, not a style nit.
+        key = _entry_key(entry)
+        if key in seen:
+            errors.append(
+                f"{label}: duplicate entry — only the first match is used; "
+                "edit the existing entry instead of appending (e.g. for a renewal)"
+            )
+        seen.add(key)
         for kind, rel in (("proof", entry.proof_path), ("invoice", entry.invoice_path)):
             if rel is None:
                 continue

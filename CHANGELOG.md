@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Registry imports report what they changed**: the JSON and CSV import results
-  (and the UI toast) now say `N added, M replaced` — a replacement can silently
-  *loosen* an entry (e.g. drop its expiry or domain scope), so overwrites are
-  named, never folded into a total.
-
 ### Changed
 - **Web UI split into smaller, tested parts.** The nine components over ~150
   lines (`RegistrySetup`, `OverviewScreen`, `FindingsTable`, `App`,
@@ -31,13 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI tests on Python 3.12 and 3.13** (the declared `>=3.12` range), and
   Dependabot now proposes grouped weekly updates for Python, npm and GitHub
   Actions dependencies. `CONTRIBUTING.md` lists the web UI checks too.
-- **The `fsType` Restricted-License check now precedes the open-evidence checks**
-  in the verdict decision order. Previously an open-license word in the font's
-  self-reported name-table text (which anyone can edit) cleared a font whose own
-  embedding bits forbid web embedding — weaker evidence outranked stronger. A
-  valid registry cover still wins (a purchased license is the permission the bit
-  demands). The full decision order is now pinned by tests that combine
-  conflicting signals across steps.
 
 ### Fixed
 - **Rules screen: new list items can be typed.** Each classification list
@@ -76,11 +63,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Its issue body and artifacts contain the audited domains. The job is now
   opt-in (repository variable `FONTSENTRY_MONITOR=true`) and refuses to run
   unless the repository is private. Setup is documented in the README.
-- **Local API: DNS-rebinding guard.** The server now answers only requests
-  addressed to `localhost` / `127.0.0.1`. Previously a hostile web page could
-  rebind its own domain to `127.0.0.1` and read the API as same-origin —
-  including `/api/workspace/export` (targets, registry, proofs, reports). The
-  existing `Origin` check only covered state-changing requests.
+
+## [0.7.0] - 2026-07-07
+
+Hardening release: the complete fix backlog from the 2026-07-06 critical review
+(public issues #1–#24). Verdicts become crawl-order-independent and gain an
+honest `unknown` privacy state; the false-negative gate, the privacy CI guard,
+and every import path get real teeth; Windows scheduling actually runs.
+
+### Added
+- **Registry imports report what they changed**: the JSON and CSV import results
+  (and the UI toast) now say `N added, M replaced` — a replacement can silently
+  *loosen* an entry (e.g. drop its expiry or domain scope), so overwrites are
+  named, never folded into a total.
+
+### Changed
+- **Unobserved delivery gets an honest privacy verdict: `unknown`.** A font
+  referenced in CSS but never observed loading (likely wired up by JavaScript)
+  used to be reported as `not_applicable` — "nothing is downloaded", a no-leak
+  claim drawn from absence of observation. A fifth privacy state `unknown` now
+  makes no claim either way (mirroring `NEEDS_CHECK` on the license axis); any
+  actually observed delivery still decides. Report schema bumped to 10 (older
+  reports load unchanged); UI badge, detail advice, and "How it works" updated.
+- **The `fsType` Restricted-License check now precedes the open-evidence checks**
+  in the verdict decision order. Previously an open-license word in the font's
+  self-reported name-table text (which anyone can edit) cleared a font whose own
+  embedding bits forbid web embedding — weaker evidence outranked stronger. A
+  valid registry cover still wins (a purchased license is the permission the bit
+  demands). The full decision order is now pinned by tests that combine
+  conflicting signals across steps.
+
+### Fixed
+- **Detection caps no longer truncate coverage silently.** The stylesheet cap
+  (40 per page) and the bundle caps (20 bundles / 50 font URLs) dropped the
+  overflow without a trace, so a truncated scan read as full coverage; each cap
+  now logs what it skipped, like the preload cap already did. `LIMITATIONS.md`
+  also documents that `@import` media/supports conditions are deliberately
+  ignored (browsers download non-matching imports anyway), and an `@import`
+  cycle now has a dedicated regression test.
+- **`backups/` no longer grows without bound, and junk uploads leave no trace.**
+  Every restore writes a full pre-restore workspace snapshot; the newest 10 are
+  now kept and older ones pruned automatically (noted on the Backup screen).
+  The restore payload is also validated *before* that snapshot is taken, so an
+  invalid upload no longer leaves a stray workspace copy behind. (The Backup
+  screen source also had a literal NUL byte in a string sentinel, which made
+  git treat the file as unreviewable binary — replaced with a plain space.)
+- **`scan-source` walks safely and frugally.** The tree walk materialized every
+  path (descending into `node_modules`/`.git` before filtering), followed
+  directory symlinks (a `loop -> ..` link recursed until error and links could
+  pull in files outside the scanned root), and read whole files before applying
+  the size cap. It now prunes skip-dirs before descending, never follows
+  symlinks, and checks `stat().st_size` before reading.
+- **Bundle scan works on non-default ports and stops re-fetching per page.**
+  The same-site gate compared a host that kept its `:port` suffix, so on e.g.
+  `https://staging.example.com:8443/` every same-origin bundle was silently
+  skipped and its fonts misread as third-party. And bundle/font fetches are now
+  memoized per crawl — a SPA references the same `main.js` from every page, which
+  used to re-download it (and its fonts) once per page; each page still reports
+  its own detections, so attribution and cross-domain verdicts are unchanged.
+- **Provider hosts are matched exact-or-subdomain, not by substring.** A
+  lookalike host such as `use.typekit.net.evil.example` used to read as a known
+  provider (both in embedding classification and in the loader-script privacy
+  finding); a provider mislabel changes the privacy verdict and the license
+  evidence. Matching is now dot-bounded, the same rule the same-site check and
+  the registry's domain covering already use.
+- **DNS rebinding can no longer read the API.** The server validated `Origin`
+  only for state-changing requests; after an attacker's domain re-resolved to
+  127.0.0.1, its page became same-origin and could read every GET response —
+  including `GET /api/workspace/export`, the whole registry with proofs and all
+  reports in one zip. Every request must now carry a localhost `Host` header.
+- **Registry matching edge cases.** Duplicate (owner, family) entries are now a
+  `registry validate` error — matching takes the first hit, so a renewal
+  *appended* below an expired entry silently lost and the verdict depended on
+  file order. And a wildcard (`*`) license now folds `www` with its apex when
+  counting toward `max_domains`, consistent with the documented counting rule
+  (raw hostnames used to burn two slots for one site).
+- **Validation labels can no longer silently vanish into "not detected".**
+  Label↔finding matching now folds weight/style variants (label "Open Sans"
+  matches a detected "OpenSans-Regular"), strips PDF-style subset prefixes,
+  tolerates scheme/`www.` in label domains, and — critically — a family match
+  with a differing or stripped owner is **judged** (with an owner note) instead
+  of being reclassified as a detection gap, which used to remove it from both
+  the agreement denominator and the false-negative gate. Labelled domains with
+  no scan result at all are called out separately in the summary.
+- **The verdict no longer depends on crawl order.** When one font identity ships
+  as several files with different name tables (one stripped, one carrying an
+  open-license string, one with the restricted-embedding bit), aggregation used
+  to keep whichever file the crawl met first — the verdict could flip between
+  runs. The canonical metadata is now chosen by content: restricted-embedding
+  bit first (safe direction), then a license/copyright-bearing file over a
+  stripped one, then a deterministic tie-break. An empty embeddings list also no
+  longer classifies as a system font (`OK`) — it falls through to `NEEDS_CHECK`.
+- **Windows scheduled audits actually start.** The Task Scheduler action was
+  registered with a *relative* launcher path; Task Scheduler runs actions from
+  `System32`, so the schedule was created successfully but never ran. The
+  launcher path is now absolute and quoted. The delete endpoint also validates
+  the schedule name with the same charset used at create.
 - **Font-preload fetches are now capped per page** (50), like every other fetch
   path (stylesheets, bundles, bundle font URLs) — a hostile or broken page with
   thousands of `<link rel="preload" as="font">` could previously drive a fetch
@@ -529,7 +607,8 @@ Verdicts release. Human-reviewed core; verdict rules frozen (see
   baseline. "Start audit" runs scans; "Schedule recurring audit" creates Windows
   Task Scheduler entries that run even when the UI is closed.
 
-[Unreleased]: https://github.com/ProductPope/fontsentry/compare/v0.6.0...main
+[Unreleased]: https://github.com/ProductPope/fontsentry/compare/v0.7.0...main
+[0.7.0]: https://github.com/ProductPope/fontsentry/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ProductPope/fontsentry/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ProductPope/fontsentry/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ProductPope/fontsentry/compare/v0.2.0...v0.4.0

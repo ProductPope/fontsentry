@@ -66,6 +66,10 @@ export function HowItWorks() {
                 <PrivacyText privacy="not_applicable" /> — a system/fallback font; nothing is
                 fetched.
               </li>
+              <li>
+                <PrivacyText privacy="unknown" /> — delivery was never observed (the font is
+                likely loaded by JavaScript); no privacy conclusion is drawn either way.
+              </li>
             </ul>
           </Card>
         </div>

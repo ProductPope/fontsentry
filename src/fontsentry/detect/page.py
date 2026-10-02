@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from urllib.parse import unquote_to_bytes, urlsplit
 
 from fontsentry.crawl.fetcher import Fetcher
-from fontsentry.detect.bundle import detect_bundle_fonts
+from fontsentry.detect.bundle import BundleCache, detect_bundle_fonts
 from fontsentry.detect.css import (
     FontFaceRule,
     FontSource,
@@ -22,7 +22,7 @@ from fontsentry.detect.css import (
     parse_font_families,
     parse_imports,
 )
-from fontsentry.detect.embedding import classify_embedding
+from fontsentry.detect.embedding import classify_embedding, host_matches
 from fontsentry.detect.fontfile import FontReadError, read_font_metadata
 from fontsentry.detect.html import HtmlAssets, parse_html
 from fontsentry.models import DetectedFont, EmbeddingMethod, FontFormat
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 # Third-party font-loader scripts: a <script> from one of these delivers fonts at
 # runtime (the @font-face is not statically visible), which is a third-party
-# privacy fact even when we can't enumerate the individual fonts. host substring
-# -> (label, method).
+# privacy fact even when we can't enumerate the individual fonts. Loader host
+# (matched exact-or-subdomain, dot-bounded) -> (label, method).
 _FONT_LOADERS: tuple[tuple[str, str, EmbeddingMethod], ...] = (
     ("use.typekit.net", "Adobe Fonts (Typekit)", EmbeddingMethod.ADOBE_FONTS),
     ("use.typekit.com", "Adobe Fonts (Typekit)", EmbeddingMethod.ADOBE_FONTS),
@@ -160,6 +160,16 @@ async def _collect_css(
         blocks.append((text, url))
         queue.extend(parse_imports(text, base_url=url))
 
+    remaining = [u for u in queue if u not in seen]
+    if remaining:
+        # Not silent: truncated coverage must be visible to the operator.
+        logger.warning(
+            "%s: stylesheet cap reached (%d), %d linked/imported sheet(s) not fetched",
+            page_url,
+            _MAX_STYLESHEETS,
+            len(remaining),
+        )
+
     return blocks, assets
 
 
@@ -189,11 +199,21 @@ async def _font_bytes(fetcher: Fetcher, url: str) -> bytes | None:
 
 
 async def detect_page(
-    fetcher: Fetcher, page_url: str, *, own_hosts: Iterable[str] = ()
+    fetcher: Fetcher,
+    page_url: str,
+    *,
+    own_hosts: Iterable[str] = (),
+    bundle_cache: BundleCache | None = None,
 ) -> list[DetectedFont]:
-    """Detect all fonts referenced by a single page."""
+    """Detect all fonts referenced by a single page.
 
-    page_host = urlsplit(page_url).netloc
+    ``bundle_cache`` (one per crawl) dedupes bundle/font fetches across pages —
+    a SPA references the same ``main.js`` from every page.
+    """
+
+    # hostname, not netloc: a ":port" suffix would fail the dot-bounded same-site
+    # comparison and silently skip every same-origin bundle on non-default ports.
+    page_host = urlsplit(page_url).hostname or ""
     own = tuple(own_hosts)
     blocks, assets = await _collect_css(fetcher, page_url)
 
@@ -256,7 +276,7 @@ async def detect_page(
         # Client-rendered (SPA) fonts leave no static @font-face; recover them from
         # the font URLs shipped inside the page's own JS bundles.
         bundle_fonts = await detect_bundle_fonts(
-            fetcher, assets, page_url, page_host, own, seen_urls
+            fetcher, assets, page_url, page_host, own, seen_urls, cache=bundle_cache
         )
         detected.extend(bundle_fonts)
 
@@ -326,9 +346,9 @@ def _detect_loaders(assets: HtmlAssets, page_url: str) -> list[DetectedFont]:
     out: list[DetectedFont] = []
     seen: set[str] = set()
     for src in assets.script_srcs:
-        host = urlsplit(src).hostname or ""
+        host = (urlsplit(src).hostname or "").lower()
         for marker, label, method in _FONT_LOADERS:
-            if marker in host.lower() and label not in seen:
+            if host_matches(host, marker) and label not in seen:
                 seen.add(label)
                 out.append(
                     DetectedFont(

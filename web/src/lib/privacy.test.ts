@@ -64,6 +64,13 @@ describe("delivery", () => {
       flagged: false,
     });
   });
+
+  it("labels unobserved delivery as unknown, without a leak claim", () => {
+    expect(delivery(finding({ privacy: "unknown", embeddings: ["unknown"] }))).toEqual({
+      label: "Unknown delivery",
+      flagged: false,
+    });
+  });
 });
 
 describe("isPrivacyFlagged", () => {
@@ -72,6 +79,15 @@ describe("isPrivacyFlagged", () => {
     expect(isPrivacyFlagged(finding({ privacy: "mixed" }))).toBe(true);
     expect(isPrivacyFlagged(finding({ privacy: "self_hosted" }))).toBe(false);
     expect(isPrivacyFlagged(finding({ privacy: "not_applicable" }))).toBe(false);
+    expect(isPrivacyFlagged(finding({ privacy: "unknown" }))).toBe(false); // no proven leak
+  });
+});
+
+describe("privacyAdvice for unknown delivery", () => {
+  it("suggests verifying, without claiming a leak", () => {
+    const advice = privacyAdvice(finding({ privacy: "unknown", embeddings: ["unknown"] }));
+    expect(advice).toContain("not observed");
+    expect(advice).not.toContain("GDPR");
   });
 });
 

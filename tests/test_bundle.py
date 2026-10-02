@@ -102,3 +102,58 @@ async def test_bundle_unreadable_url_skipped() -> None:
         }
     )
     assert await detect_page(stub, PAGE) == []  # type: ignore[arg-type]
+
+
+async def test_bundle_same_site_works_on_non_default_port() -> None:
+    # Regression: page_host kept ":port", the dot-bounded same-site check failed,
+    # and every same-origin bundle on a non-443 port was silently skipped.
+    page = "https://staging.example.com:8443/"
+    bundle = "https://staging.example.com:8443/main.js"
+    font_url = "https://staging.example.com:8443/fonts/port.woff2"
+    font = build_test_font(family_name="Port Sans", flavor="woff2")
+    stub = _StubFetcher(
+        {
+            page: _result(page, b'<script src="/main.js"></script>', "text/html"),
+            bundle: _result(bundle, b'e("/fonts/port.woff2")', "text/javascript"),
+            font_url: _result(font_url, font, "font/woff2"),
+        }
+    )
+    dets = {d.family: d for d in await detect_page(stub, page)}  # type: ignore[arg-type]
+    assert "Port Sans" in dets
+    assert dets["Port Sans"].embedding is EmbeddingMethod.SELF_HOSTED
+
+
+async def test_bundle_cache_dedupes_fetches_but_keeps_attribution() -> None:
+    # Two pages referencing the same bundle: the bundle and the font are fetched
+    # once (crawl-level cache), yet BOTH pages report the font — attribution
+    # (domains, page counts, cross-domain verdicts) must not change.
+    from fontsentry.detect.bundle import BundleCache
+
+    page2 = "https://example.com/about"
+    font = build_test_font(family_name="Cached Sans", flavor="woff2")
+
+    class _CountingFetcher(_StubFetcher):
+        def __init__(self, routes: dict[str, FetchResult | None]) -> None:
+            super().__init__(routes)
+            self.fetched: list[str] = []
+
+        async def fetch(self, url: str) -> FetchResult | None:
+            self.fetched.append(url)
+            return await super().fetch(url)
+
+    stub = _CountingFetcher(
+        {
+            PAGE: _page('<script src="/main.js"></script>'),
+            page2: _result(page2, b'<script src="/main.js"></script>', "text/html"),
+            BUNDLE_URL: _js('var f=e("/assets/fonts/brand.woff2");'),
+            FONT_URL: _result(FONT_URL, font, "font/woff2"),
+        }
+    )
+    cache = BundleCache()
+    first = await detect_page(stub, PAGE, bundle_cache=cache)  # type: ignore[arg-type]
+    second = await detect_page(stub, page2, bundle_cache=cache)  # type: ignore[arg-type]
+
+    assert any(d.family == "Cached Sans" for d in first)
+    assert any(d.family == "Cached Sans" for d in second)  # attribution kept
+    assert stub.fetched.count(BUNDLE_URL) == 1  # network deduped
+    assert stub.fetched.count(FONT_URL) == 1

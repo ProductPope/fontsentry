@@ -19,7 +19,6 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -47,6 +46,7 @@ from fontsentry.web.scheduler import (
     create_schedule,
     delete_schedule,
     is_supported,
+    is_valid_schedule_name,
     list_schedules,
 )
 from fontsentry.web.schemas import (
@@ -66,6 +66,7 @@ from fontsentry.web.workspace import (
     read_backup,
     restore_workspace_zip,
     snapshot_filename,
+    validate_backup,
     write_snapshot,
 )
 
@@ -109,15 +110,18 @@ def create_app(
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
-    # DNS rebinding: a hostile page can point its own domain at 127.0.0.1 and
-    # then read the API as "same-origin" (the Origin guard below only covers
-    # writes). Requests addressed to any Host other than localhost are refused.
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(_ALLOWED_HOSTS))
 
     @app.middleware("http")
     async def _origin_guard(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        # DNS-rebinding defense: after an attacker's domain re-resolves to
+        # 127.0.0.1, the browser sends `Host: attacker.example` and same-origin
+        # GETs could read the API — including the whole-workspace export. Only
+        # localhost Hosts are served: every request, not just state changes.
+        host = urlparse(f"//{request.headers.get('host', '')}").hostname
+        if host not in _ALLOWED_HOSTS:
+            return Response("invalid Host header", status_code=400)
         if request.method in {"POST", "PUT", "DELETE", "PATCH"}:
             origin = request.headers.get("origin")
             if origin and urlparse(origin).hostname not in _ALLOWED_HOSTS:
@@ -456,6 +460,10 @@ def create_app(
     async def delete_schedule_endpoint(name: str) -> dict[str, str]:
         if not is_supported():
             raise HTTPException(status_code=501, detail=_unsupported)
+        # Same charset ScheduleSpec enforces at create — the name flows into a
+        # schtasks/crontab argument and a log/launcher filename.
+        if not is_valid_schedule_name(name):
+            raise HTTPException(status_code=400, detail="invalid schedule name")
         try:
             delete_schedule(name, tasks_dir=tasks_dir)
         except SchedulerError as exc:
@@ -495,10 +503,13 @@ def create_app(
         )
 
     def _restore(data: bytes) -> None:
-        # Always snapshot the current state before overwriting, so a restore is
-        # itself undoable.
-        write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
         try:
+            # Cheap manifest check first: a garbage upload must be rejected
+            # without leaving a pre-restore snapshot behind.
+            validate_backup(data).close()
+            # Snapshot the current state before overwriting, so a restore of a
+            # valid backup is itself undoable.
+            write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
             restore_workspace_zip(data, config_dir, registry_dir, reports_dir)
         except WorkspaceError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

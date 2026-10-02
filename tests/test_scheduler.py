@@ -87,6 +87,13 @@ def test_win_create_weekly_builds_args_and_launcher(tmp_path: Path) -> None:
     assert args[args.index("/D") + 1] == "MON"
     assert args[args.index("/ST") + 1] == "06:30"
     assert (tmp_path / "weekly-audit.bat").exists()
+    # Regression: Task Scheduler runs actions from System32, so a relative /TR
+    # registers fine but never starts. The value must be absolute and quoted.
+    tr = args[args.index("/TR") + 1]
+    assert tr.startswith('"') and tr.endswith('"')
+    launcher = Path(tr.strip('"'))
+    assert launcher.is_absolute()
+    assert launcher == (tmp_path / "weekly-audit.bat").resolve()
 
 
 def test_win_create_daily_omits_day(tmp_path: Path) -> None:

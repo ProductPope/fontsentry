@@ -673,7 +673,8 @@
           "self_hosted",
           "third_party_api",
           "mixed",
-          "not_applicable"
+          "not_applicable",
+          "unknown"
         ],
         "title": "PrivacyClass",
         "type": "string"
@@ -925,7 +926,7 @@
             "type": "string"
           },
           "schema_version": {
-            "default": 9,
+            "default": 10,
             "title": "Schema Version",
             "type": "integer"
           },

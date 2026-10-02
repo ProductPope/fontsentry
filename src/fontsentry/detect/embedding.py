@@ -11,7 +11,8 @@ from urllib.parse import urlparse
 
 from fontsentry.models import EmbeddingMethod
 
-# host substring -> provider. Checked in order; first match wins.
+# provider host -> provider, matched exact-or-dot-bounded-subdomain (see
+# host_matches). Checked in order; first match wins.
 _PROVIDER_PATTERNS: tuple[tuple[str, EmbeddingMethod], ...] = (
     ("fonts.gstatic.com", EmbeddingMethod.GOOGLE_FONTS),
     ("fonts.googleapis.com", EmbeddingMethod.GOOGLE_FONTS),
@@ -48,6 +49,13 @@ def _host(url: str) -> str:
     return (urlparse(url).hostname or "").lower()
 
 
+def host_matches(host: str, marker: str) -> bool:
+    """Exact host or a dot-bounded subdomain of ``marker``. A bare substring test
+    would let ``use.typekit.net.evil.example`` read as a known provider — and a
+    provider mislabel changes both the privacy verdict and the license evidence."""
+    return host == marker or host.endswith("." + marker)
+
+
 def _same_site(host: str, page_host: str) -> bool:
     # Exact host or a dot-bounded subdomain only. A bare suffix test would wrongly
     # treat notexample.com / evilexample.com as same-site with example.com, which
@@ -80,7 +88,7 @@ def classify_embedding(
         return EmbeddingMethod.SELF_HOSTED
 
     for marker, method in _PROVIDER_PATTERNS:
-        if marker in host:
+        if host_matches(host, marker):
             return method
 
     if page_host and _same_site(host, page_host):

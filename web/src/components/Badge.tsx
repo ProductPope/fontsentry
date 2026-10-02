@@ -41,6 +41,7 @@ const privacyLabel: Record<PrivacyClass, string> = {
   third_party_api: "Third-party",
   mixed: "Mixed",
   not_applicable: "—",
+  unknown: "Unknown",
 };
 
 // The privacy axis is delivery-based: third-party/mixed leaks visitor IPs (a GDPR

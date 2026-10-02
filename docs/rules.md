@@ -22,7 +22,8 @@ no weights, no scores. Each font gets two verdicts, each with an explicit reason
 
 **Privacy verdict** — derived from the delivery method (not configured here):
 `self_hosted`, `third_party_api` (visitor IPs sent to a font CDN — a GDPR fact),
-`mixed`, or `not_applicable` (system font).
+`mixed`, `not_applicable` (system font), or `unknown` (delivery never observed —
+likely wired up by JavaScript; no privacy claim is made either way).
 
 ## Decision order (first match wins)
 

@@ -13,6 +13,7 @@ to be reachable or statically rendered.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
@@ -36,12 +37,16 @@ _MAX_FONT_BYTES = 20 * 1024 * 1024
 
 
 def _iter_font_files(root: Path) -> Iterator[Path]:
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in _FONT_EXTENSIONS:
-            continue
-        if any(part in _SKIP_DIRS for part in path.relative_to(root).parts):
-            continue
-        yield path
+    # os.walk with in-place pruning: rglob would materialize the whole tree,
+    # descend into node_modules/.git anyway (filtering only afterwards), and —
+    # on this project's Python floor — follow directory symlinks with no loop
+    # protection. followlinks=False also keeps the walk inside `root`.
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
+        for name in sorted(filenames):
+            path = Path(dirpath) / name
+            if path.suffix.lower() in _FONT_EXTENSIONS and path.is_file():
+                yield path
 
 
 def scan_source(root: Path, rules: RulesConfig, registry: Registry, now: datetime) -> RunReport:
@@ -55,10 +60,12 @@ def scan_source(root: Path, rules: RulesConfig, registry: Registry, now: datetim
     detected: list[DetectedFont] = []
     for path in _iter_font_files(root):
         try:
+            # stat before read: a stray multi-GB file with a font extension must
+            # be rejected without ever being loaded into memory.
+            if path.stat().st_size > _MAX_FONT_BYTES:
+                continue
             data = path.read_bytes()
         except OSError:
-            continue
-        if len(data) > _MAX_FONT_BYTES:
             continue
         try:
             metadata, file_format = read_font_metadata(data)

@@ -49,6 +49,23 @@ def test_none_url_is_self_hosted() -> None:
     assert classify_embedding(None) is EmbeddingMethod.SELF_HOSTED
 
 
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        # Regression: provider markers were bare substrings, so a lookalike host
+        # with the provider name in the middle read as that provider — and a
+        # provider mislabel changes both privacy and license evidence.
+        ("https://use.typekit.net.evil.example/f.css", EmbeddingMethod.OTHER_CDN),
+        ("https://fonts.gstatic.com.evil.example/f.woff2", EmbeddingMethod.OTHER_CDN),
+        ("https://notfonts.company.example/f.woff2", EmbeddingMethod.OTHER_CDN),
+        # Dot-bounded subdomains of a real provider still match.
+        ("https://eu.use.typekit.net/f.css", EmbeddingMethod.ADOBE_FONTS),
+    ],
+)
+def test_provider_lookalike_hosts_not_matched(url: str, expected: EmbeddingMethod) -> None:
+    assert classify_embedding(url, "example.com") is expected
+
+
 def test_own_hosts_are_first_party() -> None:
     # An operator-declared asset domain on a separate host is self-hosted.
     assert (

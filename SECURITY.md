@@ -35,13 +35,11 @@ In scope:
   formula-injection).
 - **Path traversal.** Run-id and proof-file paths are resolved and confined to
   their directory.
-- **DNS rebinding.** A hostile web page can point its own domain at
-  `127.0.0.1` so the browser treats the local API as same-origin and lets the
-  page *read* it (registry, reports, a full workspace export). The server
-  answers only requests whose `Host` header is `localhost` / `127.0.0.1`
-  (any port); anything else gets `400`.
 - **Cross-origin state change.** The API rejects requests whose `Origin` is not
   localhost, and `Sec-Fetch-Site: cross-site`.
+- **DNS rebinding.** Every request must carry a localhost `Host` header — after
+  an attacker's domain re-resolves to 127.0.0.1, its page would otherwise be
+  same-origin and could read GET responses (including the workspace export).
 
 Out of scope:
 

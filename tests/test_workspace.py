@@ -15,6 +15,7 @@ from fontsentry.web.workspace import (
     list_backups,
     read_backup,
     restore_workspace_zip,
+    validate_backup,
     write_snapshot,
 )
 
@@ -136,6 +137,35 @@ def test_unsafe_entry_rejects_before_any_write(tmp_path: Path) -> None:
     with pytest.raises(WorkspaceError, match="unsafe path"):
         restore_workspace_zip(buffer.getvalue(), tmp_path / "c", tmp_path / "r", tmp_path / "rep")
     assert not (tmp_path / "c" / "good.yaml").exists()
+
+
+def test_snapshot_retention_prunes_oldest(tmp_path: Path) -> None:
+    # backups/ used to grow without bound — every restore adds a full workspace
+    # copy. Keep the newest N; timestamped names sort chronologically.
+    backups = tmp_path / "backups"
+    for hour in (1, 2, 3):
+        write_snapshot(backups, b"zip", datetime(2026, 7, 7, hour, 0, 0, tzinfo=UTC), keep=2)
+    names = [b.name for b in list_backups(backups)]
+    assert names == [
+        "fontsentry-workspace-20260707T030000Z.zip",
+        "fontsentry-workspace-20260707T020000Z.zip",
+    ]
+
+
+def test_validate_backup_accepts_real_and_rejects_garbage(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    config, registry, reports = _seed(src)
+    good = build_workspace_zip(config, registry, reports)
+    validate_backup(good).close()  # no raise
+
+    with pytest.raises(WorkspaceError, match="valid zip"):
+        validate_backup(b"junk")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("config/x.yaml", "x")  # no manifest
+    with pytest.raises(WorkspaceError, match="manifest"):
+        validate_backup(buffer.getvalue())
 
 
 def test_snapshot_list_and_read(tmp_path: Path) -> None:

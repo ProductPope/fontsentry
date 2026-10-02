@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 
+import pytest
+
 from fontsentry.crawl.fetcher import FetchResult
 from fontsentry.detect.css import FontFaceRule, FontSource
 from fontsentry.detect.page import _best_source, detect_page
@@ -87,6 +89,41 @@ async def test_detect_page_preload_without_fontface() -> None:
     assert dets["Preloaded Sans"].embedding is EmbeddingMethod.SELF_HOSTED
 
 
+async def test_import_cycle_terminates() -> None:
+    # a.css imports b.css imports a.css: the BFS seen-set must terminate the walk
+    # and both sheets' fonts must still be collected exactly once.
+    a = "https://example.com/a.css"
+    b = "https://example.com/b.css"
+    stub = _StubFetcher(
+        {
+            PAGE: _page('<link rel="stylesheet" href="/a.css">'),
+            a: _result(a, b'@import url("/b.css"); .x{font-family:CycleA}', "text/css"),
+            b: _result(b, b'@import url("/a.css"); .y{font-family:CycleB}', "text/css"),
+        }
+    )
+    dets = {d.family for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
+    assert {"CycleA", "CycleB"} <= dets  # both reached, and the call returned
+
+
+async def test_stylesheet_cap_truncation_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # "Silent failures are forbidden": coverage truncated by the stylesheet cap
+    # must be visible to the operator, not swallowed.
+    from fontsentry.detect.page import _MAX_STYLESHEETS
+
+    links = "".join(
+        f'<link rel="stylesheet" href="/s{i}.css">' for i in range(_MAX_STYLESHEETS + 5)
+    )
+    routes: dict[str, FetchResult | None] = {PAGE: _page(links)}
+    for i in range(_MAX_STYLESHEETS + 5):
+        url = f"https://example.com/s{i}.css"
+        routes[url] = _result(url, b".x{color:red}", "text/css")
+    with caplog.at_level("WARNING"):
+        await detect_page(_StubFetcher(routes), PAGE)  # type: ignore[arg-type]
+    assert any("stylesheet cap" in r.message for r in caplog.records)
+
+
 async def test_preload_fanout_is_capped() -> None:
     # Regression: preloads were the one fetch path without a per-page bound — a
     # hostile page with thousands of <link rel=preload as=font> drove a fetch each.
@@ -117,6 +154,16 @@ async def test_detect_page_flags_font_loader_script() -> None:
     dets = {d.family: d for d in await detect_page(stub, PAGE)}  # type: ignore[arg-type]
     loader = next(v for k, v in dets.items() if "Adobe" in k)
     assert loader.embedding is EmbeddingMethod.ADOBE_FONTS
+
+
+async def test_loader_lookalike_host_not_flagged() -> None:
+    # Regression: substring matching flagged use.typekit.net.evil.example as an
+    # Adobe Fonts finding; only the exact host or a dot-bounded subdomain counts.
+    stub = _StubFetcher(
+        {PAGE: _page('<script src="https://use.typekit.net.evil.example/abc.js"></script>')}
+    )
+    dets = await detect_page(stub, PAGE)  # type: ignore[arg-type]
+    assert not any("Adobe" in d.family for d in dets)
 
 
 async def test_detect_page_own_hosts_are_first_party() -> None:

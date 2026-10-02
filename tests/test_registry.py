@@ -124,6 +124,18 @@ def test_wildcard_covers_any_domain() -> None:
     assert s.status is FindingStatus.RESOLVED
 
 
+def test_wildcard_max_domains_folds_www_with_apex() -> None:
+    # Regression: a wildcard license counted raw hostnames, so example.com +
+    # www.example.com burned two of max_domains while the non-wildcard path
+    # deliberately folds them into one licensed domain.
+    entry = _entry(allowed_domains=["*"], max_domains=2)
+    s = _suppress(_agg(["example.com", "www.example.com", "example.org"]), entry)
+    assert s.status is FindingStatus.RESOLVED  # 2 effective domains, not 3
+
+    over = _suppress(_agg(["example.com", "example.org", "example.net"]), entry)
+    assert over.status is FindingStatus.OPEN  # 3 genuinely distinct domains
+
+
 def test_expiry_boundary_valid_on_the_expiry_date() -> None:
     # valid_until == now is NOT expired (strict <).
     assert is_expired(_entry(valid_until=NOW), NOW) is False
@@ -169,3 +181,18 @@ def test_validate_registry_reports_missing_then_passes(tmp_path: Path) -> None:
     assert errors and "proof" in errors[0]
     (proofs / "p.pdf").write_bytes(b"%PDF-1.4")
     assert validate_registry(reg, proofs) == []
+
+
+def test_validate_registry_flags_duplicate_entries(tmp_path: Path) -> None:
+    # Matching takes the first (owner, family) hit, so a renewal appended below
+    # an expired entry silently loses — the duplicate must be a validation error.
+    reg = Registry(
+        entries=[
+            _entry(valid_until=date(2025, 1, 1)),  # expired original
+            _entry(valid_until=date(2030, 1, 1)),  # appended renewal (same key)
+        ]
+    )
+    errors = validate_registry(reg, tmp_path)
+    assert len(errors) == 1
+    assert "duplicate" in errors[0]
+    assert "Acme Type / Commercial Sans" in errors[0]

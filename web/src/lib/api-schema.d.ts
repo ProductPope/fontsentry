@@ -769,7 +769,7 @@ export interface components {
          *     itself is freely licensed.
          * @enum {string}
          */
-        PrivacyClass: "self_hosted" | "third_party_api" | "mixed" | "not_applicable";
+        PrivacyClass: "self_hosted" | "third_party_api" | "mixed" | "not_applicable" | "unknown";
         /** Registry */
         Registry: {
             /** Entries */
@@ -873,7 +873,7 @@ export interface components {
             generated_at: string;
             /**
              * Schema Version
-             * @default 9
+             * @default 10
              */
             schema_version: number;
             summary: components["schemas"]["RunSummary"];

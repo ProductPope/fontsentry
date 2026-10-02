@@ -22,6 +22,7 @@ from fontsentry.crawl.ct import ct_subdomains
 from fontsentry.crawl.discovery import discover_pages
 from fontsentry.crawl.fetcher import Fetcher
 from fontsentry.crawl.robots import RobotsManager
+from fontsentry.detect.bundle import BundleCache
 from fontsentry.detect.page import detect_page
 from fontsentry.models import (
     DetectedFont,
@@ -214,8 +215,14 @@ async def run_scan(
     detected: list[DetectedFont] = []
     progress("detect", 0, len(pages), "Identifying fonts")
 
+    # One cache for the whole crawl: a SPA references the same main.js (and the
+    # same font files) from every page — fetch each once, report per page.
+    bundle_cache = BundleCache()
+
     async def _detect_one(domain: str, page: str) -> tuple[str, list[DetectedFont]]:
-        return domain, await detect_page(fetcher, page, own_hosts=crawl.self_hosted_hosts)
+        return domain, await detect_page(
+            fetcher, page, own_hosts=crawl.self_hosted_hosts, bundle_cache=bundle_cache
+        )
 
     for done, coro in enumerate(asyncio.as_completed([_detect_one(d, p) for d, p in pages]), 1):
         domain, page_detections = await coro
