@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **A failed UI scan now logs its traceback** to the server console. The UI
+  still shows the one-line error; previously that line was all there was.
 - **Scheduled audits on Windows now keep a log.** The generated launcher
   discarded all output, so a failing unattended audit left no trace (the cron
   backend already logged). Each run now appends to

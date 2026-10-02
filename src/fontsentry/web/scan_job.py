@@ -7,6 +7,7 @@ is closed) instead of leaving a zombie "running" job.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,6 +17,8 @@ from fontsentry import config, demo
 from fontsentry.scan import scan_and_write
 from fontsentry.web.jobs import JobManager
 from fontsentry.web.paths import _reports_for
+
+logger = logging.getLogger(__name__)
 
 
 async def _run_scan_job(
@@ -68,6 +71,9 @@ async def _run_scan_job(
         )
         jobs.mark_done(job_id, json_path.name)
     except Exception as exc:
+        # The UI only gets the one-line message; keep the traceback in the
+        # server log so a failed scan can actually be diagnosed.
+        logger.exception("scan job %s (%s) failed", job_id, mode)
         jobs.mark_error(job_id, str(exc))
     finally:
         if client is not None:
