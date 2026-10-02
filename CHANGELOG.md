@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named, never folded into a total.
 
 ### Changed
+- **Web UI split into smaller, tested parts.** The nine components over ~150
+  lines (`RegistrySetup`, `OverviewScreen`, `FindingsTable`, `App`,
+  `TargetsSetup`, `DomainsView`, `BackupScreen`, `RulesScreen`, `AuditsScreen`)
+  were split into focused components, hooks and pure `lib/` functions. Each was
+  first pinned by behavioural tests that pass unchanged before and after; the
+  frontend suite grew from 25 to 107 tests. Conventions are in
+  `web/DESIGN_SYSTEM.md` ("Screens and their parts"). No behaviour change.
 - **The web UI's API types are generated from the server's OpenAPI schema**
   instead of being maintained by hand, so the UI can no longer drift from the
   backend models. The contract is committed as `web/openapi.json`; a test and
