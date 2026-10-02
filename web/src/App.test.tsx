@@ -68,13 +68,11 @@ describe("App", () => {
   it("loads the newest run of the user's data on the Overview", async () => {
     render(<App />);
     expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
-    // First render of the whole app can exceed waitFor's 1 s default on a busy
-    // runner (seen under coverage instrumentation).
-    await waitFor(() => expect(screen.getByLabelText("Run")).toHaveValue("run-2.report.json"), {
-      timeout: 5000,
-    });
+    await waitFor(() => expect(screen.getByLabelText("Run")).toHaveValue("run-2.report.json"));
     expect(api.getRuns).toHaveBeenCalledWith("real");
-    expect(api.getRun).toHaveBeenCalledWith("run-2.report.json", "real");
+    // The report is fetched in an effect after the selection renders, so it
+    // must be awaited too (asserting it immediately was a race).
+    await waitFor(() => expect(api.getRun).toHaveBeenCalledWith("run-2.report.json", "real"));
   });
 
   it("runs an audit from the header and opens its result", async () => {
