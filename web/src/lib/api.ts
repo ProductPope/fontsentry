@@ -198,21 +198,25 @@ export interface RulesConfig {
   subset_max_glyphs: number;
 }
 
+// The server's own explanation (FastAPI's `detail`) when there is one, so the
+// UI can show "an audit is already running" rather than "Conflict".
+async function errorFrom(res: Response): Promise<Error> {
+  let detail = res.statusText;
+  try {
+    const body = (await res.json()) as { detail?: string };
+    if (body.detail) detail = body.detail;
+  } catch {
+    // non-JSON error body; keep statusText
+  }
+  return new Error(detail);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // non-JSON error body; keep statusText
-    }
-    throw new Error(detail);
-  }
+  if (!res.ok) throw await errorFrom(res);
   return (await res.json()) as T;
 }
 
@@ -299,16 +303,7 @@ export const api = {
     const body = new FormData();
     body.append("file", file);
     const res = await fetch("/api/registry/proof", { method: "POST", body });
-    if (!res.ok) {
-      let detail = res.statusText;
-      try {
-        const b = (await res.json()) as { detail?: string };
-        if (b.detail) detail = b.detail;
-      } catch {
-        // non-JSON error body; keep statusText
-      }
-      throw new Error(detail);
-    }
+    if (!res.ok) throw await errorFrom(res);
     return (await res.json()) as { name: string };
   },
   proofUrl: (name: string) => `/api/registry/proof/${encodeURIComponent(name)}`,
