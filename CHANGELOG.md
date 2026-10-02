@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **Only one audit runs at a time from the UI.** Starting a second while one is
+  in progress (another tab, a double click) now returns `409 an audit is
+  already running` instead of crawling the same sites twice and racing on the
+  report files.
 - **The local UI stays responsive during a scan.** The crawler's SSRF check
   resolved DNS synchronously on the event loop, and report/backup endpoints
   read and zipped files there too, so a slow lookup or a large report froze

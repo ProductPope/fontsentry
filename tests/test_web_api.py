@@ -59,6 +59,23 @@ def _run_demo_scan(client: TestClient) -> str:
     raise AssertionError("scan job did not finish in time")
 
 
+def test_second_scan_is_refused_while_one_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A scan job that never reports back keeps the first job "running"
+    # deterministically, whatever the timing.
+    async def _never_finishes(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("fontsentry.web.server._run_scan_job", _never_finishes)
+    with _client(tmp_path) as client:
+        first = client.post("/api/scan", json={"mode": "demo"})
+        assert first.status_code == 200
+        second = client.post("/api/scan", json={"mode": "demo"})
+        assert second.status_code == 409
+        assert "already running" in second.json()["detail"]
+
+
 def test_health(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         assert client.get("/api/health").json() == {"status": "ok"}
