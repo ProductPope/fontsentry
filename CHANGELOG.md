@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conflicting signals across steps.
 
 ### Fixed
+- **The local UI stays responsive during a scan.** The crawler's SSRF check
+  resolved DNS synchronously on the event loop, and report/backup endpoints
+  read and zipped files there too, so a slow lookup or a large report froze
+  every request (including scan-progress polling). DNS now resolves in a worker
+  thread and the file-heavy endpoints run in FastAPI's threadpool.
 - **`fontsentry scan --demo` now writes to `reports/demo/`**, like a demo scan
   started from the UI. It previously wrote to `reports/`, so a CLI or scheduled
   demo audit showed up among the real runs (and in their diffs).

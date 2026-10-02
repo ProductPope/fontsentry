@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
@@ -157,8 +158,11 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    # Handlers that read or write many/large files (reports, zips) are plain
+    # `def`: FastAPI runs them in a worker thread, so disk I/O never stalls the
+    # event loop that also drives an in-flight scan and its progress polling.
     @app.get("/api/runs")
-    async def list_runs(source: str = "real") -> list[RunMeta]:
+    def list_runs(source: str = "real") -> list[RunMeta]:
         metas: list[RunMeta] = []
         for path in sorted(
             _reports_for(reports_dir, source).glob("fontsentry-*.report.json"), reverse=True
@@ -174,7 +178,7 @@ def create_app(
         return metas
 
     @app.get("/api/scan/estimate")
-    async def scan_estimate(hosts: int, max_pages: int) -> ScanEstimate:
+    def scan_estimate(hosts: int, max_pages: int) -> ScanEstimate:
         # Estimate from recent runs' throughput (pages / wall-clock second).
         rates: list[float] = []
         for path in sorted(reports_dir.glob("fontsentry-*.report.json"), reverse=True)[:5]:
@@ -193,7 +197,7 @@ def create_app(
         return ScanEstimate(eta_seconds=round(planned / rate, 0), based_on_runs=len(rates))
 
     @app.get("/api/first-seen")
-    async def get_first_seen(source: str = "real") -> list[FirstSeen]:
+    def get_first_seen(source: str = "real") -> list[FirstSeen]:
         # Computed from the report files on disk; no stored per-font history.
         return [
             FirstSeen(domain=domain, family=family, first_seen=ts)
@@ -201,7 +205,7 @@ def create_app(
         ]
 
     @app.get("/api/known-fonts")
-    async def known_fonts() -> list[KnownFont]:
+    def known_fonts() -> list[KnownFont]:
         # Suggestions for the registry form: fonts actually detected in the most
         # recent real audit (with any owner from metadata), plus a bundled catalog
         # of common families so there are suggestions before the first audit.
@@ -229,14 +233,14 @@ def create_app(
         return sorted(by_key.values(), key=lambda k: k.family.lower())
 
     @app.get("/api/runs/{run_id}")
-    async def get_run(run_id: str, source: str = "real") -> RunReport:
+    def get_run(run_id: str, source: str = "real") -> RunReport:
         path = _safe_run_path(_reports_for(reports_dir, source), run_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return load_run(path)
 
     @app.get("/api/runs/{run_id}/export.csv")
-    async def export_run_csv(run_id: str, source: str = "real") -> Response:
+    def export_run_csv(run_id: str, source: str = "real") -> Response:
         path = _safe_run_path(_reports_for(reports_dir, source), run_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail="run not found")
@@ -248,7 +252,7 @@ def create_app(
         )
 
     @app.get("/api/runs/{run_id}/diff")
-    async def get_run_diff(run_id: str, source: str = "real") -> DiffResult:
+    def get_run_diff(run_id: str, source: str = "real") -> DiffResult:
         # Diff a run against the one chronologically before it. An empty result
         # means either no earlier run exists or nothing changed.
         base = _reports_for(reports_dir, source)
@@ -453,15 +457,15 @@ def create_app(
         return build_workspace_zip(config_dir, registry_dir, reports_dir)
 
     @app.get("/api/workspace/backups")
-    async def list_workspace_backups() -> list[BackupInfo]:
+    def list_workspace_backups() -> list[BackupInfo]:
         return list_backups(backups_dir)
 
     @app.post("/api/workspace/snapshot", status_code=201)
-    async def snapshot_workspace() -> BackupInfo:
+    def snapshot_workspace() -> BackupInfo:
         return write_snapshot(backups_dir, _workspace_zip(), datetime.now(UTC))
 
     @app.get("/api/workspace/export")
-    async def export_workspace() -> Response:
+    def export_workspace() -> Response:
         filename = snapshot_filename(datetime.now(UTC))
         return Response(
             content=_workspace_zip(),
@@ -470,7 +474,7 @@ def create_app(
         )
 
     @app.get("/api/workspace/backups/{name}")
-    async def download_backup(name: str) -> Response:
+    def download_backup(name: str) -> Response:
         try:
             data = read_backup(backups_dir, name)
         except WorkspaceError as exc:
@@ -491,7 +495,7 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/workspace/restore/{name}")
-    async def restore_backup(name: str) -> dict[str, str]:
+    def restore_backup(name: str) -> dict[str, str]:
         try:
             data = read_backup(backups_dir, name)
         except WorkspaceError as exc:
@@ -501,7 +505,8 @@ def create_app(
 
     @app.post("/api/workspace/import")
     async def import_workspace(request: Request) -> dict[str, str]:
-        _restore(await _read_body(request, _MAX_IMPORT_BODY_BYTES))
+        data = await _read_body(request, _MAX_IMPORT_BODY_BYTES)
+        await run_in_threadpool(_restore, data)
         return {"restored": "upload"}
 
     dist = _web_dist()

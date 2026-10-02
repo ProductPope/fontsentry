@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -142,6 +143,25 @@ async def test_ssrf_guard_blocks_private_target() -> None:
     async with _client({}) as client:
         fetcher = Fetcher(client, _settings(block_private_hosts=True), host_resolver=_echo_resolver)
         assert await fetcher.fetch("http://127.0.0.1/") is None
+
+
+async def test_ssrf_guard_resolves_off_the_event_loop() -> None:
+    # getaddrinfo blocks; it must run in a worker thread, not on the loop thread.
+    loop_thread = threading.get_ident()
+    resolver_threads: list[int] = []
+
+    def recording_resolver(host: str, *args: Any, **kwargs: Any) -> list[Any]:
+        resolver_threads.append(threading.get_ident())
+        return _echo_resolver(host, *args, **kwargs)
+
+    routes = {"https://example.com/": httpx.Response(200, text="ok")}
+    async with _client(routes) as client:
+        fetcher = Fetcher(
+            client, _settings(block_private_hosts=True), host_resolver=recording_resolver
+        )
+        assert await fetcher.fetch("https://example.com/") is not None
+    assert resolver_threads
+    assert loop_thread not in resolver_threads
 
 
 async def test_ssrf_guard_blocks_redirect_to_private_host() -> None:
